@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "profile": {
+    "name": "",
+    "role": "",
+    "location": "",
+    "timezone": ""
+  },
+  "preferences": {
+    "tone": "direct",
+    "style_notes": "",
+    "default_length": "medium"
+  },
+  "rules": {
+    "never_share": [
+      "social security",
+      "bank account",
+      "routing number",
+      "credit card",
+      "private keys",
+      "seed phrase",
+      "passwords"
+    ],
+    "allowed_context": [
+      "name",
+      "role",
+      "high-level goals",
+      "communication preferences"
+    ]
+  },
+  "notes": {
+    "safe_memory": ""
+  }
+}
