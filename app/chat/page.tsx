@@ -29,7 +29,7 @@ const defaultMessage: VaultMessage = {
 };
 
 const formatTimestamp = (stamp?: string) => {
-  if (!stamp) return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (!stamp) return "--:--";
   const date = new Date(stamp);
   if (Number.isNaN(date.getTime())) return "--:--";
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
