@@ -1,0 +1,141 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #070709;
+  color: #f4f5f9;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.main-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at top, rgba(255, 23, 68, 0.12), transparent 60%), #050506;
+}
+
+.app-content {
+  flex: 1;
+  display: flex;
+  gap: 32px;
+  padding: 32px;
+}
+
+.sidebar {
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #0f0f12;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 20px;
+  border-radius: 16px;
+}
+
+.sidebar button {
+  background: #1a1a1f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f4f5f9;
+  padding: 10px;
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s ease, border 0.2s ease;
+}
+
+.sidebar button:hover {
+  background: #24242b;
+  border-color: rgba(255, 71, 87, 0.5);
+}
+
+.main-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #0b0b0d;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 28px;
+}
+
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.chat-bubble {
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #15151a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.95rem;
+}
+
+.input-row {
+  display: flex;
+  gap: 12px;
+}
+
+.input-row input {
+  flex: 1;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #111114;
+  color: inherit;
+  font-size: 1rem;
+}
+
+.input-row button {
+  background: linear-gradient(135deg, #ff3b30, #ff5e62);
+  border: none;
+  color: white;
+  padding: 0 24px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.footer-tag {
+  text-align: center;
+  padding: 12px 0 24px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 32px 0;
+}
+
+.header img {
+  width: 56px;
+  height: 56px;
+}
+
+.header-title {
+  font-size: 1.2rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.8);
+}

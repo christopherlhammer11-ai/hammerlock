@@ -10,16 +10,24 @@
   "scripts": {
     "setup": "./scripts/install.sh",
     "lint": "echo 'Add linting later'",
-    "test": "echo 'No tests yet' && exit 0"
+    "test": "echo 'No tests yet' && exit 0",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
   "dependencies": {
     "@prisma/client": "^5.15.0",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
+    "next": "^14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/node": "25.2.2",
+    "@types/react": "19.2.13",
     "prisma": "^5.15.0",
     "typescript": "^5.4.2"
   }
