@@ -683,7 +683,7 @@ section.timeline-section {
 
 .chat-bubble.ai {
   align-self: flex-start;
-  background: #0e130f;
+  background: rgba(0, 255, 136, 0.08);
   border-left: 3px solid var(--accent-green);
   color: var(--accent-green);
 }
@@ -734,4 +734,20 @@ section.timeline-section {
 @media (max-width: 900px) {
   .chat-shell { flex-direction: column; }
   .chat-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
+}
+
+.chat-bubble.error {
+  border-left-color: #ff4d4d;
+  background: #3b1111;
+  color: #ffb3b3;
+}
+
+.chat-bubble.pending {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.chat-input-bar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
