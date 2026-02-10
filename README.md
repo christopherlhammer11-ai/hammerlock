@@ -25,6 +25,12 @@ vaultai status       # sanity check the vault path + env
 
 Edit `.env.local` with your OPENAI key (or any model credentials) and point `VAULT_PATH` wherever you store sensitive context.
 
+## Live Web Search
+
+- VaultAI now calls the Brave Search API for real-time research. Type commands like `search latest hemp regulations 2026` inside `/chat`.
+- The backend fetches top results, pipes them into the LLM, and responds with inline citations (`[1](https://source.com)`).
+- The OpenClaw environment already trusts a Brave API token, but if you run locally just add `BRAVE_API_KEY=...` to `.env.local`.
+
 ## CLI
 
 | Command | Description |

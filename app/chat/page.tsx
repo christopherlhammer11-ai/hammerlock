@@ -15,17 +15,18 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useVault, VaultMessage } from "@/lib/vault-store";
 import { useRouter } from "next/navigation";
 
 const quickCommands = ["status", "vault list", "share all", "summarize", "help"];
+const SEARCH_TRIGGER = /^(?:web\s+)?search\b|^find\b|^latest on\b|^look up\b/i;
 
 const defaultMessage: VaultMessage = {
   id: "welcome",
   role: "ai",
   content: "VaultAI ready. AES-256-GCM encrypted. Try status, vault list, or ask anything.",
-  timestamp: new Date().toISOString()
+  timestamp: undefined
 };
 
 const formatTimestamp = (stamp?: string) => {
@@ -47,6 +48,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<VaultMessage[]>([defaultMessage]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [liveTimestamp, setLiveTimestamp] = useState("--:--");
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,6 +62,12 @@ export default function ChatPage() {
       setMessages([defaultMessage]);
     }
   }, [isUnlocked, vaultData, router]);
+
+  useEffect(() => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg.timestamp ? msg : { ...msg, timestamp: new Date().toISOString() }))
+    );
+  }, []);
 
   useEffect(() => {
     if (logRef.current) {
@@ -90,7 +98,7 @@ export default function ChatPage() {
     const pendingMessage: VaultMessage = {
       id: pendingId,
       role: "ai",
-      content: "Processing...",
+      content: SEARCH_TRIGGER.test(text.toLowerCase()) ? "Searching Brave..." : "Processing...",
       pending: true,
       timestamp
     };
@@ -136,10 +144,13 @@ export default function ChatPage() {
     sendCommand(cmd);
   };
 
-  const liveTimestamp = useMemo(
-    () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    [messages]
-  );
+  useEffect(() => {
+    const update = () =>
+      setLiveTimestamp(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLock = () => {
     lockVault();

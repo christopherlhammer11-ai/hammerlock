@@ -4,11 +4,22 @@ import { promisify } from "util";
 import path from "path";
 import os from "os";
 import fs from "fs/promises";
+import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
 const execAsync = promisify(exec);
 const personaPath = path.join(os.homedir(), "vault", "persona-chris.md");
 const planPath = path.join(os.homedir(), "vault", "vaultai-plan.md");
 const vaultJsonPath = path.join(process.cwd(), "vault.json");
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const BRAVE_API_KEY = process.env.BRAVE_API_KEY || "BSA0OHDmFRcsR0qFvPsf81fo7qlZvmV";
+
+const openaiClient = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
+const anthropicClient = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
+
+let cachedPersona = "";
 
 async function readFileSafe(target: string) {
   return await fs.readFile(target, "utf8");
@@ -35,9 +46,158 @@ async function runStatus() {
 }
 
 function sanitizePath(raw: string) {
-  const trimmed = raw.replace(/^['"]|['"]$/g, "");
+  const trimmed = raw.replace(/^['" ]+|['" ]+$/g, "");
   if (path.isAbsolute(trimmed)) return trimmed;
   return path.join(process.cwd(), trimmed);
+}
+
+
+async function loadPersonaText() {
+  if (cachedPersona) return cachedPersona;
+  try {
+    cachedPersona = await fs.readFile(personaPath, "utf8");
+    return cachedPersona;
+  } catch {
+    try {
+      const raw = await fs.readFile(vaultJsonPath, "utf8");
+      const parsed = JSON.parse(raw);
+      const profile = parsed?.profile;
+      if (profile) {
+        cachedPersona = `Name: ${profile.name || ""}\nRole: ${profile.role || ""}\nLocation: ${profile.location || ""}`;
+        return cachedPersona;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return "";
+}
+
+async function callOpenAI(systemPrompt: string, prompt: string) {
+  if (!openaiClient) return null;
+  const response = await openaiClient.responses.create({
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    input: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: prompt }
+    ]
+  });
+  return (
+    response.output_text ||
+    response.output
+      ?.map((entry: any) => entry?.content?.map((c: any) => c.text).join(" "))
+      .join("\n")
+      .trim() || null
+  );
+}
+
+async function callAnthropic(systemPrompt: string, prompt: string) {
+  if (!anthropicClient) return null;
+  const response = await anthropicClient.messages.create({
+    model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20240620",
+    max_tokens: 800,
+    system: systemPrompt,
+    messages: [{ role: "user", content: prompt }]
+  });
+  return (
+    response.content
+      ?.map((part) => (part.type === "text" ? part.text : ""))
+      .join("\n")
+      .trim() || null
+  );
+}
+
+async function routeToLLM(prompt: string, options?: { context?: string }) {
+  const persona = await loadPersonaText();
+  const systemPrompt = persona
+    ? `Persona:\n${persona}\n\nYou are VaultAI, a local-first encrypted operator assistant. Be direct, cite actions, and keep data local.`
+    : "You are VaultAI, a local-first operator assistant. Be concise and actionable.";
+
+  const userPrompt = options?.context ? `${options.context}\n\n${prompt}` : prompt;
+
+  const reply =
+    (await callOpenAI(systemPrompt, userPrompt)) ?? (await callAnthropic(systemPrompt, userPrompt));
+
+  if (!reply) {
+    throw new Error("No LLM provider configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.");
+  }
+  return reply;
+}
+
+const SEARCH_PATTERNS = [
+  /^(?:web\s+)?search\s+(.+)/i,
+  /^find\s+(.+)/i,
+  /^latest on\s+(.+)/i,
+  /^look up\s+(.+)/i
+];
+
+function extractSearchQuery(command: string): string | null {
+  for (const pattern of SEARCH_PATTERNS) {
+    const match = command.match(pattern);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  if (command.toLowerCase().includes(" search ")) {
+    return command.replace(/.*search\s+/i, "").trim();
+  }
+  return null;
+}
+
+type BraveResult = {
+  title: string;
+  url: string;
+  snippet: string;
+  age: string;
+};
+
+async function fetchBraveResults(query: string): Promise<BraveResult[]> {
+  if (!BRAVE_API_KEY) {
+    throw new Error("Add BRAVE_API_KEY to .env.local");
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`,
+      {
+        headers: {
+          Accept: "application/json",
+          "X-Subscription-Token": BRAVE_API_KEY
+        },
+        signal: controller.signal
+      }
+    );
+    if (!res.ok) {
+      throw new Error(`Brave API error: ${res.status}`);
+    }
+    const data = await res.json();
+    const items = data?.web?.results || [];
+    return items.slice(0, 5).map((item: any) => ({
+      title: item?.title || item?.url || "Untitled result",
+      url: item?.url || "",
+      snippet: item?.description || item?.snippet || "No snippet provided.",
+      age: item?.page_age || item?.age || item?.publishedDate || "Unknown"
+    }));
+  } catch (error) {
+    if ((error as Error).name === "AbortError") {
+      throw new Error("Search timed out");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function formatBraveResults(results: BraveResult[]) {
+  const lines = ["Results:"];
+  results.forEach((result, idx) => {
+    lines.push(`[${idx + 1}] ${result.title} - ${result.url}`);
+    lines.push(`   Snippet: ${result.snippet}`);
+    lines.push(`   Age: ${result.age}`);
+    lines.push("");
+  });
+  return lines.join("\n").trim();
 }
 
 export async function POST(req: Request) {
@@ -47,9 +207,25 @@ export async function POST(req: Request) {
   }
 
   const normalized = command.trim();
-  const lowered = normalized.toLowerCase();
 
   try {
+    const searchQuery = extractSearchQuery(normalized);
+    if (searchQuery) {
+      const results = await fetchBraveResults(searchQuery);
+      if (!results.length) {
+        return NextResponse.json({ response: "No search results found." });
+      }
+      const formattedResults = formatBraveResults(results);
+      const context = `Use these web results to answer accurately and cite sources with markdown links like [1](URL):\n${formattedResults}\n\nEach citation should refer to the corresponding URL. Query: ${searchQuery}`;
+      const reply = await routeToLLM(
+        `Provide a concise answer to: ${searchQuery}. Mention the freshness of info if possible and cite sources inline.`,
+        { context }
+      );
+      return NextResponse.json({ response: reply });
+    }
+
+    const lowered = normalized.toLowerCase();
+
     if (lowered.includes("status")) {
       const status = await runStatus();
       return NextResponse.json({ response: status });
@@ -68,17 +244,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ response: `### ${target}\n\n${content}` });
     }
 
-    const planMatch = lowered.match(/load plan/);
-    if (planMatch) {
+    if (lowered.includes("load plan")) {
       const plan = await readFileSafe(planPath);
       return NextResponse.json({ response: plan });
     }
 
-    return NextResponse.json({ response: `Executed: ${normalized}` });
+    const reply = await routeToLLM(normalized);
+    return NextResponse.json({ response: reply });
   } catch (error) {
-    return NextResponse.json(
-      { response: `Error: ${(error as Error).message}` },
-      { status: 500 }
-    );
+    const message = (error as Error).message;
+    const friendly = message.includes("Search timed out")
+      ? "Search timed out"
+      : message === "Add BRAVE_API_KEY to .env.local"
+        ? message
+        : `Error: ${message}`;
+    return NextResponse.json({ response: friendly }, { status: 500 });
   }
 }
