@@ -1,29 +1,40 @@
 "use client";
 
 import Image from "next/image";
-import { Menu, Send } from "lucide-react";
+import { Lock, Menu, Send } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useEffect, useRef, useState } from "react";
+import { useVault, VaultMessage } from "@/lib/vault-store";
+import { useRouter } from "next/navigation";
 
-type Message = {
-  id: string;
-  role: "user" | "ai" | "error";
-  content: string;
-  pending?: boolean;
-};
+type Message = VaultMessage;
 
-const welcomeMessage: Message = {
+const defaultMessage: Message = {
   id: "welcome",
   role: "ai",
   content: "VaultAI ready. Try 'status' or 'tell me about myself'."
 };
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
+  const { isUnlocked, vaultData, updateVaultData, lockVault } = useVault();
+  const router = useRouter();
+  const [messages, setMessages] = useState<Message[]>([defaultMessage]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isUnlocked) {
+      router.replace("/vault");
+      return;
+    }
+    if (vaultData?.chatHistory?.length) {
+      setMessages(vaultData.chatHistory);
+    } else {
+      setMessages([defaultMessage]);
+    }
+  }, [isUnlocked, vaultData, router]);
 
   useEffect(() => {
     if (logRef.current) {
@@ -31,26 +42,25 @@ export default function ChatPage() {
     }
   }, [messages]);
 
-  const appendMessage = (message: Message) => {
-    setMessages((prev) => [...prev, message]);
-  };
-
-  const replaceMessage = (id: string, content: string, role: Message["role"] = "ai") => {
-    setMessages((prev) =>
-      prev.map((msg) => (msg.id === id ? { ...msg, content, role, pending: false } : msg))
-    );
+  const persistMessages = async (nextMessages: Message[]) => {
+    setMessages(nextMessages);
+    await updateVaultData((prev) => ({
+      ...prev,
+      chatHistory: nextMessages
+    }));
   };
 
   const sendCommand = async () => {
     const trimmed = input.trim();
-    if (!trimmed || sending) return;
+    if (!trimmed || sending || !isUnlocked) return;
+    const userMessage: Message = { id: crypto.randomUUID(), role: "user", content: trimmed };
+    const pendingId = crypto.randomUUID();
+    const pendingMessage: Message = { id: pendingId, role: "ai", pending: true, content: "Processing..." };
 
-    appendMessage({ id: crypto.randomUUID(), role: "user", content: trimmed });
+    const inFlight = [...messages, userMessage, pendingMessage];
+    await persistMessages(inFlight);
     setInput("");
     setSending(true);
-
-    const pendingId = crypto.randomUUID();
-    appendMessage({ id: pendingId, role: "ai", pending: true, content: "Processing..." });
 
     try {
       const response = await fetch("/api/execute", {
@@ -59,19 +69,26 @@ export default function ChatPage() {
         body: JSON.stringify({ command: trimmed })
       });
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.response || "Command failed");
-      }
-      replaceMessage(pendingId, data?.response || "(no response)");
-    } catch (error) {
-      replaceMessage(
-        pendingId,
-        (error as Error).message || "Command failed",
-        "error"
+      const reply = data?.reply || data?.response || "(no response)";
+      const resolved = inFlight.map((msg) =>
+        msg.id === pendingId ? { ...msg, content: reply, pending: false, role: "ai" } : msg
       );
+      await persistMessages(resolved);
+    } catch (error) {
+      const failed = inFlight.map((msg) =>
+        msg.id === pendingId
+          ? { id: pendingId, role: "error", content: (error as Error).message || "Command failed" }
+          : msg
+      );
+      await persistMessages(failed);
     } finally {
       setSending(false);
     }
+  };
+
+  const handleLock = () => {
+    lockVault();
+    router.replace("/vault");
   };
 
   return (
@@ -87,6 +104,9 @@ export default function ChatPage() {
           <a>Commands</a>
           <a>Settings</a>
         </nav>
+        <button className="sidebar-lock" onClick={handleLock}>
+          <Lock size={16} /> Lock Vault
+        </button>
       </aside>
       <main className="chat-main">
         <header className="chat-main-header">

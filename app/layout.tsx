@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Outfit, JetBrains_Mono } from "next/font/google";
+import { VaultProvider } from "@/lib/vault-store";
 
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains" });
@@ -17,7 +18,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${outfit.variable} ${jetbrains.variable}`}>{children}</body>
+      <body className={`${outfit.variable} ${jetbrains.variable}`}>
+        <VaultProvider>{children}</VaultProvider>
+      </body>
     </html>
   );
 }

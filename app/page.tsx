@@ -135,7 +135,7 @@ export default function LandingPage() {
       </section>
 
       <section className="usecases">
-        <div className="section-label">Use Cases</div>
+        <div className="section-label">USE CASES</div>
         <h2>Built for people with something to protect.</h2>
         <p className="section-subtitle">
           If your conversations, research, or strategy would hurt you in the wrong hands — VaultAI was built for you.
@@ -143,7 +143,7 @@ export default function LandingPage() {
         <div className="usecases-grid">
           {[
             {
-              label: "Founders & CEOs",
+              label: "FOUNDERS & CEOs",
               headline: "Competitive intel without a paper trail",
               body:
                 "Research competitors, draft investor decks, plan acquisitions — without your queries living on someone else's server. Your strategy stays yours.",
@@ -151,7 +151,7 @@ export default function LandingPage() {
               response: "3 sources analyzed. Report saved locally. ✓"
             },
             {
-              label: "Legal & Compliance",
+              label: "LEGAL & COMPLIANCE",
               headline: "Privileged research stays privileged",
               body:
                 "Review regulations, draft compliance memos, research case law. Attorney-client privilege doesn't survive a third-party AI server. VaultAI keeps it local.",
@@ -159,7 +159,7 @@ export default function LandingPage() {
               response: "4 sources cited. Encrypted to device. ✓"
             },
             {
-              label: "Finance & Advisory",
+              label: "FINANCE & ADVISORY",
               headline: "Client data never touches the cloud",
               body:
                 "Model scenarios, summarize earnings, draft client reports. Fiduciary duty means your clients' data doesn't belong on an AI company's training set.",
@@ -167,7 +167,7 @@ export default function LandingPage() {
               response: "Analysis complete. Stored locally. ✓"
             },
             {
-              label: "Operators & Builders",
+              label: "OPERATORS & BUILDERS",
               headline: "Your playbook, your machine",
               body:
                 "Load your persona, your SOPs, your market research. VaultAI remembers how you think and what you're building — without broadcasting it to the world.",
