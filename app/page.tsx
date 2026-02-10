@@ -1,183 +1,232 @@
 'use client';
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import {
-  Activity,
-  FilePlus,
-  FileText,
-  Play,
-  Send,
-  User,
-  Menu
-} from "lucide-react";
+import { Lock } from "lucide-react";
 
-type Message = {
-  id: string;
-  role: "user" | "ai";
-  content: string;
-  timestamp: string;
-  pending?: boolean;
-};
-
-type SidebarAction = {
-  label: string;
-  payload: string;
-  icon: React.ComponentType<{ size?: number }>;
-};
-
-const sidebarActions: SidebarAction[] = [
-  { label: "Status", payload: "status", icon: Activity },
-  { label: "Load persona", payload: "load persona", icon: User },
-  { label: "Load plan", payload: "load plan", icon: FileText },
-  { label: "Execute step", payload: "execute step", icon: Play },
-  { label: "Write file", payload: "write file", icon: FilePlus }
+const terminalLines = [
+  { text: <><span className="prompt">vault &gt;</span> <span className="command">who am I?</span></>, delay: 0 },
+  { text: <>Loading persona... <span className="success">persona-chris.md</span></>, delay: 0.3 },
+  {
+    text: (
+      <>You're Chris. President of Hammer Enterprises. 25 years in cannabis. Building VaultAI.</>
+    ),
+    delay: 0.6
+  },
+  { text: <><span className="prompt">vault &gt;</span> <span className="command">search latest hemp regulations 2026</span></>, delay: 0.9 },
+  { text: <>Searching 4 sources... <span className="success">results encrypted locally ✓</span></>, delay: 1.2 }
 ];
 
-const formatTime = () =>
-  new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const features = [
+  {
+    icon: '🔐',
+    title: 'Encrypted Local Storage',
+    body: 'Your conversations, personas, and files are AES-encrypted and stored on your device. Nothing leaves your machine unless you say so.'
+  },
+  {
+    icon: '🌐',
+    title: 'Live Web Search',
+    body: 'Real-time search with cited sources. Get current market data, news, regulations, and research — without sacrificing your query history.'
+  },
+  {
+    icon: '🧠',
+    title: 'Persistent Memory',
+    body: 'VaultAI remembers context across sessions. Load a persona file and it knows who you are, what you are working on, and how you think.'
+  },
+  {
+    icon: '🎙️',
+    title: 'Voice In / Voice Out',
+    body: "Speak naturally, get spoken responses. Hands-free operation when you're moving fast and need answers faster."
+  },
+  {
+    icon: '📄',
+    title: 'PDF & File Export',
+    body: 'Export any conversation, research summary, or generated document as a clean PDF. Ready for partners, investors, or your own archive.'
+  },
+  {
+    icon: '⚡',
+    title: 'Feather-Light Performance',
+    body: 'Instant chat. Instant rendering. No bloat. Built on a stripped-down stack that prioritizes speed over feature creep.'
+  }
+];
 
-const createMessage = (role: Message["role"], content: string, pending = false): Message => ({
-  id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2),
-  role,
-  content,
-  pending,
-  timestamp: formatTime()
-});
+const steps = [
+  {
+    label: '01',
+    title: 'Open the Vault',
+    body: "Launch VaultAI on your device. Set a password. That's your encryption key — we never see it, store it, or recover it. Your vault, your lock."
+  },
+  {
+    label: '02',
+    title: 'Load Your Persona',
+    body: 'Drop in a persona file with your background, your business context, your preferences. VaultAI reads it once and remembers it forever — locally.'
+  },
+  {
+    label: '03',
+    title: 'Ask. Search. Build.',
+    body: 'Chat naturally, run web searches, generate documents, export PDFs. Everything stays encrypted on your device. Close it and it is locked. Open it and you are right where you left off.'
+  }
+];
 
-export default function Home() {
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([
-    createMessage(
-      "ai",
-      "VaultAI ready. Load your persona or plan to begin. Type commands or chat naturally."
-    )
-  ]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const logRef = useRef<HTMLDivElement>(null);
+const comparisonRows = [
+  ['Data stored on your device', '✕', '✓'],
+  ['End-to-end encryption', '✕', '✓'],
+  ['Never trains on your data', '✕', '✓'],
+  ['Persistent memory across sessions', '✕', '✓'],
+  ['Web search with cited sources', 'Limited', '✓'],
+  ['Voice input & output', 'Some', '✓'],
+  ['No account required', '✕', '✓']
+];
 
-  useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  const appendMessage = (message: Message) => {
-    setMessages((prev) => [...prev, message]);
-  };
-
-  const updateMessage = (id: string, content: string, pending = false) => {
-    setMessages((prev) =>
-      prev.map((msg) => (msg.id === id ? { ...msg, content, pending } : msg))
-    );
-  };
-
-  const sendCommand = async (command: string) => {
-    if (!command.trim()) return;
-    appendMessage(createMessage("user", command));
-    const pendingId = createMessage("ai", "Processing command...", true).id;
-    appendMessage({
-      id: pendingId,
-      role: "ai",
-      content: "Processing command...",
-      timestamp: formatTime(),
-      pending: true
-    });
-    setIsSending(true);
-    try {
-      const response = await fetch("/api/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command })
-      });
-      const data = await response.json();
-      const reply = data.reply || "No response.";
-      updateMessage(pendingId, reply, false);
-    } catch (error) {
-      updateMessage(
-        pendingId,
-        `Command failed: ${(error as Error).message ?? "unknown error"}`,
-        false
-      );
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const handleSubmit = (evt: React.FormEvent) => {
-    evt.preventDefault();
-    if (!input.trim()) return;
-    const cmd = input.trim();
-    setInput("");
-    sendCommand(cmd);
-  };
-
-  const handleAction = (payload: string) => {
-    sendCommand(payload);
-  };
-
+export default function LandingPage() {
   return (
-    <div className="main-shell">
-      <aside className={`sidebar ${sidebarOpen ? "" : "collapsed"}`}>
-        <div className="sidebar-logo">
-          <Image src="/vaultai-logo.png" alt="VaultAI" width={44} height={44} />
-          <div className="sidebar-title">VAULTAI</div>
+    <div className="page-wrapper">
+      <nav className="site-nav">
+        <div className="logo-mark">
+          <Lock size={16} />
+          VaultAI
         </div>
-        <nav>
-          {sidebarActions.map((action) => (
-            <button key={action.label} onClick={() => handleAction(action.payload)}>
-              <action.icon size={18} />
-              {action.label}
-            </button>
-          ))}
-        </nav>
-        <button className="cta" onClick={() => handleAction("run latest command")}> 
-          <Play size={18} /> Run Command
-        </button>
-      </aside>
-      <main className="app-body">
-        <header className="top-bar">
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <span className="app-name">VAULTAI</span>
-            <span className="status-indicator">
-              <span className="status-dot" /> Healthy
-            </span>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#how">How It Works</a></li>
+          <li><a href="#why">Why Vault</a></li>
+        </ul>
+        <button className="btn-primary">Get Early Access</button>
+      </nav>
+
+      <main className="hero">
+        <div className="badge">
+          <span className="badge-dot" /> ENCRYPTED · LOCAL-FIRST · OPERATOR-GRADE
+        </div>
+        <h1>
+          <span className="gradient">Your AI.</span><br />
+          Your Data.<br />
+          <span className="gradient">Your Rules.</span>
+        </h1>
+        <p className="subhead">
+          VaultAI is a personal AI assistant that lives on your device. Encrypted memory. Real-time web search.
+          Zero data harvesting. Built for people who do not hand over the keys.
+        </p>
+        <div className="hero-cta">
+          <button className="btn-primary">Get Early Access</button>
+          <button className="btn-secondary">See How It Works</button>
+        </div>
+      </main>
+
+      <section className="terminal-section">
+        <div className="terminal-window">
+          <div className="terminal-bar">
+            <span className="window-dot red" />
+            <span className="window-dot yellow" />
+            <span className="window-dot green" />
+            <span style={{ marginLeft: 12 }}>vaultai — session active</span>
           </div>
-          <button className="mobile-toggle" onClick={() => setSidebarOpen((prev) => !prev)}>
-            <Menu size={18} />
-          </button>
-        </header>
-        <section className="chat-panel">
-          <div className="chat-log" ref={logRef}>
-            {messages.map((msg) => (
-              <article key={msg.id} className={`message ${msg.role}${msg.pending ? " pending" : ""}`}>
-                <span className="message-meta">
-                  {msg.role === "ai" ? "vaultai" : "you"} · {msg.timestamp}
-                </span>
-                <div className="message-bubble">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                </div>
-              </article>
+          <div className="terminal-body">
+            {terminalLines.map((line, idx) => (
+              <div
+                key={idx}
+                className="terminal-line"
+                style={{ animationDelay: `${line.delay}s` }}
+              >
+                {line.text}
+              </div>
             ))}
           </div>
-          <div className="chat-input">
-            <form onSubmit={handleSubmit}>
-              <textarea
-                placeholder="Type a command or natural language request..."
-                value={input}
-                onChange={(evt) => setInput(evt.target.value)}
-                disabled={isSending}
-              />
-              <button type="submit" disabled={isSending}>
-                {isSending ? "Running" : "Send"} <Send size={18} />
-              </button>
-            </form>
+        </div>
+      </section>
+
+      <section id="features" className="features">
+        <div className="section-label">What You Get</div>
+        <h2>Everything an AI should be. Nothing it shouldn&apos;t.</h2>
+        <p className="section-subtitle">
+          No cloud storage. No training on your data. No subscriptions that own your history. Just a fast,
+          private, intelligent assistant that works for you.
+        </p>
+        <div className="features-grid">
+          {features.map((feature) => (
+            <article key={feature.title} className="feature-card">
+              <div style={{ fontSize: "1.75rem" }}>{feature.icon}</div>
+              <h3>{feature.title}</h3>
+              <p>{feature.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="how" className="timeline">
+        <div>
+          <div className="section-label">How It Works</div>
+          <h2>Three steps. Full control.</h2>
+          <p className="section-subtitle">
+            No accounts. No onboarding funnels. No data consent forms that take your consent anyway.
+          </p>
+        </div>
+        <div className="timeline-line">
+          {steps.map((step) => (
+            <div key={step.label} className="timeline-step" data-step={step.label}>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="why" className="comparison">
+        <div className="section-label">Why Vault</div>
+        <h2>Not another chatbot.</h2>
+        <p className="section-subtitle">
+          Most AI tools store your data on their servers, train on your conversations, and sell your patterns.
+          VaultAI does not.
+        </p>
+        <table className="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Typical AI</th>
+              <th>VaultAI</th>
+            </tr>
+          </thead>
+          <tbody>
+            {comparisonRows.map(([label, typical, vault]) => (
+              <tr key={label}>
+                <td>{label}</td>
+                <td>{typical}</td>
+                <td>{vault}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="openclaw">
+        <div className="section-label">Under The Hood</div>
+        <h2>Built with OpenClaw.</h2>
+        <div className="openclaw-card">
+          VaultAI was built from the ground up using OpenClaw — an AI-native development environment that turns natural
+          language into production code. The entire UI, architecture, and deployment pipeline were generated, iterated,
+          and shipped through OpenClaw&apos;s agentic workflow. This isn&apos;t a mockup. It&apos;s a real product built by an operator
+          who described what he needed and let the machine build it.
+        </div>
+      </section>
+
+      <section className="final-cta">
+        <div className="final-cta-card">
+          <h2>Ready to own your AI?</h2>
+          <p className="section-subtitle">
+            VaultAI is in early access. Get on the list and be first to lock in.
+          </p>
+          <div className="cta-buttons">
+            <button className="btn-primary">Request Early Access</button>
+            <button className="btn-secondary">View on GitHub</button>
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
+
+      <footer className="site-footer">
+        <div className="logo-mark">
+          <Lock size={16} /> VaultAI
+        </div>
+        <div>Your data stays yours.</div>
+      </footer>
     </div>
   );
 }

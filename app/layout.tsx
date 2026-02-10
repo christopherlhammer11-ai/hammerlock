@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Outfit, JetBrains_Mono } from "next/font/google";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
+const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
+const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains" });
 
 export const metadata: Metadata = {
   title: "VaultAI",
-  description: "Local, encrypted context layer for operators"
+  description: "Local-first AI with encrypted memory built for operators"
 };
 
 export default function RootLayout({
@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${jetbrains.variable}`}>{children}</body>
+      <body className={`${outfit.variable} ${jetbrains.variable}`}>{children}</body>
     </html>
   );
 }
