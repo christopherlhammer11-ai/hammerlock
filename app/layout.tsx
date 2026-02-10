@@ -6,7 +6,7 @@ const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains" });
 
 export const metadata: Metadata = {
-  title: "VaultAI",
+  title: "VaultAI — Your AI. Your Data. Your Rules.",
   description: "Local-first AI with encrypted memory built for operators"
 };
 

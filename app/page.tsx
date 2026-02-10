@@ -90,7 +90,7 @@ export default function LandingPage() {
           <li><a href="#how">How It Works</a></li>
           <li><a href="#why">Why Vault</a></li>
         </ul>
-        <button className="btn-primary">Get Early Access</button>
+        <a href="#cta" className="btn-primary">Get Early Access</a>
       </nav>
 
       <main className="hero">
@@ -107,8 +107,8 @@ export default function LandingPage() {
           Zero data harvesting. Built for people who do not hand over the keys.
         </p>
         <div className="hero-cta">
-          <button className="btn-primary">Get Early Access</button>
-          <button className="btn-secondary">See How It Works</button>
+          <a href="#cta" className="btn-primary">Get Early Access</a>
+          <a href="#how" className="btn-secondary">See How It Works</a>
         </div>
       </main>
 
@@ -152,15 +152,15 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="how" className="timeline">
-        <div>
+      <section id="how" className="timeline-section">
+        <div className="timeline-header">
           <div className="section-label">How It Works</div>
           <h2>Three steps. Full control.</h2>
           <p className="section-subtitle">
             No accounts. No onboarding funnels. No data consent forms that take your consent anyway.
           </p>
         </div>
-        <div className="timeline-line">
+        <div className="timeline-steps">
           {steps.map((step) => (
             <div key={step.label} className="timeline-step" data-step={step.label}>
               <h3>{step.title}</h3>
@@ -208,15 +208,15 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="final-cta">
+      <section id="cta" className="final-cta">
         <div className="final-cta-card">
           <h2>Ready to own your AI?</h2>
           <p className="section-subtitle">
             VaultAI is in early access. Get on the list and be first to lock in.
           </p>
           <div className="cta-buttons">
-            <button className="btn-primary">Request Early Access</button>
-            <button className="btn-secondary">View on GitHub</button>
+            <a href="#cta" className="btn-primary">Request Early Access</a>
+            <a href="https://github.com/christopherlhammer11-ai/vaultai" target="_blank" rel="noreferrer" className="btn-secondary">View on GitHub</a>
           </div>
         </div>
       </section>

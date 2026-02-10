@@ -95,7 +95,7 @@ nav ul a:hover {
 
 .btn-primary,
 .btn-secondary {
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 12px 22px;
   font-weight: 600;
   font-size: 0.95rem;
@@ -245,7 +245,6 @@ main.hero {
 }
 
 section.features,
-section.timeline,
 section.comparison,
 section.openclaw,
 section.final-cta {
@@ -441,8 +440,297 @@ footer .logo-mark {
   nav ul { display: none; }
   .hero { padding-top: 160px; }
   .features-grid { grid-template-columns: 1fr; }
-  .timeline { grid-template-columns: 1fr; }
-  .timeline-step { padding-left: 20px; }
-  .timeline-step::before { left: -56px; }
+  .timeline-steps { padding-left: 20px; }
+  .timeline-steps::before { left: 6px; }
+  .timeline-step { padding-left: 24px; }
+  .timeline-step::before { left: -6px; }
   footer.site-footer { flex-direction: column; gap: 20px; text-align: center; }
+}
+
+section.timeline-section {
+  padding: 0 8vw 140px;
+  text-align: center;
+}
+
+.timeline-header {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.timeline-header h2 {
+  font-size: 2.4rem;
+  margin: 10px 0;
+}
+
+.timeline-header p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.timeline-steps {
+  position: relative;
+  max-width: 900px;
+  margin: 50px auto 0;
+  padding-left: 40px;
+}
+
+.timeline-steps::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20px;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--accent-green), transparent);
+  border-radius: 999px;
+}
+
+.timeline-step {
+  text-align: left;
+  padding: 0 0 40px 32px;
+  position: relative;
+}
+
+.timeline-step:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-step::before {
+  content: attr(data-step);
+  position: absolute;
+  left: -32px;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-green);
+  background: #0d1a14;
+  color: var(--accent-green);
+  font-family: var(--font-jetbrains);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.05em;
+}
+
+.timeline-step h3 {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+}
+
+.timeline-step p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.vault-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.vault-card {
+  width: min(420px, 100%);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  text-align: center;
+  padding: 40px;
+  box-shadow: 0 0 40px var(--accent-glow);
+}
+
+.vault-lock {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(0, 255, 136, 0.08);
+  border: 1px solid var(--accent-green);
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-green);
+}
+
+.vault-card h1 {
+  margin: 0 0 12px;
+  font-size: 2rem;
+}
+
+.vault-card p {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.vault-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.vault-form input {
+  background: #050505;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.vault-form input:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: 0 0 18px rgba(0, 255, 136, 0.2);
+}
+
+.vault-form button {
+  background: var(--accent-green);
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  padding: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vault-form button:hover {
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.25);
+}
+
+.chat-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.chat-sidebar {
+  width: 260px;
+  background: #080808;
+  border-right: 1px solid var(--border-color);
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.chat-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-jetbrains);
+  color: var(--accent-green);
+}
+
+.chat-sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.chat-sidebar nav a {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.chat-sidebar nav a:hover {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+}
+
+.chat-main-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.chat-menu {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.chat-feed {
+  flex: 1;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.chat-bubble {
+  max-width: 70%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  line-height: 1.6;
+}
+
+.chat-bubble.ai {
+  align-self: flex-start;
+  background: #0e130f;
+  border-left: 3px solid var(--accent-green);
+}
+
+.chat-bubble.user {
+  align-self: flex-end;
+  background: #1c1f2e;
+  border-left: 3px solid #2248ff;
+}
+
+.chat-input-bar {
+  display: flex;
+  gap: 16px;
+  padding: 24px 32px;
+  border-top: 1px solid var(--border-color);
+  backdrop-filter: blur(8px);
+}
+
+.chat-input-bar textarea {
+  flex: 1;
+  min-height: 80px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: #060606;
+  color: var(--text-primary);
+  padding: 14px;
+  resize: vertical;
+}
+
+.chat-input-bar textarea:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: 0 0 25px rgba(0, 255, 136, 0.1);
+}
+
+.chat-input-bar button {
+  background: var(--accent-green);
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .chat-shell { flex-direction: column; }
+  .chat-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
 }
