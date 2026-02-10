@@ -17,6 +17,7 @@ export type VaultMessage = {
   role: "user" | "ai" | "error";
   content: string;
   pending?: boolean;
+  timestamp?: string;
 };
 
 export type VaultData = {
@@ -181,7 +182,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     w.localStorage.removeItem(STORAGE_KEYS.passwordHash);
     w.localStorage.removeItem(STORAGE_KEYS.encrypted);
     lockVault();
-    setActiveSalt(null);
     syncFlags();
   }, [lockVault, syncFlags]);
 
