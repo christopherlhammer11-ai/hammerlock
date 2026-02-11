@@ -1,14 +1,14 @@
 'use client';
 
-import Image from "next/image";
-import { Lock } from "lucide-react";
+import { Lock, Menu, X } from "lucide-react";
+import { useState } from "react";
 
 const terminalLines = [
   { text: <><span className="prompt">vault &gt;</span> <span className="command">who am I?</span></>, delay: 0 },
   { text: <>Loading persona... <span className="success">persona-chris.md</span></>, delay: 0.3 },
   {
     text: (
-      <>You're Chris. President of Hammer Enterprises. 25 years in cannabis. Building VaultAI.</>
+      <>You&apos;re Chris. President of Hammer Enterprises. 25 years in cannabis. Building VaultAI.</>
     ),
     delay: 0.6
   },
@@ -78,6 +78,8 @@ const comparisonRows = [
 ];
 
 export default function LandingPage() {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   return (
     <div className="page-wrapper">
       <nav className="site-nav">
@@ -90,8 +92,27 @@ export default function LandingPage() {
           <li><a href="#how">How It Works</a></li>
           <li><a href="#why">Why Vault</a></li>
         </ul>
+        <button className="nav-hamburger" onClick={() => setMobileNavOpen(true)} aria-label="Open menu">
+          <Menu size={20} />
+        </button>
         <a href="/vault" className="btn-primary">Get Early Access</a>
       </nav>
+
+      {/* Mobile nav overlay */}
+      {mobileNavOpen && (
+        <>
+          <div className="mobile-nav-overlay" onClick={() => setMobileNavOpen(false)} />
+          <div className="mobile-nav-panel">
+            <button className="mobile-nav-close" onClick={() => setMobileNavOpen(false)} aria-label="Close menu">
+              <X size={24} />
+            </button>
+            <a href="#features" onClick={() => setMobileNavOpen(false)}>Features</a>
+            <a href="#how" onClick={() => setMobileNavOpen(false)}>How It Works</a>
+            <a href="#why" onClick={() => setMobileNavOpen(false)}>Why Vault</a>
+            <a href="/vault" className="btn-primary" style={{ textAlign: 'center' }}>Get Early Access</a>
+          </div>
+        </>
+      )}
 
       <main className="hero">
         <div className="badge">
@@ -232,24 +253,26 @@ export default function LandingPage() {
           Most AI tools store your data on their servers, train on your conversations, and sell your patterns.
           VaultAI does not.
         </p>
-        <table className="comparison-table">
-          <thead>
-            <tr>
-              <th>Feature</th>
-              <th>Typical AI</th>
-              <th>VaultAI</th>
-            </tr>
-          </thead>
-          <tbody>
-            {comparisonRows.map(([label, typical, vault]) => (
-              <tr key={label}>
-                <td>{label}</td>
-                <td>{typical}</td>
-                <td>{vault}</td>
+        <div className="comparison-table-wrap">
+          <table className="comparison-table">
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Typical AI</th>
+                <th>VaultAI</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {comparisonRows.map(([label, typical, vault]) => (
+                <tr key={label}>
+                  <td>{label}</td>
+                  <td>{typical}</td>
+                  <td>{vault}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="openclaw">

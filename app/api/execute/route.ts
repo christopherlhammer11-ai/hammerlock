@@ -15,6 +15,8 @@ const vaultJsonPath = path.join(process.cwd(), "vault.json");
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const BRAVE_API_KEY = process.env.BRAVE_API_KEY;
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "phi3";
 
 const openaiClient = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 const anthropicClient = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
@@ -71,6 +73,33 @@ async function loadPersonaText() {
     }
   }
   return "";
+}
+
+async function callOllama(systemPrompt: string, prompt: string) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt }
+        ],
+        stream: false
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.message?.content?.trim() || null;
+  } catch (error) {
+    console.error("Ollama call failed, falling back:", (error as Error).message);
+    return null;
+  }
 }
 
 async function callOpenAI(systemPrompt: string, prompt: string) {
@@ -138,13 +167,15 @@ async function routeToLLM(prompt: string, options?: { context?: string }) {
 
   const userPrompt = options?.context ? `${options.context}\n\n${prompt}` : prompt;
 
-  // Try direct API providers first, then fall back to OpenClaw gateway
+  // Local-first: try Ollama, then cloud APIs, then OpenClaw gateway
   const reply =
-    (await callOpenAI(systemPrompt, userPrompt)) ?? (await callAnthropic(systemPrompt, userPrompt));
+    (await callOllama(systemPrompt, userPrompt)) ??
+    (await callOpenAI(systemPrompt, userPrompt)) ??
+    (await callAnthropic(systemPrompt, userPrompt));
 
   if (reply) return reply;
 
-  // Fallback: route through OpenClaw gateway if no direct API keys
+  // Last resort: route through OpenClaw gateway
   return await callGateway(userPrompt);
 }
 

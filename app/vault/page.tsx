@@ -1,9 +1,22 @@
 "use client";
 
-import { Lock } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
 import { useVault } from "@/lib/vault-store";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+function getPasswordStrength(pw: string): "weak" | "medium" | "strong" {
+  if (!pw || pw.length < 6) return "weak";
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  if (score >= 4) return "strong";
+  if (score >= 2) return "medium";
+  return "weak";
+}
 
 export default function VaultPage() {
   const { hasVault, isUnlocked, initializeVault, unlockVault, clearVault } = useVault();
@@ -12,7 +25,11 @@ export default function VaultPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const mode: "create" | "unlock" = hasVault ? "unlock" : "create";
+
+  const strength = useMemo(() => getPasswordStrength(password), [password]);
 
   useEffect(() => {
     if (isUnlocked) {
@@ -73,23 +90,61 @@ export default function VaultPage() {
 
         <div className="vault-form">
           <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(evt) => setPassword(evt.target.value)}
-            className={error ? "error" : ""}
-            placeholder="••••••••"
-          />
+          <div className="vault-input-wrap">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(evt) => setPassword(evt.target.value)}
+              onKeyDown={(evt) => {
+                if (evt.key === "Enter" && mode === "unlock") handleSubmit();
+              }}
+              className={error ? "error" : ""}
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              className="vault-toggle-pw"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+
+          {mode === "create" && password.length > 0 && (
+            <>
+              <div className="pw-strength">
+                <div className={`pw-strength-bar ${strength}`} />
+              </div>
+              <div className={`pw-strength-label ${strength}`}>
+                {strength === "weak" ? "Weak" : strength === "medium" ? "Medium" : "Strong"}
+              </div>
+            </>
+          )}
+
           {mode === "create" && (
             <>
               <label>Confirm Password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(evt) => setConfirmPassword(evt.target.value)}
-                className={error ? "error" : ""}
-                placeholder="••••••••"
-              />
+              <div className="vault-input-wrap">
+                <input
+                  type={showConfirm ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(evt) => setConfirmPassword(evt.target.value)}
+                  onKeyDown={(evt) => {
+                    if (evt.key === "Enter") handleSubmit();
+                  }}
+                  className={error ? "error" : ""}
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  className="vault-toggle-pw"
+                  onClick={() => setShowConfirm(!showConfirm)}
+                  aria-label={showConfirm ? "Hide password" : "Show password"}
+                >
+                  {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </>
           )}
           {error && <p className="vault-error">{error}</p>}

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChevronDown,
   ChevronRight,
   Command,
   LayoutGrid,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useVault, VaultMessage } from "@/lib/vault-store";
 import { useRouter } from "next/navigation";
 
@@ -49,6 +50,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [liveTimestamp, setLiveTimestamp] = useState("--:--");
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -70,12 +72,32 @@ export default function ChatPage() {
     );
   }, []);
 
+  // Scroll to bottom on new messages
   useEffect(() => {
     if (logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Track scroll position to show/hide scroll-to-bottom button
+  const handleScroll = useCallback(() => {
+    if (!logRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = logRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setShowScrollBtn(!isNearBottom);
+  }, []);
+
+  useEffect(() => {
+    const feed = logRef.current;
+    if (!feed) return;
+    feed.addEventListener("scroll", handleScroll, { passive: true });
+    return () => feed.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
+
+  const scrollToBottom = () => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   const persistMessages = async (nextMessages: VaultMessage[]) => {
     setMessages(nextMessages);
@@ -188,7 +210,7 @@ export default function ChatPage() {
         </button>
       </aside>
 
-      <div className="console-main">
+      <div className="console-main" style={{ position: "relative" }}>
         <header className="console-topbar">
           <div className="topbar-brand">
             <Lock size={18} />
@@ -200,13 +222,13 @@ export default function ChatPage() {
               <span className="dot" /> LIVE SESSION
             </div>
             <button className="topbar-btn">
-              <LayoutGrid size={16} /> Panel
+              <LayoutGrid size={16} /> <span>Panel</span>
             </button>
             <button className="topbar-btn">
-              <Command size={16} /> ⌘ K
+              <Command size={16} /> <span>⌘ K</span>
             </button>
             <button className="topbar-btn">
-              <Upload size={16} /> Export
+              <Upload size={16} /> <span>Export</span>
             </button>
           </div>
         </header>
@@ -217,12 +239,20 @@ export default function ChatPage() {
               <div className="message-meta">
                 <span>{messageLabel(msg.role)}</span> · <span>{formatTimestamp(msg.timestamp)}</span>
               </div>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-              {msg.pending && <div className="message-status">Queued…</div>}
+              <div className={msg.pending ? "message-content" : undefined}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              </div>
+              {msg.pending && <div className="message-status">Processing</div>}
             </div>
           ))}
           <div ref={endRef} />
         </div>
+
+        {showScrollBtn && (
+          <button className="scroll-indicator" onClick={scrollToBottom} type="button">
+            <ChevronDown size={14} /> New messages
+          </button>
+        )}
 
         <div className="console-input">
           <div className="input-bar">
