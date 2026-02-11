@@ -1,7 +1,8 @@
 'use client';
 
-import { Check, Lock, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { Check, Lock, Menu, Smartphone, X } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { useEffect, useState } from "react";
 
 const terminalLines = [
   { text: <><span className="prompt">vault &gt;</span> <span className="command">who am I?</span></>, delay: 0 },
@@ -121,6 +122,19 @@ export default function LandingPage() {
   const [email, setEmail] = useState('');
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [mobileUrl, setMobileUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/local-ip')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ip && data.ip !== 'localhost') {
+          const port = window.location.port || '3000';
+          setMobileUrl(`http://${data.ip}:${port}`);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleCheckout = async (plan: string) => {
     setCheckoutLoading(plan);
@@ -383,6 +397,37 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      {/* MOBILE QR CODE */}
+      {mobileUrl && (
+        <section className="qr-section">
+          <div className="qr-card">
+            <div className="qr-text">
+              <div className="section-label">Mobile Access</div>
+              <h2>Use VaultAI on your phone.</h2>
+              <p className="section-subtitle">
+                Scan this QR code from your phone to open VaultAI as a PWA.
+                Same WiFi network required. Your data stays on this machine.
+              </p>
+              <div className="qr-steps">
+                <div><Smartphone size={16} /> <strong>iPhone:</strong> Open in Safari → Share → Add to Home Screen</div>
+                <div><Smartphone size={16} /> <strong>Android:</strong> Open in Chrome → Menu → Install app</div>
+              </div>
+              <div className="qr-url">{mobileUrl}</div>
+            </div>
+            <div className="qr-code-wrap">
+              <QRCodeSVG
+                value={mobileUrl}
+                size={180}
+                bgColor="#111111"
+                fgColor="#00ff88"
+                level="M"
+                includeMargin={false}
+              />
+            </div>
+          </div>
+        </section>
+      )}
 
       <section id="why" className="comparison">
         <div className="section-label">Why Vault</div>

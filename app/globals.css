@@ -1630,6 +1630,97 @@ footer .logo-mark { font-size: 0.85rem; }
 }
 
 /* ============================================================
+   QR Code Section
+   ============================================================ */
+
+.qr-section {
+  padding: var(--space-3xl) var(--space-xl);
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.qr-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xl);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  transition: all var(--transition-base);
+}
+
+.qr-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.qr-text {
+  flex: 1;
+}
+
+.qr-text h2 {
+  font-size: 1.6rem;
+  margin-bottom: var(--space-sm);
+}
+
+.qr-text .section-subtitle {
+  margin-bottom: var(--space-lg);
+}
+
+.qr-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: var(--space-md);
+}
+
+.qr-steps div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.qr-steps svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.qr-url {
+  font-family: var(--font-jetbrains);
+  font-size: 0.8rem;
+  color: var(--accent);
+  background: rgba(0, 255, 136, 0.06);
+  border: 1px solid rgba(0, 255, 136, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  display: inline-block;
+}
+
+.qr-code-wrap {
+  flex-shrink: 0;
+  background: #111111;
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  border: 1px solid var(--border-color);
+}
+
+@media (max-width: 700px) {
+  .qr-card {
+    flex-direction: column;
+    text-align: center;
+  }
+  .qr-steps {
+    align-items: center;
+  }
+  .qr-text h2 {
+    font-size: 1.3rem;
+  }
+}
+
+/* ============================================================
    Old chat styles (legacy, kept for compatibility)
    ============================================================ */
 
