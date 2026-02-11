@@ -129,7 +129,7 @@ export default function ChatPage() {
         msg.id === pendingId
           ? {
               id: pendingId,
-              role: "error",
+              role: "error" as const,
               content: (error as Error).message || "Command failed",
               timestamp: new Date().toISOString()
             }

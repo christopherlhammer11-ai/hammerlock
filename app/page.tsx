@@ -90,7 +90,7 @@ export default function LandingPage() {
           <li><a href="#how">How It Works</a></li>
           <li><a href="#why">Why Vault</a></li>
         </ul>
-        <a href="#cta" className="btn-primary">Get Early Access</a>
+        <a href="/vault" className="btn-primary">Get Early Access</a>
       </nav>
 
       <main className="hero">
@@ -107,7 +107,7 @@ export default function LandingPage() {
           Zero data harvesting. Built for people who do not hand over the keys.
         </p>
         <div className="hero-cta">
-          <a href="#cta" className="btn-primary">Get Early Access</a>
+          <a href="/vault" className="btn-primary">Get Early Access</a>
           <a href="#how" className="btn-secondary">See How It Works</a>
         </div>
       </main>
@@ -270,7 +270,7 @@ export default function LandingPage() {
             VaultAI is in early access. Get on the list and be first to lock in.
           </p>
           <div className="cta-buttons">
-            <a href="#cta" className="btn-primary">Request Early Access</a>
+            <a href="/vault" className="btn-primary">Request Early Access</a>
             <a href="https://github.com/christopherlhammer11-ai/vaultai" target="_blank" rel="noreferrer" className="btn-secondary">View on GitHub</a>
           </div>
         </div>

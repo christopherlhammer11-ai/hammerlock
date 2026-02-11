@@ -14,7 +14,7 @@ const vaultJsonPath = path.join(process.cwd(), "vault.json");
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const BRAVE_API_KEY = process.env.BRAVE_API_KEY || "BSA0OHDmFRcsR0qFvPsf81fo7qlZvmV";
+const BRAVE_API_KEY = process.env.BRAVE_API_KEY;
 
 const openaiClient = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 const anthropicClient = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
@@ -76,20 +76,14 @@ async function loadPersonaText() {
 async function callOpenAI(systemPrompt: string, prompt: string) {
   if (!openaiClient) return null;
   try {
-    const response = await openaiClient.responses.create({
+    const response = await openaiClient.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      input: [
+      messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: prompt }
       ]
     });
-    return (
-      response.output_text ||
-      response.output
-        ?.map((entry: any) => entry?.content?.map((c: any) => c.text).join(" "))
-        .join("\n")
-        .trim() || null
-    );
+    return response.choices?.[0]?.message?.content?.trim() || null;
   } catch (error) {
     console.error("OpenAI call failed, falling back:", (error as Error).message);
     return null;
