@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "VaultAI — privacy-first AI assistant. Local encryption, zero cloud dependency.",
   "type": "module",
+  "author": "Hammer Enterprises",
   "license": "MIT",
   "main": "electron/main.js",
   "bin": {
@@ -64,12 +65,12 @@
     ],
     "mac": {
       "target": "dmg",
-      "icon": "public/vaultai-logo.svg",
+      "icon": "public/vaultai-logo.png",
       "category": "public.app-category.productivity"
     },
     "win": {
       "target": "nsis",
-      "icon": "public/vaultai-logo.svg"
+      "icon": "public/vaultai-logo.png"
     },
     "nsis": {
       "oneClick": true,
