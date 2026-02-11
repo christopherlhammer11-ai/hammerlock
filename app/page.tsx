@@ -1,6 +1,6 @@
 'use client';
 
-import { Lock, Menu, X } from "lucide-react";
+import { Check, Lock, Menu, X } from "lucide-react";
 import { useState } from "react";
 
 const terminalLines = [
@@ -77,8 +77,86 @@ const comparisonRows = [
   ['No account required', '✕', '✓']
 ];
 
+const plans = [
+  {
+    name: 'Lite',
+    description: 'For personal use and light research',
+    monthlyPrice: 5,
+    annualPrice: 49,
+    annualSavings: '18%',
+    features: [
+      'AES-256 encrypted vault',
+      'Local LLM (Ollama)',
+      'Persistent memory',
+      'Chat export (text)',
+      'Mobile PWA access',
+    ],
+    monthlyPlan: 'lite-monthly',
+    annualPlan: 'lite-annual',
+  },
+  {
+    name: 'Premium',
+    description: 'For operators, founders, and teams',
+    monthlyPrice: 29,
+    annualPrice: 249,
+    annualSavings: '28%',
+    popular: true,
+    features: [
+      'Everything in Lite',
+      'Live web search (Brave)',
+      'Cloud LLM fallback (GPT-4o, Claude)',
+      'Voice input & output',
+      'PDF export',
+      'Persona files',
+      'Priority support',
+    ],
+    monthlyPlan: 'premium-monthly',
+    annualPlan: 'premium-annual',
+  },
+];
+
 export default function LandingPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
+  const [email, setEmail] = useState('');
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+
+  const handleCheckout = async (plan: string) => {
+    setCheckoutLoading(plan);
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Checkout unavailable. Try again later.');
+      }
+    } catch {
+      alert('Checkout unavailable. Try again later.');
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
+  const handleEmailSubmit = async (evt: React.FormEvent) => {
+    evt.preventDefault();
+    if (!email.trim() || emailStatus === 'sending') return;
+    setEmailStatus('sending');
+    try {
+      const existing = JSON.parse(localStorage.getItem('vaultai_waitlist') || '[]');
+      existing.push({ email: email.trim(), timestamp: new Date().toISOString() });
+      localStorage.setItem('vaultai_waitlist', JSON.stringify(existing));
+      setEmailStatus('sent');
+      setEmail('');
+    } catch {
+      setEmailStatus('error');
+    }
+  };
 
   return (
     <div className="page-wrapper">
@@ -89,16 +167,16 @@ export default function LandingPage() {
         </div>
         <ul>
           <li><a href="#features">Features</a></li>
+          <li><a href="#pricing">Pricing</a></li>
           <li><a href="#how">How It Works</a></li>
           <li><a href="#why">Why Vault</a></li>
         </ul>
         <button className="nav-hamburger" onClick={() => setMobileNavOpen(true)} aria-label="Open menu">
           <Menu size={20} />
         </button>
-        <a href="/vault" className="btn-primary">Get Early Access</a>
+        <a href="#pricing" className="btn-primary">Start Free Trial</a>
       </nav>
 
-      {/* Mobile nav overlay */}
       {mobileNavOpen && (
         <>
           <div className="mobile-nav-overlay" onClick={() => setMobileNavOpen(false)} />
@@ -107,9 +185,10 @@ export default function LandingPage() {
               <X size={24} />
             </button>
             <a href="#features" onClick={() => setMobileNavOpen(false)}>Features</a>
+            <a href="#pricing" onClick={() => setMobileNavOpen(false)}>Pricing</a>
             <a href="#how" onClick={() => setMobileNavOpen(false)}>How It Works</a>
             <a href="#why" onClick={() => setMobileNavOpen(false)}>Why Vault</a>
-            <a href="/vault" className="btn-primary" style={{ textAlign: 'center' }}>Get Early Access</a>
+            <a href="#pricing" className="btn-primary" style={{ textAlign: 'center' }} onClick={() => setMobileNavOpen(false)}>Start Free Trial</a>
           </div>
         </>
       )}
@@ -128,7 +207,7 @@ export default function LandingPage() {
           Zero data harvesting. Built for people who do not hand over the keys.
         </p>
         <div className="hero-cta">
-          <a href="/vault" className="btn-primary">Get Early Access</a>
+          <a href="#pricing" className="btn-primary">Start 7-Day Free Trial</a>
           <a href="#how" className="btn-secondary">See How It Works</a>
         </div>
       </main>
@@ -209,7 +288,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-
       <section id="features" className="features">
         <div className="section-label">What You Get</div>
         <h2>Everything an AI should be. Nothing it shouldn&apos;t.</h2>
@@ -224,6 +302,66 @@ export default function LandingPage() {
               <h3>{feature.title}</h3>
               <p>{feature.body}</p>
             </article>
+          ))}
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section id="pricing" className="pricing-section">
+        <div className="section-label">Pricing</div>
+        <h2>7 days free. Cancel anytime.</h2>
+        <p className="section-subtitle">
+          Try VaultAI for a full week. No credit card to start. Your data never leaves your device — even if you cancel.
+        </p>
+
+        <div className="billing-toggle">
+          <button
+            className={billingCycle === 'monthly' ? 'active' : ''}
+            onClick={() => setBillingCycle('monthly')}
+          >
+            Monthly
+          </button>
+          <button
+            className={billingCycle === 'annual' ? 'active' : ''}
+            onClick={() => setBillingCycle('annual')}
+          >
+            Annual <span className="toggle-badge">Save up to 28%</span>
+          </button>
+        </div>
+
+        <div className="pricing-grid">
+          {plans.map((plan) => (
+            <div key={plan.name} className={`pricing-card${plan.popular ? ' popular' : ''}`}>
+              {plan.popular && <div className="pricing-badge">Most Popular</div>}
+              <h3>{plan.name}</h3>
+              <p className="pricing-description">{plan.description}</p>
+              <div className="pricing-price">
+                <span className="price-amount">
+                  ${billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice}
+                </span>
+                <span className="price-period">
+                  /{billingCycle === 'monthly' ? 'mo' : 'yr'}
+                </span>
+              </div>
+              {billingCycle === 'annual' && (
+                <div className="pricing-savings">Save {plan.annualSavings}</div>
+              )}
+              <div className="pricing-trial">7-day free trial included</div>
+              <button
+                className="btn-primary pricing-cta"
+                onClick={() => handleCheckout(billingCycle === 'monthly' ? plan.monthlyPlan : plan.annualPlan)}
+                disabled={checkoutLoading !== null}
+              >
+                {checkoutLoading === (billingCycle === 'monthly' ? plan.monthlyPlan : plan.annualPlan)
+                  ? 'Loading...'
+                  : 'Start Free Trial'}
+              </button>
+              <ul className="pricing-features">
+                {plan.features.map((f) => (
+                  <li key={f}><Check size={16} /> {f}</li>
+                ))}
+              </ul>
+            </div>
           ))}
         </div>
       </section>
@@ -290,12 +428,28 @@ export default function LandingPage() {
         <div className="final-cta-card">
           <h2>Ready to own your AI?</h2>
           <p className="section-subtitle">
-            VaultAI is in early access. Get on the list and be first to lock in.
+            Start your 7-day free trial or join the waitlist for updates.
           </p>
           <div className="cta-buttons">
-            <a href="/vault" className="btn-primary">Request Early Access</a>
+            <a href="#pricing" className="btn-primary">Start Free Trial</a>
             <a href="https://github.com/christopherlhammer11-ai/vaultai" target="_blank" rel="noreferrer" className="btn-secondary">View on GitHub</a>
           </div>
+          <form className="email-capture" onSubmit={handleEmailSubmit}>
+            <input
+              type="email"
+              placeholder="Enter your email for updates"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={emailStatus === 'sending' || emailStatus === 'sent'}
+            />
+            <button type="submit" className="btn-primary" disabled={emailStatus === 'sending' || emailStatus === 'sent'}>
+              {emailStatus === 'sent' ? 'Subscribed ✓' : emailStatus === 'sending' ? 'Joining...' : 'Join Waitlist'}
+            </button>
+          </form>
+          {emailStatus === 'sent' && (
+            <p className="email-success">You&apos;re on the list. We&apos;ll be in touch.</p>
+          )}
         </div>
       </section>
 
