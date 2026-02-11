@@ -107,6 +107,25 @@ async function callAnthropic(systemPrompt: string, prompt: string) {
   );
 }
 
+async function callGateway(prompt: string): Promise<string> {
+  try {
+    const escaped = prompt.replace(/'/g, "'\\''");
+    const { stdout } = await execAsync(
+      `openclaw --profile vaultai agent --agent main --message '${escaped}' --json --no-color`,
+      { timeout: 30000 }
+    );
+    const result = JSON.parse(stdout);
+    if (result.status === "ok") {
+      return result.result?.payloads?.[0]?.text || "No response from gateway agent";
+    }
+    throw new Error(result.summary || "Gateway agent failed");
+  } catch (error) {
+    throw new Error(
+      `No LLM provider configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY, or ensure the OpenClaw gateway is running. (${(error as Error).message})`
+    );
+  }
+}
+
 async function routeToLLM(prompt: string, options?: { context?: string }) {
   const persona = await loadPersonaText();
   const systemPrompt = persona
@@ -115,13 +134,14 @@ async function routeToLLM(prompt: string, options?: { context?: string }) {
 
   const userPrompt = options?.context ? `${options.context}\n\n${prompt}` : prompt;
 
+  // Try direct API providers first, then fall back to OpenClaw gateway
   const reply =
     (await callOpenAI(systemPrompt, userPrompt)) ?? (await callAnthropic(systemPrompt, userPrompt));
 
-  if (!reply) {
-    throw new Error("No LLM provider configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.");
-  }
-  return reply;
+  if (reply) return reply;
+
+  // Fallback: route through OpenClaw gateway if no direct API keys
+  return await callGateway(userPrompt);
 }
 
 const SEARCH_PATTERNS = [
