@@ -1,9 +1,10 @@
 {
   "name": "vaultai",
   "version": "0.1.0",
-  "description": "VaultAI CLI and schema for operator-grade AI context management.",
+  "description": "VaultAI — privacy-first AI assistant. Local encryption, zero cloud dependency.",
   "type": "module",
   "license": "MIT",
+  "main": "electron/main.js",
   "bin": {
     "vaultai": "bin/vaultai.js"
   },
@@ -13,7 +14,11 @@
     "test": "echo 'No tests yet' && exit 0",
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "electron:dev": "electron .",
+    "electron:build": "next build && electron-builder --mac --win",
+    "electron:build:mac": "next build && electron-builder --mac",
+    "electron:build:win": "next build && electron-builder --win"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
@@ -33,7 +38,42 @@
   "devDependencies": {
     "@types/node": "25.2.2",
     "@types/react": "19.2.13",
+    "electron": "^40.4.0",
+    "electron-builder": "^26.7.0",
     "prisma": "^5.15.0",
     "typescript": "^5.4.2"
+  },
+  "build": {
+    "appId": "ai.vaultai.app",
+    "productName": "VaultAI",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "app/**/*",
+      "lib/**/*",
+      "public/**/*",
+      "bin/**/*",
+      "templates/**/*",
+      "scripts/**/*",
+      ".next/**/*",
+      "next.config.js",
+      "tsconfig.json",
+      "package.json"
+    ],
+    "mac": {
+      "target": "dmg",
+      "icon": "public/vaultai-logo.svg",
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/vaultai-logo.svg"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    }
   }
 }
