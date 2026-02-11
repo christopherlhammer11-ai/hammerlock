@@ -75,36 +75,46 @@ async function loadPersonaText() {
 
 async function callOpenAI(systemPrompt: string, prompt: string) {
   if (!openaiClient) return null;
-  const response = await openaiClient.responses.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-    input: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: prompt }
-    ]
-  });
-  return (
-    response.output_text ||
-    response.output
-      ?.map((entry: any) => entry?.content?.map((c: any) => c.text).join(" "))
-      .join("\n")
-      .trim() || null
-  );
+  try {
+    const response = await openaiClient.responses.create({
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      input: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt }
+      ]
+    });
+    return (
+      response.output_text ||
+      response.output
+        ?.map((entry: any) => entry?.content?.map((c: any) => c.text).join(" "))
+        .join("\n")
+        .trim() || null
+    );
+  } catch (error) {
+    console.error("OpenAI call failed, falling back:", (error as Error).message);
+    return null;
+  }
 }
 
 async function callAnthropic(systemPrompt: string, prompt: string) {
   if (!anthropicClient) return null;
-  const response = await anthropicClient.messages.create({
-    model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20240620",
-    max_tokens: 800,
-    system: systemPrompt,
-    messages: [{ role: "user", content: prompt }]
-  });
-  return (
-    response.content
-      ?.map((part) => (part.type === "text" ? part.text : ""))
-      .join("\n")
-      .trim() || null
-  );
+  try {
+    const response = await anthropicClient.messages.create({
+      model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20240620",
+      max_tokens: 800,
+      system: systemPrompt,
+      messages: [{ role: "user", content: prompt }]
+    });
+    return (
+      response.content
+        ?.map((part) => (part.type === "text" ? part.text : ""))
+        .join("\n")
+        .trim() || null
+    );
+  } catch (error) {
+    console.error("Anthropic call failed, falling back:", (error as Error).message);
+    return null;
+  }
 }
 
 async function callGateway(prompt: string): Promise<string> {
