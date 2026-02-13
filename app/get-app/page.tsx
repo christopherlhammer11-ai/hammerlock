@@ -37,36 +37,43 @@ export default function GetAppPage() {
           </div>
 
           <div className="download-card">
+            <div className="download-card-icon"><Globe size={28} /></div>
+            <h3>Web Console</h3>
+            <p>Access VaultAI from any browser on your local network while the desktop app is running.</p>
+            <span className="download-meta">Open <strong>localhost:3100</strong> after launching the app</span>
+          </div>
+
+          <div className="download-card">
             <div className="download-card-icon"><Smartphone size={28} /></div>
             <h3>Mobile (PWA)</h3>
-            <p>Open VaultAI on your phone and add to your home screen for an app-like experience.</p>
-            <span className="download-meta">Requires desktop app running on your network</span>
+            <p>Open VaultAI on your phone and add to home screen for an app-like experience.</p>
+            <span className="download-meta">Same network as desktop &middot; Add to Home Screen</span>
           </div>
         </div>
       </div>
 
       <div className="success-setup">
-        <h2><Shield size={20} /> Why Local?</h2>
+        <h2><Shield size={20} /> First Launch</h2>
         <div className="setup-steps">
           <div className="setup-step">
             <div className="step-number">1</div>
             <div>
-              <strong>Your keys, your machine</strong>
-              <p>API keys and encryption passwords never leave your device.</p>
+              <strong>Install &amp; open VaultAI</strong>
+              <p>Open the .dmg and drag VaultAI to Applications. On first launch, <strong>right-click the app &rarr; Open</strong> to bypass the macOS Gatekeeper warning (this only happens once).</p>
             </div>
           </div>
           <div className="setup-step">
             <div className="step-number">2</div>
             <div>
-              <strong>AES-256 encrypted vault</strong>
-              <p>All data is encrypted locally before it touches disk.</p>
+              <strong>Create your vault password</strong>
+              <p>This password encrypts everything locally. We never see it.</p>
             </div>
           </div>
           <div className="setup-step">
             <div className="step-number">3</div>
             <div>
-              <strong>Works offline</strong>
-              <p>Use local AI models with Ollama. No internet required.</p>
+              <strong>Start chatting</strong>
+              <p>Use local AI models with Ollama or connect your own API keys. Everything stays on your machine.</p>
             </div>
           </div>
         </div>

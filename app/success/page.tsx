@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Download, Lock, Monitor, Shield, Smartphone } from "lucide-react";
+import { CheckCircle, Download, Globe, Monitor, Shield, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -61,10 +61,16 @@ function SuccessContent() {
             <span className="download-meta">macOS 12+ &middot; Apple Silicon &amp; Intel</span>
           </div>
           <div className="download-card">
+            <div className="download-card-icon"><Globe size={28} /></div>
+            <h3>Web Console</h3>
+            <p>Access VaultAI from any browser on your local network while the desktop app is running.</p>
+            <span className="download-meta">Open <strong>localhost:3100</strong> after launching the app</span>
+          </div>
+          <div className="download-card">
             <div className="download-card-icon"><Smartphone size={28} /></div>
             <h3>Mobile (PWA)</h3>
-            <p>Access from your phone on the same network. Add to home screen for an app-like experience.</p>
-            <span className="download-meta">Requires desktop app running on your local network</span>
+            <p>Open VaultAI on your phone and add to home screen for an app-like experience.</p>
+            <span className="download-meta">Same network as desktop &middot; Add to Home Screen</span>
           </div>
         </div>
       </div>
@@ -73,15 +79,15 @@ function SuccessContent() {
         <div className="setup-steps">
           <div className="setup-step">
             <div className="step-number">1</div>
-            <div><strong>Create your vault password</strong><p>This password encrypts everything locally. We never see it.</p></div>
+            <div><strong>Install &amp; open VaultAI</strong><p>Open the .dmg file and drag VaultAI to Applications. On first launch, <strong>right-click the app &rarr; Open</strong> to bypass the macOS Gatekeeper warning (this only happens once).</p></div>
           </div>
           <div className="setup-step">
             <div className="step-number">2</div>
-            <div><strong>Set up your profile</strong><p>Tell VaultAI about yourself so it can personalize your experience.</p></div>
+            <div><strong>Create your vault password</strong><p>This password encrypts everything locally. We never see it.</p></div>
           </div>
           <div className="setup-step">
             <div className="step-number">3</div>
-            <div><strong>Start chatting</strong><p>Ask anything. Upload PDFs. Use voice. Everything stays encrypted.</p></div>
+            <div><strong>Start chatting</strong><p>Ask anything. Upload PDFs. Use voice. Everything stays encrypted on your machine.</p></div>
           </div>
         </div>
       </div>
