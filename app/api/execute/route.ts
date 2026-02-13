@@ -4,9 +4,6 @@ import { promisify } from "util";
 import path from "path";
 import os from "os";
 import fs from "fs/promises";
-import OpenAI from "openai";
-import Anthropic from "@anthropic-ai/sdk";
-
 // Allow longer execution for LLM calls on Vercel (default 10s is too short)
 export const maxDuration = 30;
 
@@ -19,16 +16,7 @@ const BRAVE_API_KEY = process.env.BRAVE_API_KEY;
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "phi3";
 
-// Read API keys at request time to support serverless env injection
-function getOpenAIClient() {
-  const key = process.env.OPENAI_API_KEY;
-  return key ? new OpenAI({ apiKey: key }) : null;
-}
 
-function getAnthropicClient() {
-  const key = process.env.ANTHROPIC_API_KEY;
-  return key ? new Anthropic({ apiKey: key }) : null;
-}
 
 let cachedPersona = "";
 
@@ -125,27 +113,39 @@ async function callOllama(systemPrompt: string, prompt: string) {
 }
 
 async function callOpenAI(systemPrompt: string, prompt: string) {
-  const openaiClient = getOpenAIClient();
-  if (!openaiClient) {
-    console.log("[execute] OpenAI client not created — no API key");
-    return null;
-  }
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
   try {
-    console.log("[execute] Calling OpenAI...");
-    const response = await openaiClient.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompt }
-      ]
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+      }),
+      signal: controller.signal,
     });
-    const content = response.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      lastLLMError = "OpenAI returned empty response";
-      console.error("[execute] OpenAI returned empty content");
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      const errBody = await response.text();
+      lastLLMError = `OpenAI ${response.status}: ${errBody.slice(0, 200)}`;
+      console.error("[execute] OpenAI API error:", response.status, errBody.slice(0, 300));
       return null;
     }
-    console.log("[execute] OpenAI success");
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    if (!content) {
+      lastLLMError = "OpenAI returned empty response";
+      return null;
+    }
     return content;
   } catch (error) {
     lastLLMError = `OpenAI: ${(error as Error).message}`;
@@ -155,18 +155,37 @@ async function callOpenAI(systemPrompt: string, prompt: string) {
 }
 
 async function callAnthropic(systemPrompt: string, prompt: string) {
-  const anthropicClient = getAnthropicClient();
-  if (!anthropicClient) return null;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
   try {
-    const response = await anthropicClient.messages.create({
-      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929",
-      max_tokens: 800,
-      system: systemPrompt,
-      messages: [{ role: "user", content: prompt }]
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929",
+        max_tokens: 800,
+        system: systemPrompt,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      const errBody = await response.text();
+      lastLLMError = `Anthropic ${response.status}: ${errBody.slice(0, 200)}`;
+      console.error("[execute] Anthropic API error:", response.status, errBody.slice(0, 300));
+      return null;
+    }
+    const data = await response.json();
     return (
-      response.content
-        ?.map((part) => (part.type === "text" ? part.text : ""))
+      data.content
+        ?.map((part: { type: string; text?: string }) => (part.type === "text" ? part.text : ""))
         .join("\n")
         .trim() || null
     );
@@ -375,7 +394,8 @@ export async function POST(req: Request) {
       "No LLM provider configured",
       "No LLM provider responded",
     ];
-    const friendly = SAFE_ERRORS.find((e) => message.includes(e)) || "Something went wrong. Please try again.";
+    const isSafe = SAFE_ERRORS.some((e) => message.includes(e));
+    const friendly = isSafe ? message : "Something went wrong. Please try again.";
     return NextResponse.json({ error: friendly }, { status: 500 });
   }
 }
