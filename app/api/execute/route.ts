@@ -91,6 +91,10 @@ async function loadPersonaText() {
 }
 
 async function callOllama(systemPrompt: string, prompt: string) {
+  // Skip Ollama in serverless environments — localhost is not available
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+  if (isServerless) return null;
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -301,20 +305,6 @@ export async function POST(req: Request) {
   }
 
   const normalized = command.trim();
-
-  // Temporary debug command (remove after fixing)
-  if (normalized === "__debug_providers") {
-    const oaiKey = process.env.OPENAI_API_KEY;
-    const antKey = process.env.ANTHROPIC_API_KEY;
-    const oaiClient = getOpenAIClient();
-    return NextResponse.json({
-      openai_key_exists: !!oaiKey,
-      openai_key_prefix: oaiKey ? oaiKey.slice(0, 8) + "..." : null,
-      anthropic_key_exists: !!antKey,
-      openai_client_created: !!oaiClient,
-      last_llm_error: lastLLMError,
-    });
-  }
 
   try {
     const searchQuery = extractSearchQuery(normalized);
