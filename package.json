@@ -72,6 +72,18 @@
       "icon": "public/vaultai-logo.png",
       "category": "public.app-category.productivity"
     },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ],
+      "window": {
+        "width": 540,
+        "height": 400
+      },
+      "icon": "public/vaultai-logo.png",
+      "iconSize": 80
+    },
     "win": {
       "target": "nsis",
       "icon": "public/vaultai-logo.png"
