@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Download, Globe, Lock, Monitor, Shield, Smartphone } from "lucide-react";
+import { CheckCircle, Download, Lock, Monitor, Shield, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -58,25 +58,13 @@ function SuccessContent() {
             <a href="https://github.com/christopherlhammer11-ai/vaultai/releases/latest/download/VaultAI.dmg" className="btn-primary download-btn" target="_blank" rel="noopener noreferrer">
               <Download size={16} /> Download for Mac
             </a>
-            <span className="download-meta">macOS 12+ · Apple Silicon & Intel</span>
-          </div>
-          <div className="download-card">
-            <div className="download-card-icon"><Globe size={28} /></div>
-            <h3>Web App</h3>
-            <p>Access from any browser, any device. End-to-end encrypted in your browser.</p>
-            <Link href="/vault" className="btn-primary download-btn">
-              <Shield size={16} /> Launch Web App
-            </Link>
-            <span className="download-meta">Works on any device with a browser</span>
+            <span className="download-meta">macOS 12+ &middot; Apple Silicon &amp; Intel</span>
           </div>
           <div className="download-card">
             <div className="download-card-icon"><Smartphone size={28} /></div>
             <h3>Mobile (PWA)</h3>
-            <p>Add to your home screen for an app-like experience on iPhone or Android.</p>
-            <Link href="/vault" className="btn-primary download-btn" style={{ background: "var(--text-secondary)", color: "#000" }}>
-              <Smartphone size={16} /> Open & Add to Home Screen
-            </Link>
-            <span className="download-meta">iOS Safari · Android Chrome</span>
+            <p>Access from your phone on the same network. Add to home screen for an app-like experience.</p>
+            <span className="download-meta">Requires desktop app running on your local network</span>
           </div>
         </div>
       </div>
