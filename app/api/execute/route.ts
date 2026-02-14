@@ -42,6 +42,7 @@ async function runStatus() {
   const hasGemini = !!process.env.GEMINI_API_KEY;
   const hasGroq = !!process.env.GROQ_API_KEY;
   const hasMistral = !!process.env.MISTRAL_API_KEY;
+  const hasDeepSeek = !!process.env.DEEPSEEK_API_KEY;
   const hasBrave = !!BRAVE_API_KEY;
 
   const lines = [
@@ -57,6 +58,7 @@ async function runStatus() {
     `Gemini: ${hasGemini ? "configured" : "not set"}`,
     `Groq: ${hasGroq ? "configured" : "not set"}`,
     `Mistral: ${hasMistral ? "configured" : "not set"}`,
+    `DeepSeek: ${hasDeepSeek ? "configured" : "not set"}`,
     `Brave Search: ${hasBrave ? "configured" : "not set"}`,
   ];
   return lines.join("\n");
@@ -339,6 +341,49 @@ async function callMistral(systemPrompt: string, prompt: string) {
   }
 }
 
+async function callDeepSeek(systemPrompt: string, prompt: string) {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    // DeepSeek uses OpenAI-compatible API
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      const errBody = await response.text();
+      lastLLMError = `DeepSeek ${response.status}: ${errBody.slice(0, 200)}`;
+      console.error("[execute] DeepSeek API error:", response.status, errBody.slice(0, 300));
+      return null;
+    }
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    if (!content) {
+      lastLLMError = "DeepSeek returned empty response";
+      return null;
+    }
+    return content;
+  } catch (error) {
+    lastLLMError = `DeepSeek: ${(error as Error).message}`;
+    console.error("DeepSeek call failed, falling back:", (error as Error).message);
+    return null;
+  }
+}
+
 // Track the last LLM error for better diagnostics in serverless
 let lastLLMError: string | null = null;
 
@@ -417,7 +462,8 @@ async function routeToLLM(prompt: string, options?: { context?: string; userProf
     (await callAnthropic(scrubbedSystem, scrubbedUser)) ??
     (await callGemini(scrubbedSystem, scrubbedUser)) ??
     (await callGroq(scrubbedSystem, scrubbedUser)) ??
-    (await callMistral(scrubbedSystem, scrubbedUser));
+    (await callMistral(scrubbedSystem, scrubbedUser)) ??
+    (await callDeepSeek(scrubbedSystem, scrubbedUser));
 
   if (cloudReply) return anon.restore(cloudReply);
 

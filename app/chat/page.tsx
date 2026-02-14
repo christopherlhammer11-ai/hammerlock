@@ -96,7 +96,7 @@ export default function ChatPage() {
   });
 
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [apiKeys, setApiKeys] = useState({ openai: "", anthropic: "", gemini: "", groq: "", mistral: "", brave: "" });
+  const [apiKeys, setApiKeys] = useState({ openai: "", anthropic: "", gemini: "", groq: "", mistral: "", deepseek: "", brave: "" });
   const [onboardingStep, setOnboardingStep] = useState(-1);
   const [onboardingAnswers, setOnboardingAnswers] = useState<Record<string, string>>({});
   const [onboardingInput, setOnboardingInput] = useState("");
@@ -181,6 +181,7 @@ export default function ChatPage() {
         gemini: String(vaultData.settings.gemini_api_key || ""),
         groq: String(vaultData.settings.groq_api_key || ""),
         mistral: String(vaultData.settings.mistral_api_key || ""),
+        deepseek: String(vaultData.settings.deepseek_api_key || ""),
         brave: String(vaultData.settings.brave_api_key || ""),
       };
       setApiKeys(keys);
@@ -195,6 +196,7 @@ export default function ChatPage() {
             gemini_api_key: keys.gemini,
             groq_api_key: keys.groq,
             mistral_api_key: keys.mistral,
+            deepseek_api_key: keys.deepseek,
             brave_api_key: keys.brave,
           }),
         }).catch(() => {});
@@ -489,6 +491,7 @@ export default function ChatPage() {
         gemini_api_key: apiKeys.gemini.trim(),
         groq_api_key: apiKeys.groq.trim(),
         mistral_api_key: apiKeys.mistral.trim(),
+        deepseek_api_key: apiKeys.deepseek.trim(),
         brave_api_key: apiKeys.brave.trim(),
       }
     }));
@@ -503,6 +506,7 @@ export default function ChatPage() {
           gemini_api_key: apiKeys.gemini.trim(),
           groq_api_key: apiKeys.groq.trim(),
           mistral_api_key: apiKeys.mistral.trim(),
+          deepseek_api_key: apiKeys.deepseek.trim(),
           brave_api_key: apiKeys.brave.trim(),
         }),
       });
@@ -1288,6 +1292,15 @@ export default function ChatPage() {
                 </div>
                 <div>
                   <label style={{display:"block",fontSize:"0.8rem",color:"var(--text-secondary)",marginBottom:4,fontWeight:600}}>
+                    {t.apikeys_deepseek_label} <span style={{fontSize:"0.7rem"}}>{t.apikeys_deepseek_opt}</span>
+                  </label>
+                  <input type="password" placeholder="sk-..." value={apiKeys.deepseek}
+                    onChange={e => setApiKeys(prev => ({...prev, deepseek: e.target.value}))}
+                    style={{ width:"100%",padding:"10px 12px",background:"var(--bg-tertiary)",border:"1px solid var(--border-subtle)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:"0.85rem",fontFamily:"var(--font-mono)" }} />
+                  <span style={{fontSize:"0.7rem",color:"var(--text-secondary)"}}>{t.apikeys_deepseek_hint}</span>
+                </div>
+                <div>
+                  <label style={{display:"block",fontSize:"0.8rem",color:"var(--text-secondary)",marginBottom:4,fontWeight:600}}>
                     {t.apikeys_brave_label} <span style={{fontSize:"0.7rem"}}>{t.apikeys_brave_opt}</span>
                   </label>
                   <input type="password" placeholder="BSA..." value={apiKeys.brave}
@@ -1298,7 +1311,7 @@ export default function ChatPage() {
               </div>
               <div style={{display:"flex",gap:12,marginTop:18}}>
                 <button className="share-create-btn" onClick={handleSaveApiKeys} style={{flex:1, padding: needsApiKeys ? "12px 0" : undefined, fontSize: needsApiKeys ? "0.95rem" : undefined}}
-                  disabled={!apiKeys.openai.trim() && !apiKeys.anthropic.trim() && !apiKeys.gemini.trim() && !apiKeys.groq.trim() && !apiKeys.mistral.trim()}>
+                  disabled={!apiKeys.openai.trim() && !apiKeys.anthropic.trim() && !apiKeys.gemini.trim() && !apiKeys.groq.trim() && !apiKeys.mistral.trim() && !apiKeys.deepseek.trim()}>
                   {needsApiKeys ? "Connect & Get Started" : t.apikeys_save}
                 </button>
                 {!needsApiKeys && (

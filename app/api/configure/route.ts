@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   try {
     const {
       openai_api_key, anthropic_api_key, brave_api_key,
-      gemini_api_key, groq_api_key, mistral_api_key,
+      gemini_api_key, groq_api_key, mistral_api_key, deepseek_api_key,
     } = await req.json();
 
     let configured = 0;
@@ -54,6 +54,12 @@ export async function POST(req: Request) {
       configured++;
     }
 
+    if (deepseek_api_key && typeof deepseek_api_key === "string" && deepseek_api_key.trim()) {
+      process.env.DEEPSEEK_API_KEY = deepseek_api_key.trim();
+      process.env.VAULTAI_USER_DEEPSEEK_KEY = "1";
+      configured++;
+    }
+
     if (brave_api_key && typeof brave_api_key === "string" && brave_api_key.trim()) {
       process.env.BRAVE_API_KEY = brave_api_key.trim();
       configured++;
@@ -69,6 +75,7 @@ export async function POST(req: Request) {
         gemini: !!process.env.GEMINI_API_KEY,
         groq: !!process.env.GROQ_API_KEY,
         mistral: !!process.env.MISTRAL_API_KEY,
+        deepseek: !!process.env.DEEPSEEK_API_KEY,
         brave: !!process.env.BRAVE_API_KEY,
       },
     });

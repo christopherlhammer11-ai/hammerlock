@@ -196,7 +196,36 @@ async function callLLM(systemPrompt: string, userPrompt: string): Promise<string
     } catch { /* fall through */ }
   }
 
-  return "Unable to generate report — no LLM provider available. Ensure Ollama is running or set an API key (OpenAI, Anthropic, Gemini, Groq, or Mistral).";
+  // Try DeepSeek (anonymized, OpenAI-compatible)
+  if (process.env.DEEPSEEK_API_KEY) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+      const res = await fetch("https://api.deepseek.com/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+          messages: [
+            { role: "system", content: scrubbedSystem },
+            { role: "user", content: scrubbedUser },
+          ],
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (text) return anon.restore(text);
+      }
+    } catch { /* fall through */ }
+  }
+
+  return "Unable to generate report — no LLM provider available. Ensure Ollama is running or set an API key (OpenAI, Anthropic, Gemini, Groq, Mistral, or DeepSeek).";
 }
 
 export async function POST(req: Request) {
