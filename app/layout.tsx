@@ -46,6 +46,17 @@ export default function RootLayout({
           </SubscriptionProvider>
         </I18nProvider>
         <Script
+          id="electron-detect"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (navigator.userAgent.includes('Electron') || window.electron) {
+                document.body.classList.add('electron-app');
+              }
+            `,
+          }}
+        />
+        <Script
           id="sw-register"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{

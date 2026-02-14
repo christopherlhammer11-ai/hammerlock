@@ -1,4 +1,5 @@
 import { argon2id } from "@noble/hashes/argon2";
+import { Buffer } from "buffer";
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -26,14 +27,7 @@ export function setActiveSalt(salt: Uint8Array | null) {
   activeSalt = salt;
 }
 
-function ensureCrypto() {
-  if (typeof window === "undefined" || !window.crypto?.subtle) {
-    throw new Error("Web Crypto API is unavailable in this environment.");
-  }
-  return window.crypto;
-}
-
-export async function deriveKey(
+async function deriveKey(
   password: string,
   salt: Uint8Array,
   options?: { version?: KdfVersion }
@@ -57,9 +51,8 @@ export async function deriveKey(
 }
 
 async function deriveArgon2Key(password: string, salt: Uint8Array): Promise<CryptoKey> {
-  const crypto = ensureCrypto();
   const passwordBytes = textEncoder.encode(password);
-  const keyMaterial = argon2id(passwordBytes, salt, {
+  const keyMaterial = await argon2id(passwordBytes, salt, {
     t: ARGON2_PARAMS.iterations,
     m: ARGON2_PARAMS.memory,
     p: ARGON2_PARAMS.parallelism,
@@ -70,7 +63,6 @@ async function deriveArgon2Key(password: string, salt: Uint8Array): Promise<Cryp
 }
 
 async function derivePbkdf2Key(password: string, salt: Uint8Array): Promise<CryptoKey> {
-  const crypto = ensureCrypto();
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
     textEncoder.encode(password),
@@ -94,7 +86,6 @@ async function derivePbkdf2Key(password: string, salt: Uint8Array): Promise<Cryp
 }
 
 export async function encrypt(data: string, key: CryptoKey): Promise<string> {
-  const crypto = ensureCrypto();
   if (!activeSalt) {
     throw new Error("Vault salt missing. Initialize or unlock the vault first.");
   }
@@ -112,7 +103,6 @@ export async function encrypt(data: string, key: CryptoKey): Promise<string> {
 }
 
 export async function decrypt(encryptedData: string, key: CryptoKey): Promise<string> {
-  const crypto = ensureCrypto();
   const buffer = base64ToBytes(encryptedData);
   const saltLength = activeSalt?.length ?? 16;
   const iv = buffer.slice(saltLength, saltLength + 12);
@@ -122,7 +112,6 @@ export async function decrypt(encryptedData: string, key: CryptoKey): Promise<st
 }
 
 export async function hashPassword(password: string, salt: Uint8Array): Promise<string> {
-  const crypto = ensureCrypto();
   const passBytes = textEncoder.encode(password);
   const data = new Uint8Array(salt.length + passBytes.length);
   data.set(salt, 0);

@@ -4,6 +4,7 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react'],
   },
+  output: 'standalone', // Added export configuration
 };
 
 export default nextConfig;

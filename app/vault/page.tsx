@@ -23,12 +23,7 @@ const MAX_ATTEMPTS = 5;
 const COOLDOWN_MS = 30000;
 
 // ── First-launch welcome phases ──
-const WELCOME_FEATURES = [
-  { icon: Lock, label: "End-to-End Encrypted", desc: "AES-256 on your device" },
-  { icon: Brain, label: "Persistent Memory", desc: "Remembers your context" },
-  { icon: Globe, label: "7 LLM Providers", desc: "OpenAI, Claude, Gemini & more" },
-  { icon: Mic, label: "Voice & Search", desc: "Speak or search the web" },
-];
+// WELCOME_FEATURES uses i18n keys — defined inside the component
 
 export default function VaultPage() {
   const { hasVault, isUnlocked, initializeVault, unlockVault, clearVault } = useVault();
@@ -43,6 +38,13 @@ export default function VaultPage() {
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const attemptsRef = useRef(0);
   const mode: "create" | "unlock" = hasVault ? "unlock" : "create";
+
+  const WELCOME_FEATURES = [
+    { icon: Lock, label: t.welcome_encrypted_label, desc: t.welcome_encrypted_desc },
+    { icon: Brain, label: t.welcome_memory_label, desc: t.welcome_memory_desc },
+    { icon: Globe, label: t.welcome_providers_label, desc: t.welcome_providers_desc },
+    { icon: Mic, label: t.welcome_voice_label, desc: t.welcome_voice_desc },
+  ];
 
   // ── Welcome sequence state ──
   // Phase 0 = brand reveal, 1 = features, 2 = fade to form
@@ -173,10 +175,10 @@ export default function VaultPage() {
           sessionStorage.setItem("vault_attempts", "0");
           setError(t.vault_too_many(COOLDOWN_MS / 1000));
         } else {
-          setError(`${(err as Error).message}. ${MAX_ATTEMPTS - attemptsRef.current} attempts remaining.`);
+          setError(`${(err as Error).message}. ${t.vault_attempts_remaining(MAX_ATTEMPTS - attemptsRef.current)}`);
         }
       } else {
-        setError((err as Error).message || "Unable to create vault.");
+        setError((err as Error).message || t.vault_create_error);
       }
     } finally {
       setLoading(false);
@@ -214,7 +216,7 @@ export default function VaultPage() {
               <Lock size={48} strokeWidth={1.5} />
             </div>
             <h1 className="welcome-title">VaultAI</h1>
-            <p className="welcome-tagline">Private Intelligence</p>
+            <p className="welcome-tagline">{t.welcome_tagline}</p>
           </div>
 
           {/* Phase 1: Feature cards cascade */}
@@ -239,7 +241,7 @@ export default function VaultPage() {
           )}
 
           {/* Skip hint */}
-          <div className="welcome-skip">click anywhere to skip</div>
+          <div className="welcome-skip">{t.welcome_skip}</div>
         </div>
       )}
 
@@ -286,7 +288,7 @@ export default function VaultPage() {
                 type="button"
                 className="vault-toggle-pw"
                 onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? t.vault_hide_password : t.vault_show_password}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -321,7 +323,7 @@ export default function VaultPage() {
                     type="button"
                     className="vault-toggle-pw"
                     onClick={() => setShowConfirm(!showConfirm)}
-                    aria-label={showConfirm ? "Hide password" : "Show password"}
+                    aria-label={showConfirm ? t.vault_hide_password : t.vault_show_password}
                   >
                     {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -349,11 +351,11 @@ export default function VaultPage() {
 
           {/* Trust footer */}
           <div className="vault-trust">
-            <span>AES-256</span>
+            <span>{t.vault_trust_aes}</span>
             <span className="vault-trust-sep" />
-            <span>Local-Only</span>
+            <span>{t.vault_trust_local}</span>
             <span className="vault-trust-sep" />
-            <span>Zero-Knowledge</span>
+            <span>{t.vault_trust_zero}</span>
           </div>
         </div>
       )}

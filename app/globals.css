@@ -3331,3 +3331,49 @@ footer .trust-badge {
   .topbar-brand span { display: none; }
   .topbar-btn span { display: none; }
 }
+
+/* ============================================================
+   Electron Desktop — macOS hiddenInset title bar
+   ============================================================
+   When running in Electron with titleBarStyle: "hiddenInset",
+   the macOS traffic-light buttons (close/minimize/maximize)
+   are inset ~38px into the top-left corner of the window.
+   We need to:
+   1. Add padding so content doesn't overlap the traffic lights
+   2. Make the top bar a drag region so the window can be moved
+   3. Ensure interactive elements are excluded from the drag area
+   ============================================================ */
+
+.electron-app .console-sidebar {
+  padding-top: 42px;
+}
+
+.electron-app .console-topbar {
+  -webkit-app-region: drag;
+  padding-top: 14px;
+}
+
+.electron-app .console-topbar button,
+.electron-app .console-topbar a,
+.electron-app .console-topbar input,
+.electron-app .console-topbar select {
+  -webkit-app-region: no-drag;
+}
+
+.electron-app .vault-page {
+  -webkit-app-region: drag;
+  padding-top: 48px;
+}
+
+.electron-app .vault-card,
+.electron-app .vault-card input,
+.electron-app .vault-card button,
+.electron-app .welcome-overlay {
+  -webkit-app-region: no-drag;
+}
+
+.electron-app .sidebar-item,
+.electron-app .sidebar-lock,
+.electron-app .ghost-btn {
+  -webkit-app-region: no-drag;
+}

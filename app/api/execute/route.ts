@@ -415,7 +415,7 @@ async function callGateway(prompt: string): Promise<string> {
   }
 }
 
-async function routeToLLM(prompt: string, options?: { context?: string; userProfile?: { name?: string; role?: string; industry?: string; context?: string } | null; agentSystemPrompt?: string }) {
+async function routeToLLM(prompt: string, options?: { context?: string; userProfile?: { name?: string; role?: string; industry?: string; context?: string } | null; agentSystemPrompt?: string; locale?: string }) {
   const persona = await loadPersonaText();
   let profileSnippet = "";
   if (options?.userProfile) {
@@ -436,6 +436,12 @@ async function routeToLLM(prompt: string, options?: { context?: string; userProf
     systemPrompt = persona
       ? `Persona:\n${persona}${profileSnippet}\n\nYou are VaultAI, a local-first encrypted operator assistant. Be direct, cite actions, and keep data local.`
       : `You are VaultAI, a local-first operator assistant. Be concise and actionable.${profileSnippet}`;
+  }
+
+  // Inject language instruction if user selected a non-English locale
+  if (options?.locale && options.locale !== "en") {
+    const langName = LOCALE_LANG[options.locale] || options.locale;
+    systemPrompt += `\n\nIMPORTANT: Always respond in ${langName}. The user's interface is set to ${langName}, so all your replies must be in ${langName}.`;
   }
 
   const userPrompt = options?.context ? `${options.context}\n\n${prompt}` : prompt;
@@ -546,10 +552,59 @@ function formatBraveResults(results: BraveResult[]) {
   return lines.join("\n").trim();
 }
 
+// Map locale codes to full language names for LLM instruction
+const LOCALE_LANG: Record<string, string> = {
+  en: "English", "pt-BR": "Brazilian Portuguese", es: "Spanish",
+  fr: "French", de: "German", zh: "Chinese", ja: "Japanese",
+  ko: "Korean", ar: "Arabic", hi: "Hindi", ru: "Russian",
+};
+
+// Server-side i18n for API responses shown in chat feed
+const API_STRINGS: Record<string, Record<string, string>> = {
+  en: {
+    no_command: "No command received.",
+    no_search: "No search results found.",
+    no_persona: "No persona set up yet. Tell me about yourself!",
+    no_persona_alt: "No persona set up yet. Tell me about yourself and I'll remember it.",
+    remember_saved: "Got it, I'll remember that:",
+    remember_failed: "Couldn't save that right now. Try again?",
+    credits_exhausted: "You've used all your included compute units. To keep going, you can **add your own API key** (sidebar > API Keys) for unlimited use, or **get more units** from the VaultAI store.",
+    generic_error: "Something went wrong. Please try again.",
+    your_persona: "Your Persona",
+  },
+  "pt-BR": {
+    no_command: "Nenhum comando recebido.",
+    no_search: "Nenhum resultado de busca encontrado.",
+    no_persona: "Nenhum perfil configurado ainda. Me conte sobre você!",
+    no_persona_alt: "Nenhum perfil configurado ainda. Me conte sobre você e eu vou lembrar.",
+    remember_saved: "Entendi, vou lembrar disso:",
+    remember_failed: "Não consegui salvar agora. Tenta de novo?",
+    credits_exhausted: "Você usou todas as suas unidades de computação incluídas. Para continuar, você pode **adicionar sua própria chave API** (barra lateral > Chaves API) para uso ilimitado, ou **obter mais unidades** na loja VaultAI.",
+    generic_error: "Algo deu errado. Tente novamente.",
+    your_persona: "Seu Perfil",
+  },
+  es: {
+    no_command: "No se recibió ningún comando.",
+    no_search: "No se encontraron resultados de búsqueda.",
+    no_persona: "No hay persona configurada aún. ¡Cuéntame sobre ti!",
+    no_persona_alt: "No hay persona configurada aún. Cuéntame sobre ti y lo recordaré.",
+    remember_saved: "Entendido, recordaré eso:",
+    remember_failed: "No pude guardar eso ahora. ¿Intentar de nuevo?",
+    credits_exhausted: "Has usado todas tus unidades de cómputo incluidas. Para continuar, puedes **agregar tu propia clave API** (barra lateral > Claves API) para uso ilimitado.",
+    generic_error: "Algo salió mal. Inténtalo de nuevo.",
+    your_persona: "Tu Persona",
+  },
+};
+
+function apiStr(locale: string | undefined, key: string): string {
+  const loc = locale && API_STRINGS[locale] ? locale : "en";
+  return API_STRINGS[loc]?.[key] || API_STRINGS.en[key] || key;
+}
+
 export async function POST(req: Request) {
-  const { command, userProfile, agentSystemPrompt } = await req.json();
+  const { command, userProfile, agentSystemPrompt, locale } = await req.json();
   if (!command || typeof command !== "string") {
-    return NextResponse.json({ response: "No command received." }, { status: 400 });
+    return NextResponse.json({ response: apiStr(locale, "no_command") }, { status: 400 });
   }
 
   const normalized = command.trim();
@@ -565,7 +620,7 @@ export async function POST(req: Request) {
     if (!hasCreditAvailable) {
       const remaining = await getRemainingUnits();
       return NextResponse.json({
-        response: "You've used all your included compute units. To keep going, you can **add your own API key** (sidebar > API Keys) for unlimited use, or **get more units** from the VaultAI store.",
+        response: apiStr(locale, "credits_exhausted"),
         creditExhausted: true,
         remainingUnits: remaining,
       });
@@ -582,13 +637,13 @@ export async function POST(req: Request) {
 
       const results = await fetchBraveResults(scrubbedQuery);
       if (!results.length) {
-        return NextResponse.json({ response: "No search results found." });
+        return NextResponse.json({ response: apiStr(locale, "no_search") });
       }
       const formattedResults = formatBraveResults(results);
       const context = `Use these web results to answer accurately and cite sources with markdown links like [1](URL):\n${formattedResults}\n\nEach citation should refer to the corresponding URL. Query: ${searchQuery}`;
       const reply = await routeToLLM(
         `Provide a concise answer to: ${searchQuery}. Mention the freshness of info if possible and cite sources inline.`,
-        { context, userProfile, agentSystemPrompt }
+        { context, userProfile, agentSystemPrompt, locale }
       );
       if (!isServerless) await deductCredit("search");
       // De-anonymize the response in case any placeholders leaked through
@@ -605,9 +660,9 @@ export async function POST(req: Request) {
     if (lowered.includes("load persona") || lowered.includes("tell me about myself")) {
       try {
         const persona = await readFileSafe(personaPath);
-        return NextResponse.json({ response: persona ? `**Your Persona:**\n\n${persona}` : "No persona set up yet. Tell me about yourself!" });
+        return NextResponse.json({ response: persona ? `**${apiStr(locale, "your_persona")}:**\n\n${persona}` : apiStr(locale, "no_persona") });
       } catch {
-        return NextResponse.json({ response: "No persona set up yet. Tell me about yourself and I'll remember it." });
+        return NextResponse.json({ response: apiStr(locale, "no_persona_alt") });
       }
     }
 
@@ -622,9 +677,9 @@ export async function POST(req: Request) {
         await fs.mkdir(path.dirname(personaPath), { recursive: true });
         await fs.writeFile(personaPath, updated, "utf8");
         cachedPersona = updated; // refresh cache
-        return NextResponse.json({ response: `Got it, I'll remember that: "${note}"` });
+        return NextResponse.json({ response: `${apiStr(locale, "remember_saved")} "${note}"` });
       } catch {
-        return NextResponse.json({ response: "Couldn't save that right now. Try again?" });
+        return NextResponse.json({ response: apiStr(locale, "remember_failed") });
       }
     }
 
@@ -641,7 +696,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ response: plan });
     }
 
-    const reply = await routeToLLM(normalized, { userProfile, agentSystemPrompt });
+    const reply = await routeToLLM(normalized, { userProfile, agentSystemPrompt, locale });
     if (!isServerless) await deductCredit("chat");
     return NextResponse.json({ response: reply });
   } catch (error) {
@@ -657,7 +712,7 @@ export async function POST(req: Request) {
       "No LLM provider responded",
     ];
     const isSafe = SAFE_ERRORS.some((e) => message.includes(e));
-    const friendly = isSafe ? message : "Something went wrong. Please try again.";
+    const friendly = isSafe ? message : apiStr(locale, "generic_error");
     return NextResponse.json({ error: friendly }, { status: 500 });
   }
 }

@@ -148,7 +148,7 @@ export default function ChatPage() {
       // Migrate legacy single-chat to multi-conversation
       const legacy: Conversation = {
         id: generateId(),
-        name: "Chat 1",
+        name: `${t.chat_default_name} 1`,
         groupId: null,
         messages: vaultData.chatHistory,
         createdAt: new Date().toISOString(),
@@ -161,7 +161,7 @@ export default function ChatPage() {
       // Fresh vault — create first conversation
       const first: Conversation = {
         id: generateId(),
-        name: "Chat 1",
+        name: `${t.chat_default_name} 1`,
         groupId: null,
         messages: [],
         createdAt: new Date().toISOString(),
@@ -402,7 +402,7 @@ export default function ChatPage() {
       );
       const newConvo: Conversation = {
         id: generateId(),
-        name: `Chat ${updated.length + 1}`,
+        name: `${t.chat_default_name} ${updated.length + 1}`,
         groupId,
         messages: [],
         createdAt: new Date().toISOString(),
@@ -531,16 +531,16 @@ export default function ChatPage() {
     const currentPdf = uploadedPdf;
     if (currentPdf) {
       const pdfSnippet = currentPdf.text.length > 8000
-        ? currentPdf.text.slice(0, 8000) + "\n...(truncated)"
+        ? currentPdf.text.slice(0, 8000) + t.chat_pdf_truncated
         : currentPdf.text;
-      fullText = `[Attached PDF: ${currentPdf.name}]\n\n${pdfSnippet}\n\n---\n\nUser question: ${text}`;
+      fullText = `${t.chat_pdf_attached(currentPdf.name)}\n\n${pdfSnippet}\n\n---\n\nUser question: ${text}`;
       setUploadedPdf(null);
     }
 
     const ts = new Date().toISOString();
     const uid = Date.now().toString();
     const pid = String(Date.now()+1);
-    const userMsg: VaultMessage = {id:uid,role:"user",content:text + (currentPdf ? ` [PDF: ${currentPdf.name}]` : ""),timestamp:ts};
+    const userMsg: VaultMessage = {id:uid,role:"user",content:text + (currentPdf ? t.chat_pdf_ref(currentPdf.name) : ""),timestamp:ts};
     const pendingMsg: VaultMessage = {id:pid,role:"ai",content:t.chat_processing,timestamp:ts,pending:true};
     setMessages(prev => [...prev, userMsg, pendingMsg]);
     setInput(""); setSending(true);
@@ -548,7 +548,7 @@ export default function ChatPage() {
 
     try {
       const currentAgent = getAgentById(activeAgentId, customAgents);
-      const res = await fetch("/api/execute", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({command:fullText,persona:"operator",agentSystemPrompt:currentAgent?.systemPrompt})});
+      const res = await fetch("/api/execute", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({command:fullText,persona:"operator",agentSystemPrompt:currentAgent?.systemPrompt,locale})});
       const data = await res.json();
       if (!res.ok) {
         showError(`Gateway error: ${data.response || data.error || t.error_unknown}`);
@@ -562,7 +562,7 @@ export default function ChatPage() {
         return;
       }
 
-      const reply = data.reply || data.response || data.result || "(no response)";
+      const reply = data.reply || data.response || data.result || t.chat_no_response;
       setMessages(prev => {
         const updated = prev.map(m => m.id===pid ? {...m,content:reply,pending:false,timestamp:new Date().toISOString()} : m);
         // Update conversation
@@ -732,23 +732,23 @@ export default function ChatPage() {
         const ts = new Date().toISOString();
         setMessages(prev => [...prev, {
           id: Date.now().toString(), role: "ai",
-          content: `**Conversation shared!**\n\nLink: ${data.shareUrl}\n\nExpires in 24 hours. ${data.entryCount} messages shared.`,
+          content: t.chat_share_success(data.shareUrl, data.entryCount),
           timestamp: ts,
         }]);
         try { await navigator.clipboard.writeText(data.shareUrl); } catch { /* ok */ }
-      } else { showError(data.error || "Failed to create share link."); }
-    } catch(e) { showError("Share failed: " + String(e)); }
+      } else { showError(data.error || t.chat_share_failed); }
+    } catch(e) { showError(t.chat_share_error(String(e))); }
   }, [messages, isFeatureAvailable, showError, t]);
 
   // ---- EXPORT CHAT ----
   const handleExportChat = useCallback(() => {
     if (messages.length === 0) { showError(t.error_no_share); return; }
     const lines = messages.filter(m => !m.pending).map(m => {
-      const who = m.role === "user" ? "You" : "VaultAI";
+      const who = m.role === "user" ? t.chat_sender_you : t.chat_sender_ai;
       const time = m.timestamp ? new Date(m.timestamp).toLocaleString() : "";
       return `[${who}] ${time}\n${m.content}\n`;
     });
-    const text = `VaultAI Chat Export\n${"=".repeat(40)}\n\n${lines.join("\n")}`;
+    const text = `${t.chat_export_header}\n${"=".repeat(40)}\n\n${lines.join("\n")}`;
     const blob = new Blob([text], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -982,7 +982,7 @@ export default function ChatPage() {
               <div style={{ height: 8 }} />
               <div className="sidebar-label">{t.sidebar_tools_label}</div>
               <button className="sidebar-item" onClick={() => sendCommand("status")}><Settings size={14} /> {t.sidebar_system_status}</button>
-              <button className="sidebar-item" onClick={() => sendCommand("Tell me about myself")}><User size={14} /> {t.sidebar_my_persona}</button>
+              <button className="sidebar-item" onClick={() => sendCommand(t.chat_tell_me_about)}><User size={14} /> {t.sidebar_my_persona}</button>
               <button className="sidebar-item" onClick={handleGenerateReport}><BarChart3 size={14} /> {t.sidebar_generate_report}</button>
               <button className="sidebar-item" onClick={handleShare}><Share2 size={14} /> {t.sidebar_share_chat}</button>
               <button className="sidebar-item" onClick={handleExportChat}><Download size={14} /> {t.sidebar_export_chat}</button>

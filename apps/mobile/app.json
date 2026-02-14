@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "VaultAI",
+    "slug": "vaultai-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "vaultai",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#050505"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#050505"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    }
+  }
+}

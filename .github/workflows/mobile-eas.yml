@@ -1,0 +1,63 @@
+name: Mobile Expo CI
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "apps/mobile/**"
+      - "docs/mobile-infra.md"
+      - ".github/workflows/mobile-eas.yml"
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - "docs/mobile-infra.md"
+      - ".github/workflows/mobile-eas.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  expo-preview:
+    if: ${{ hashFiles('apps/mobile/package.json') != '' }}
+    runs-on: macos-13
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_PROJECT_DIR: apps/mobile
+      NODE_ENV: development
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ env.EAS_PROJECT_DIR }}
+        run: npm ci
+
+      - name: Expo Doctor
+        working-directory: ${{ env.EAS_PROJECT_DIR }}
+        run: npx expo-doctor
+
+      - name: EAS Build (Preview iOS)
+        working-directory: ${{ env.EAS_PROJECT_DIR }}
+        env:
+          EAS_NO_VCS_IGNORE: 1
+        run: npx eas build --profile preview --platform ios --non-interactive
+
+      - name: EAS Build (Production iOS)
+        working-directory: ${{ env.EAS_PROJECT_DIR }}
+        env:
+          EAS_NO_VCS_IGNORE: 1
+        run: npx eas build --profile production --platform ios --non-interactive
+
+      - name: Upload Preview Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-ios-preview
+          path: build/mobile-ios-preview.tar.gz

@@ -73,6 +73,21 @@ cd ~/vaultai && npm run electron:build:mac
 # Output: dist-electron/VaultAI-*.dmg
 ```
 
+## Electron Release CI
+- Workflow: `.github/workflows/electron-release.yml`
+- Trigger: pushing tags matching `v*`
+- Runner: `macos-13`, builds via `npm run electron:build:mac`
+- Signing secrets required in GitHub: `MAC_SIGNING_CERT` (base64 P12), `MAC_SIGNING_CERT_PASSWORD`, `APPLE_API_KEY` (base64 p8), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`, `APPLE_TEAM_ID`
+- Artifacts: uploads `dist-electron/*.dmg` to Actions + attaches DMG to the tag release
+
+## Mobile Expo CI (pre-scaffold)
+- Workflow: `.github/workflows/mobile-eas.yml`
+- Trigger: pushes/PRs touching `apps/mobile/**` (plus manual dispatch)
+- Runner: `macos-13`; job waits until `apps/mobile/package.json` exists
+- Steps: `npm ci`, `npx expo-doctor`, and `eas build --profile preview` (local, iOS preview tarball)
+- Secrets needed: `EXPO_TOKEN`
+- Artifacts: uploads `build/mobile-ios-preview.tar.gz`
+
 ## Fixing "No API Key" Error
 
 Check that `.env.local` has the required keys:

@@ -1,0 +1,32 @@
+{
+  "cli": {
+    "version": ">= 14.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "dev",
+      "env": {
+        "VAULTAI_ENV": "development"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "beta",
+      "env": {
+        "VAULTAI_ENV": "preview"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "autoIncrement": true,
+      "env": {
+        "VAULTAI_ENV": "production"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
