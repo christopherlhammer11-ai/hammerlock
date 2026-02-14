@@ -12,3 +12,10 @@ vault.json
 dist-electron/
 .vercel
 .shares/
+
+# Apple Developer signing keys
+*.p12
+*.key
+*.pem
+*.cer
+*.certSigningRequest

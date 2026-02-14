@@ -1,7 +1,26 @@
+import { argon2id } from "@noble/hashes/argon2";
+
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
 let activeSalt: Uint8Array | null = null;
+
+export const KDF_VERSIONS = {
+  ARGON2ID_V1: "argon2id-v1",
+  PBKDF2_V1: "pbkdf2-v1"
+} as const;
+
+export type KdfVersion = (typeof KDF_VERSIONS)[keyof typeof KDF_VERSIONS];
+
+export const DEFAULT_KDF_VERSION: KdfVersion = KDF_VERSIONS.ARGON2ID_V1;
+export const FALLBACK_KDF_VERSION: KdfVersion = KDF_VERSIONS.PBKDF2_V1;
+
+const ARGON2_PARAMS = {
+  iterations: 3,
+  memory: 64 * 1024, // KiB
+  parallelism: 1,
+  hashLength: 32
+};
 
 export function setActiveSalt(salt: Uint8Array | null) {
   activeSalt = salt;
@@ -14,7 +33,46 @@ function ensureCrypto() {
   return window.crypto;
 }
 
-export async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+export async function deriveKey(
+  password: string,
+  salt: Uint8Array,
+  options?: { version?: KdfVersion }
+): Promise<{ key: CryptoKey; version: KdfVersion }> {
+  const preferred = options?.version ?? DEFAULT_KDF_VERSION;
+
+  if (preferred === KDF_VERSIONS.ARGON2ID_V1) {
+    try {
+      const key = await deriveArgon2Key(password, salt);
+      return { key, version: KDF_VERSIONS.ARGON2ID_V1 };
+    } catch (error) {
+      console.warn("[crypto] Argon2id derive failed, falling back to PBKDF2", error);
+      if (options?.version === KDF_VERSIONS.ARGON2ID_V1) {
+        throw error;
+      }
+    }
+  }
+
+  const key = await derivePbkdf2Key(password, salt);
+  return { key, version: KDF_VERSIONS.PBKDF2_V1 };
+}
+
+async function deriveArgon2Key(password: string, salt: Uint8Array): Promise<CryptoKey> {
+  const crypto = ensureCrypto();
+  const passwordBytes = textEncoder.encode(password);
+  const keyMaterial = argon2id({
+    password: passwordBytes,
+    salt,
+    iterations: ARGON2_PARAMS.iterations,
+    memorySize: ARGON2_PARAMS.memory,
+    parallelism: ARGON2_PARAMS.parallelism,
+    hashLength: ARGON2_PARAMS.hashLength,
+    version: 0x13
+  });
+
+  return crypto.subtle.importKey("raw", keyMaterial, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+async function derivePbkdf2Key(password: string, salt: Uint8Array): Promise<CryptoKey> {
   const crypto = ensureCrypto();
   const keyMaterial = await crypto.subtle.importKey(
     "raw",

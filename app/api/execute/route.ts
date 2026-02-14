@@ -4,6 +4,7 @@ import { promisify } from "util";
 import path from "path";
 import os from "os";
 import fs from "fs/promises";
+import { hasCredit, deductCredit, getRemainingUnits } from "@/lib/compute-credits";
 // Allow longer execution for LLM calls on Vercel (default 10s is too short)
 export const maxDuration = 30;
 
@@ -29,18 +30,28 @@ async function runStatus() {
     .access(vaultJsonPath)
     .then(() => true)
     .catch(() => false);
+  const personaExists = await fs
+    .access(personaPath)
+    .then(() => true)
+    .catch(() => false);
+
+  const ollamaUp = await callOllama("test", "ping").then(() => true).catch(() => false);
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+  const hasBrave = !!BRAVE_API_KEY;
+
   const lines = [
-    `Vault path: ${vaultJsonPath}`,
-    `Persona path: ${personaPath}`,
-    `Vault.json ${vaultExists ? "found" : "missing"}`,
-    `Status: ${vaultExists ? "healthy" : "needs setup"}`
+    `**VaultAI Status**`,
+    ``,
+    `Vault: ${vaultExists ? "active" : "not set up"}`,
+    `Persona: ${personaExists ? "loaded" : "not found"} (${personaPath})`,
+    ``,
+    `**Providers**`,
+    `Ollama: ${ollamaUp ? "connected" : "offline"}`,
+    `OpenAI: ${hasOpenAI ? "configured" : "not set"}`,
+    `Anthropic: ${hasAnthropic ? "configured" : "not set"}`,
+    `Brave Search: ${hasBrave ? "configured" : "not set"}`,
   ];
-  try {
-    const { stdout } = await execAsync("node ./bin/vaultai.js status");
-    lines.push("\nCLI status:", stdout.trim());
-  } catch (error) {
-    lines.push(`\nCLI status unavailable: ${(error as Error).message}`);
-  }
   return lines.join("\n");
 }
 
@@ -227,7 +238,7 @@ async function callGateway(prompt: string): Promise<string> {
   }
 }
 
-async function routeToLLM(prompt: string, options?: { context?: string; userProfile?: { name?: string; role?: string; industry?: string; context?: string } | null }) {
+async function routeToLLM(prompt: string, options?: { context?: string; userProfile?: { name?: string; role?: string; industry?: string; context?: string } | null; agentSystemPrompt?: string }) {
   const persona = await loadPersonaText();
   let profileSnippet = "";
   if (options?.userProfile) {
@@ -239,9 +250,16 @@ async function routeToLLM(prompt: string, options?: { context?: string; userProf
     if (p.context) parts.push(`Notes: ${p.context}`);
     if (parts.length > 0) profileSnippet = `\n\nUser Profile:\n${parts.join("\n")}`;
   }
-  const systemPrompt = persona
-    ? `Persona:\n${persona}${profileSnippet}\n\nYou are VaultAI, a local-first encrypted operator assistant. Be direct, cite actions, and keep data local.`
-    : `You are VaultAI, a local-first operator assistant. Be concise and actionable.${profileSnippet}`;
+
+  // Use agent-specific system prompt if provided, otherwise default
+  let systemPrompt: string;
+  if (options?.agentSystemPrompt) {
+    systemPrompt = options.agentSystemPrompt + (persona ? `\n\nUser Persona:\n${persona}` : "") + profileSnippet;
+  } else {
+    systemPrompt = persona
+      ? `Persona:\n${persona}${profileSnippet}\n\nYou are VaultAI, a local-first encrypted operator assistant. Be direct, cite actions, and keep data local.`
+      : `You are VaultAI, a local-first operator assistant. Be concise and actionable.${profileSnippet}`;
+  }
 
   const userPrompt = options?.context ? `${options.context}\n\n${prompt}` : prompt;
 
@@ -332,12 +350,30 @@ function formatBraveResults(results: BraveResult[]) {
 }
 
 export async function POST(req: Request) {
-  const { command, userProfile } = await req.json();
+  const { command, userProfile, agentSystemPrompt } = await req.json();
   if (!command || typeof command !== "string") {
     return NextResponse.json({ response: "No command received." }, { status: 400 });
   }
 
   const normalized = command.trim();
+
+  // Determine request type for credit tracking
+  const isSearch = !!extractSearchQuery(normalized);
+  const requestType = isSearch ? "search" : "chat";
+
+  // Check compute credits (desktop only — serverless uses user's own key always)
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+  if (!isServerless) {
+    const hasCreditAvailable = await hasCredit(requestType);
+    if (!hasCreditAvailable) {
+      const remaining = await getRemainingUnits();
+      return NextResponse.json({
+        response: "You've used all your included compute units. To keep going, you can **add your own API key** (sidebar > API Keys) for unlimited use, or **get more units** from the VaultAI store.",
+        creditExhausted: true,
+        remainingUnits: remaining,
+      });
+    }
+  }
 
   try {
     const searchQuery = extractSearchQuery(normalized);
@@ -350,8 +386,9 @@ export async function POST(req: Request) {
       const context = `Use these web results to answer accurately and cite sources with markdown links like [1](URL):\n${formattedResults}\n\nEach citation should refer to the corresponding URL. Query: ${searchQuery}`;
       const reply = await routeToLLM(
         `Provide a concise answer to: ${searchQuery}. Mention the freshness of info if possible and cite sources inline.`,
-        { context, userProfile }
+        { context, userProfile, agentSystemPrompt }
       );
+      if (!isServerless) await deductCredit("search");
       return NextResponse.json({ response: reply });
     }
 
@@ -363,8 +400,29 @@ export async function POST(req: Request) {
     }
 
     if (lowered.includes("load persona") || lowered.includes("tell me about myself")) {
-      const persona = await readFileSafe(personaPath);
-      return NextResponse.json({ response: persona });
+      try {
+        const persona = await readFileSafe(personaPath);
+        return NextResponse.json({ response: persona ? `**Your Persona:**\n\n${persona}` : "No persona set up yet. Tell me about yourself!" });
+      } catch {
+        return NextResponse.json({ response: "No persona set up yet. Tell me about yourself and I'll remember it." });
+      }
+    }
+
+    // Handle "remember" commands — append to persona file
+    const rememberMatch = normalized.match(/^(?:remember|note|save|update persona)[:\s]+(.+)/i);
+    if (rememberMatch && rememberMatch[1]) {
+      const note = rememberMatch[1].trim();
+      try {
+        let existing = "";
+        try { existing = await fs.readFile(personaPath, "utf8"); } catch { /* new file */ }
+        const updated = existing ? `${existing}\n${note}` : note;
+        await fs.mkdir(path.dirname(personaPath), { recursive: true });
+        await fs.writeFile(personaPath, updated, "utf8");
+        cachedPersona = updated; // refresh cache
+        return NextResponse.json({ response: `Got it, I'll remember that: "${note}"` });
+      } catch {
+        return NextResponse.json({ response: "Couldn't save that right now. Try again?" });
+      }
     }
 
     if (lowered.startsWith("read file")) {
@@ -380,7 +438,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ response: plan });
     }
 
-    const reply = await routeToLLM(normalized, { userProfile });
+    const reply = await routeToLLM(normalized, { userProfile, agentSystemPrompt });
+    if (!isServerless) await deductCredit("chat");
     return NextResponse.json({ response: reply });
   } catch (error) {
     const message = (error as Error).message;

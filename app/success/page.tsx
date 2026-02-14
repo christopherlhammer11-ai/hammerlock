@@ -79,7 +79,7 @@ function SuccessContent() {
         <div className="setup-steps">
           <div className="setup-step">
             <div className="step-number">1</div>
-            <div><strong>Install &amp; open VaultAI</strong><p>Open the .dmg file and drag VaultAI to Applications. On first launch, <strong>right-click the app &rarr; Open</strong> to bypass the macOS Gatekeeper warning (this only happens once).</p></div>
+            <div><strong>Install &amp; open VaultAI</strong><p>Open the .dmg file and drag VaultAI to Applications. Double-click to launch.</p></div>
           </div>
           <div className="setup-step">
             <div className="step-number">2</div>

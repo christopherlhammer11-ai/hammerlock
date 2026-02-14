@@ -25,13 +25,13 @@ const features = [
   },
   {
     icon: '🌐',
-    title: 'Live Web Search',
-    body: 'Real-time search with cited sources. Get current market data, news, regulations, and research — without sacrificing your query history.'
+    title: 'Brave-Powered Search',
+    body: 'Live Brave Search with inline citations. Pull the latest filings, news, and regs without leaking your query history.'
   },
   {
     icon: '🧠',
     title: 'Persistent Memory',
-    body: 'VaultAI remembers context across sessions. Load a persona file and it knows who you are, what you are working on, and how you think.'
+    body: 'VaultAI remembers personas, plans, and preferences locally. Load it once and it stays encrypted in your vault.'
   },
   {
     icon: '🎙️',
@@ -39,9 +39,24 @@ const features = [
     body: "Speak naturally, get spoken responses. Hands-free operation when you're moving fast and need answers faster."
   },
   {
+    icon: '🌍',
+    title: 'Multilingual Console',
+    body: 'Switch the entire operator console between English, Spanish, Portuguese, German, French, Chinese, Japanese, Korean, Arabic, Hindi, and Russian.'
+  },
+  {
+    icon: '💳',
+    title: 'Transparent Compute Credits',
+    body: 'Built-in meter that tracks bundled usage, Brave/API key overrides, and on-device fallbacks so you always know what runs where.'
+  },
+  {
     icon: '📄',
     title: 'PDF & File Export',
     body: 'Export any conversation, research summary, or generated document as a clean PDF. Ready for partners, investors, or your own archive.'
+  },
+  {
+    icon: '🤖',
+    title: 'Specialized Agents',
+    body: 'Six built-in operators (strategy, research, legal, finance, ops, writing) plus the ability to spin up custom agents in seconds.'
   },
   {
     icon: '⚡',
@@ -72,6 +87,7 @@ const comparisonRows = [
   ['Data stored on your device', '✕', '✓'],
   ['End-to-end encryption', '✕', '✓'],
   ['Never trains on your data', '✕', '✓'],
+  ['Specialized AI agents', '✕', '6 built-in + custom'],
   ['Persistent memory across sessions', '✕', '✓'],
   ['Web search with cited sources', 'Limited', '✓'],
   ['Voice input & output', 'Some', '✓'],
@@ -104,6 +120,7 @@ const plans = [
     popular: true,
     features: [
       'Everything in Lite',
+      '6 specialized AI agents + custom agents',
       'Live web search (Brave)',
       'Cloud LLM fallback (GPT-4o, Claude)',
       'Voice input & output',
@@ -116,11 +133,25 @@ const plans = [
   },
 ];
 
+/** Detect if running inside Electron desktop app */
+function isElectron(): boolean {
+  if (typeof window === "undefined") return false;
+  return !!(window as unknown as Record<string, unknown>).electron ||
+    (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
+}
+
 export default function LandingPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [mobileUrl, setMobileUrl] = useState<string | null>(null);
+
+  // Desktop app: skip marketing page, go straight to vault
+  useEffect(() => {
+    if (isElectron()) {
+      window.location.replace("/vault");
+    }
+  }, []);
 
   useEffect(() => {
     fetch('/api/local-ip')
@@ -159,12 +190,13 @@ export default function LandingPage() {
   return (
     <div className="page-wrapper">
       <nav className="site-nav">
-        <div className="logo-mark">
+        <a href="/" className="logo-mark" style={{ textDecoration: 'none', color: 'inherit' }}>
           <Lock size={16} />
           VaultAI
-        </div>
+        </a>
         <ul>
           <li><a href="#features">Features</a></li>
+          <li><a href="#agents">Agents</a></li>
           <li><a href="#pricing">Pricing</a></li>
           <li><a href="#how">How It Works</a></li>
           <li><a href="#why">Why Vault</a></li>
@@ -183,6 +215,7 @@ export default function LandingPage() {
               <X size={24} />
             </button>
             <a href="#features" onClick={() => setMobileNavOpen(false)}>Features</a>
+            <a href="#agents" onClick={() => setMobileNavOpen(false)}>Agents</a>
             <a href="#pricing" onClick={() => setMobileNavOpen(false)}>Pricing</a>
             <a href="#how" onClick={() => setMobileNavOpen(false)}>How It Works</a>
             <a href="#why" onClick={() => setMobileNavOpen(false)}>Why Vault</a>
@@ -301,6 +334,62 @@ export default function LandingPage() {
               <p>{feature.body}</p>
             </article>
           ))}
+        </div>
+      </section>
+
+      {/* AGENTS */}
+      <section id="agents" className="features" style={{ borderTop: '1px solid var(--border-color, #1a1a1a)' }}>
+        <div className="section-label">Specialized Agents</div>
+        <h2>Six agents. One vault. Zero data leakage.</h2>
+        <p className="section-subtitle">
+          Switch between specialized AI agents built for how professionals actually work.
+          Each agent has domain-specific knowledge, a tailored communication style, and privacy guardrails.
+          Plus, build your own custom agents in seconds.
+        </p>
+        <div className="features-grid">
+                    {[
+            {
+              icon: '🎯',
+              title: 'Strategist',
+              body: 'Turns raw intel into board-ready plays—competitive teardowns, GTM roadmaps, and M&A sniff tests without leaking the thesis.',
+            },
+            {
+              icon: '⚖️',
+              title: 'Counsel',
+              body: 'IRAC-form briefs, clause redlines, and regulatory heat maps that keep privilege intact and citations airtight.',
+            },
+            {
+              icon: '📈',
+              title: 'Analyst',
+              body: 'Builds models on the fly, stress-tests scenarios, and distills earnings calls into next-step narratives.',
+            },
+            {
+              icon: '📚',
+              title: 'Researcher',
+              body: 'Cross-examines sources, synthesizes papers, and delivers evidence stacks you can drop straight into a memo.',
+            },
+            {
+              icon: '🔧',
+              title: 'Operator',
+              body: 'Breaks work into accountable steps, writes SOPs, and keeps execution ruthless and boring (the good kind).',
+            },
+            {
+              icon: '✍️',
+              title: 'Writer',
+              body: 'Spins up founder letters, legalese, or launch copy in your voice—tight, on-brief, and press-ready.',
+            },
+          ].map((agent) => (
+            <article key={agent.title} className="feature-card">
+              <div style={{ fontSize: '1.75rem' }}>{agent.icon}</div>
+              <h3>{agent.title}</h3>
+              <p>{agent.body}</p>
+            </article>
+          ))}
+        </div>
+        <div style={{ textAlign: 'center', marginTop: 32 }}>
+          <a href="/agents" className="btn-secondary" style={{ textDecoration: 'none' }}>
+            Read the Agent Guide &rarr;
+          </a>
         </div>
       </section>
 
@@ -480,9 +569,9 @@ export default function LandingPage() {
       </section>
 
       <footer className="site-footer">
-        <div className="logo-mark">
+        <a href="/" className="logo-mark" style={{ textDecoration: 'none', color: 'inherit' }}>
           <Lock size={16} /> VaultAI
-        </div>
+        </a>
         <div>Your data stays yours. &middot; <a href="mailto:info@personalvaultai.com" style={{ color: 'var(--accent)', textDecoration: 'none' }}>info@personalvaultai.com</a></div>
       </footer>
     </div>

@@ -34,8 +34,17 @@ const defaultSubscription = (): SubscriptionStatus => ({
   activatedAt: null,
 });
 
+/** Desktop Electron app = always premium (user already purchased) */
+function isElectron(): boolean {
+  if (typeof window === "undefined") return false;
+  return !!(window as unknown as Record<string, unknown>).electron ||
+    typeof navigator !== "undefined" && navigator.userAgent.includes("Electron");
+}
+
 /** Check if subscription is genuinely active (not expired) */
 function isSubscriptionActive(sub: SubscriptionStatus): boolean {
+  // Desktop app: always active — user paid on the website before downloading
+  if (isElectron()) return true;
   if (!sub.active) return false;
   if (sub.trialEnd) {
     return new Date(sub.trialEnd).getTime() > Date.now();
@@ -150,12 +159,16 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const canSendMessage = useMemo(() => {
+    // Desktop app: unlimited messages
+    if (isElectron()) return true;
     if (isSubscriptionActive(subscription)) return true;
     return messageCount < FREE_MESSAGE_LIMIT;
   }, [subscription, messageCount]);
 
   const isFeatureAvailable = useCallback(
     (feature: PremiumFeature) => {
+      // Desktop app: all features unlocked
+      if (isElectron()) return true;
       if (!isSubscriptionActive(subscription)) return false;
       const requiredTier = FEATURE_TIERS[feature];
       return TIER_RANK[subscription.tier] >= TIER_RANK[requiredTier];

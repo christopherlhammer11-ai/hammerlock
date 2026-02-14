@@ -10,7 +10,19 @@ import {
   useRef,
   useState
 } from "react";
-import { base64ToBytes, bytesToBase64, deriveKey, encrypt, hashPassword, setActiveSalt, decrypt } from "./crypto";
+import {
+  base64ToBytes,
+  bytesToBase64,
+  decrypt,
+  deriveKey,
+  encrypt,
+  hashPassword,
+  setActiveSalt,
+  DEFAULT_KDF_VERSION,
+  FALLBACK_KDF_VERSION,
+  KDF_VERSIONS
+} from "./crypto";
+import type { KdfVersion } from "./crypto";
 
 export type VaultMessage = {
   id: string;
@@ -35,8 +47,12 @@ const defaultVaultData = (): VaultData => ({
 const STORAGE_KEYS = {
   salt: "vault_salt",
   passwordHash: "vault_password_hash",
-  encrypted: "vault_encrypted_data"
+  encrypted: "vault_encrypted_data",
+  kdfVersion: "vault_kdf_version"
 };
+
+const KDF_VERSION_SET = new Set<KdfVersion>(Object.values(KDF_VERSIONS));
+const LEGACY_KDF_VERSION: KdfVersion = FALLBACK_KDF_VERSION;
 
 type VaultContextValue = {
   isUnlocked: boolean;
@@ -57,6 +73,25 @@ const ensureClientWindow = () => {
     throw new Error("Vault operations can only run in the browser.");
   }
   return window;
+};
+
+const parseStoredKdfVersion = (value: string | null): KdfVersion | null => {
+  if (!value) return null;
+  return KDF_VERSION_SET.has(value as KdfVersion) ? (value as KdfVersion) : null;
+};
+
+const readStoredKdfVersion = (w: Window): KdfVersion => {
+  const stored = parseStoredKdfVersion(w.localStorage.getItem(STORAGE_KEYS.kdfVersion));
+  if (stored) return stored;
+  // Legacy vaults won't have a version flag but will have password hash/salt.
+  if (w.localStorage.getItem(STORAGE_KEYS.passwordHash)) {
+    return LEGACY_KDF_VERSION;
+  }
+  return DEFAULT_KDF_VERSION;
+};
+
+const persistKdfVersion = (w: Window, version: KdfVersion) => {
+  w.localStorage.setItem(STORAGE_KEYS.kdfVersion, version);
 };
 
 export function VaultProvider({ children }: { children: ReactNode }) {
@@ -114,10 +149,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const crypto = w.crypto;
       const salt = crypto.getRandomValues(new Uint8Array(16));
       setActiveSalt(salt);
-      const key = await deriveKey(password, salt);
+      const { key, version } = await deriveKey(password, salt);
       const passwordHash = await hashPassword(password, salt);
       w.localStorage.setItem(STORAGE_KEYS.salt, bytesToBase64(salt));
       w.localStorage.setItem(STORAGE_KEYS.passwordHash, passwordHash);
+      persistKdfVersion(w, version);
       const initialData = defaultVaultData();
       keyRef.current = key;
       dataRef.current = initialData;
@@ -140,7 +176,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
     const salt = base64ToBytes(saltString);
     setActiveSalt(salt);
-    const key = await deriveKey(password, salt);
+    const requestedVersion = readStoredKdfVersion(w);
+    const { key, version } = await deriveKey(password, salt, { version: requestedVersion });
+    persistKdfVersion(w, version);
     const hashCandidate = await hashPassword(password, salt);
     if (hashCandidate !== hashStored) {
       throw new Error("Wrong password");
@@ -181,6 +219,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     w.localStorage.removeItem(STORAGE_KEYS.salt);
     w.localStorage.removeItem(STORAGE_KEYS.passwordHash);
     w.localStorage.removeItem(STORAGE_KEYS.encrypted);
+    w.localStorage.removeItem(STORAGE_KEYS.kdfVersion);
     lockVault();
     syncFlags();
   }, [lockVault, syncFlags]);
@@ -197,7 +236,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       lockVault,
       clearVault
     }),
-    [isUnlocked, hasVault, vaultData, initializeVault, unlockVault, updateVaultData, saveVault, lockVault, clearVault]
+    [
+      isUnlocked,
+      hasVault,
+      vaultData,
+      initializeVault,
+      unlockVault,
+      updateVaultData,
+      saveVault,
+      lockVault,
+      clearVault
+    ]
   );
 
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;

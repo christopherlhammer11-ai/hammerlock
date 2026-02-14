@@ -59,7 +59,7 @@ export default function GetAppPage() {
             <div className="step-number">1</div>
             <div>
               <strong>Install &amp; open VaultAI</strong>
-              <p>Open the .dmg and drag VaultAI to Applications. On first launch, <strong>right-click the app &rarr; Open</strong> to bypass the macOS Gatekeeper warning (this only happens once).</p>
+              <p>Open the .dmg and drag VaultAI to Applications. Double-click to launch.</p>
             </div>
           </div>
           <div className="setup-step">

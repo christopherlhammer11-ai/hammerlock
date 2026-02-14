@@ -4,6 +4,7 @@ import { Eye, EyeOff, Lock } from "lucide-react";
 import { useVault } from "@/lib/vault-store";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useMemo, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 
 function getPasswordStrength(pw: string): "weak" | "medium" | "strong" {
   if (!pw || pw.length < 6) return "weak";
@@ -24,6 +25,7 @@ const COOLDOWN_MS = 30000;
 export default function VaultPage() {
   const { hasVault, isUnlocked, initializeVault, unlockVault, clearVault } = useVault();
   const router = useRouter();
+  const { t } = useI18n();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +37,7 @@ export default function VaultPage() {
   const mode: "create" | "unlock" = hasVault ? "unlock" : "create";
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
+  const strengthLabel = strength === "weak" ? t.vault_weak : strength === "medium" ? t.vault_medium : t.vault_strong;
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -66,15 +69,15 @@ export default function VaultPage() {
   const handleSubmit = async () => {
     setError(null);
     if (cooldownRemaining > 0) {
-      setError(`Too many attempts. Wait ${Math.ceil(cooldownRemaining / 1000)}s.`);
+      setError(t.vault_too_many(Math.ceil(cooldownRemaining / 1000)));
       return;
     }
     if (mode === "create" && password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t.vault_no_match);
       return;
     }
     if (!password) {
-      setError("Password is required.");
+      setError(t.vault_required);
       return;
     }
     try {
@@ -98,7 +101,7 @@ export default function VaultPage() {
           setCooldownRemaining(COOLDOWN_MS);
           attemptsRef.current = 0;
           sessionStorage.setItem("vault_attempts", "0");
-          setError(`Too many failed attempts. Locked for ${COOLDOWN_MS / 1000}s.`);
+          setError(t.vault_too_many(COOLDOWN_MS / 1000));
         } else {
           setError(`${(err as Error).message}. ${MAX_ATTEMPTS - attemptsRef.current} attempts remaining.`);
         }
@@ -113,7 +116,7 @@ export default function VaultPage() {
   };
 
   const handleReset = () => {
-    const confirmed = confirm("This permanently deletes all encrypted data. Continue?");
+    const confirmed = confirm(t.vault_reset_confirm);
     if (confirmed) {
       clearVault();
       setPassword("");
@@ -129,15 +132,13 @@ export default function VaultPage() {
             <Lock size={32} />
           </div>
         )}
-        <h1>{mode === "create" ? "Create Your Vault" : "Vault Locked"}</h1>
+        <h1>{mode === "create" ? t.vault_create_title : t.vault_unlock_title}</h1>
         <p className="vault-subtext">
-          {mode === "create"
-            ? "Choose a password. This becomes your encryption key. We never see it, store it, or recover it."
-            : "Enter your password to decrypt."}
+          {mode === "create" ? t.vault_create_subtitle : t.vault_unlock_subtitle}
         </p>
 
         <div className="vault-form">
-          <label>Password</label>
+          <label>{t.vault_password}</label>
           <div className="vault-input-wrap">
             <input
               type={showPassword ? "text" : "password"}
@@ -165,14 +166,14 @@ export default function VaultPage() {
                 <div className={`pw-strength-bar ${strength}`} />
               </div>
               <div className={`pw-strength-label ${strength}`}>
-                {strength === "weak" ? "Weak" : strength === "medium" ? "Medium" : "Strong"}
+                {strengthLabel}
               </div>
             </>
           )}
 
           {mode === "create" && (
             <>
-              <label>Confirm Password</label>
+              <label>{t.vault_confirm}</label>
               <div className="vault-input-wrap">
                 <input
                   type={showConfirm ? "text" : "password"}
@@ -200,17 +201,17 @@ export default function VaultPage() {
 
         <button className="vault-submit" onClick={handleSubmit} disabled={loading || cooldownRemaining > 0}>
           {cooldownRemaining > 0
-            ? `Locked (${Math.ceil(cooldownRemaining / 1000)}s)`
+            ? t.vault_locked(Math.ceil(cooldownRemaining / 1000))
             : loading
-              ? "Processing..."
+              ? t.vault_processing
               : mode === "create"
-                ? "Create Vault"
-                : "Unlock"}
+                ? t.vault_create_btn
+                : t.vault_unlock_btn}
         </button>
 
         {mode === "unlock" && (
           <button className="vault-reset" onClick={handleReset}>
-            Reset vault
+            {t.vault_reset}
           </button>
         )}
       </div>

@@ -125,27 +125,61 @@ async function startNext() {
     return;
   }
 
-  const cmd = IS_DEV ? "dev" : "start";
-  console.log(`[vaultai] Starting Next.js (${cmd}) on port ${NEXT_PORT}...`);
-  // Use node_modules/.bin/next directly — npx may not be on PATH in packaged app
-  const nextBin = IS_DEV
-    ? "npx"
-    : path.join(ROOT, "node_modules", ".bin", "next");
-  const nextArgs = IS_DEV
-    ? ["next", cmd, "-p", String(NEXT_PORT)]
-    : [cmd, "-p", String(NEXT_PORT)];
-  nextProcess = spawn(nextBin, nextArgs, {
-    cwd: ROOT,
-    stdio: "pipe",
-    env: { ...process.env, PORT: String(NEXT_PORT) },
-  });
+  if (IS_DEV) {
+    // Dev mode: spawn npx next dev
+    console.log(`[vaultai] Starting Next.js (dev) on port ${NEXT_PORT}...`);
+    nextProcess = spawn("npx", ["next", "dev", "-p", String(NEXT_PORT)], {
+      cwd: ROOT,
+      stdio: "pipe",
+      env: { ...process.env, PORT: String(NEXT_PORT) },
+    });
 
-  nextProcess.stdout?.on("data", (d) => console.log(`[next] ${d.toString().trim()}`));
-  nextProcess.stderr?.on("data", (d) => console.error(`[next] ${d.toString().trim()}`));
-  nextProcess.on("exit", (code) => {
-    console.log(`[next] exited with code ${code}`);
-    nextProcess = null;
-  });
+    nextProcess.stdout?.on("data", (d) => console.log(`[next] ${d.toString().trim()}`));
+    nextProcess.stderr?.on("data", (d) => console.error(`[next] ${d.toString().trim()}`));
+    nextProcess.on("exit", (code) => {
+      console.log(`[next] exited with code ${code}`);
+      nextProcess = null;
+    });
+  } else {
+    // Production: use Next.js programmatic server (no child process needed)
+    console.log(`[vaultai] Starting Next.js (production) on port ${NEXT_PORT}...`);
+    try {
+      const nextModule = await import(path.join(ROOT, "node_modules", "next", "dist", "server", "next.js"));
+      const NextServer = nextModule.default?.default || nextModule.default;
+      const nextApp = NextServer({
+        dev: false,
+        dir: ROOT,
+        port: NEXT_PORT,
+        hostname: "127.0.0.1",
+      });
+      await nextApp.prepare();
+      const handler = nextApp.getRequestHandler();
+
+      const { createServer } = await import("http");
+      const server = createServer((req, res) => handler(req, res));
+      await new Promise((resolve, reject) => {
+        server.listen(NEXT_PORT, "127.0.0.1", () => resolve());
+        server.on("error", reject);
+      });
+      console.log(`[vaultai] Next.js production server listening on port ${NEXT_PORT}`);
+      return; // skip waitForPort — already listening
+    } catch (err) {
+      console.error("[vaultai] Programmatic Next.js failed, falling back to CLI:", err.message);
+      // Fallback: spawn the next binary directly
+      const nextBin = path.join(ROOT, "node_modules", "next", "dist", "bin", "next");
+      nextProcess = spawn(process.execPath, [nextBin, "start", "-p", String(NEXT_PORT)], {
+        cwd: ROOT,
+        stdio: "pipe",
+        env: { ...process.env, PORT: String(NEXT_PORT) },
+      });
+      nextProcess.stdout?.on("data", (d) => console.log(`[next] ${d.toString().trim()}`));
+      nextProcess.stderr?.on("data", (d) => console.error(`[next] ${d.toString().trim()}`));
+      nextProcess.on("exit", (code) => {
+        console.log(`[next] exited with code ${code}`);
+        nextProcess = null;
+      });
+    }
+  }
 
   await waitForPort(NEXT_PORT);
   console.log("[vaultai] Next.js ready.");
@@ -170,7 +204,8 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL(`http://127.0.0.1:${NEXT_PORT}`);
+  // Load vault directly — skip marketing landing page
+  mainWindow.loadURL(`http://127.0.0.1:${NEXT_PORT}/vault`);
 
   // Open external links in system browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
