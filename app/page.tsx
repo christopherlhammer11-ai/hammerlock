@@ -165,6 +165,36 @@ export default function LandingPage() {
       .catch(() => {});
   }, []);
 
+  // Nav scroll effect
+  useEffect(() => {
+    const nav = document.querySelector('nav.site-nav');
+    if (!nav) return;
+    const onScroll = () => {
+      if (window.scrollY > 40) nav.classList.add('scrolled');
+      else nav.classList.remove('scrolled');
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Scroll fade-in for sections
+  useEffect(() => {
+    const sections = document.querySelectorAll('.fade-in-section');
+    if (!sections.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+    );
+    sections.forEach((s) => observer.observe(s));
+    return () => observer.disconnect();
+  }, []);
+
   const handleCheckout = async (plan: string) => {
     setCheckoutLoading(plan);
     try {
@@ -234,8 +264,7 @@ export default function LandingPage() {
           <span className="gradient">Your Rules.</span>
         </h1>
         <p className="subhead">
-          VaultAI is a personal AI assistant that lives on your device. Encrypted memory. Real-time web search.
-          Zero data harvesting. Built for people who do not hand over the keys.
+          An AI assistant that lives on your device. Encrypted memory, real-time search, zero data harvesting.
         </p>
         <div className="hero-cta">
           <a href="#pricing" className="btn-primary">Start 7-Day Free Trial</a>
@@ -265,7 +294,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="usecases">
+      <section className="usecases fade-in-section">
         <div className="section-label">USE CASES</div>
         <h2>Built for people with something to protect.</h2>
         <p className="section-subtitle">
@@ -319,7 +348,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="features" className="features">
+      <section id="features" className="features fade-in-section">
         <div className="section-label">What You Get</div>
         <h2>Everything an AI should be. Nothing it shouldn&apos;t.</h2>
         <p className="section-subtitle">
@@ -338,7 +367,7 @@ export default function LandingPage() {
       </section>
 
       {/* AGENTS */}
-      <section id="agents" className="features" style={{ borderTop: '1px solid var(--border-color, #1a1a1a)' }}>
+      <section id="agents" className="features fade-in-section" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
         <div className="section-label">Specialized Agents</div>
         <h2>Six agents. One vault. Zero data leakage.</h2>
         <p className="section-subtitle">
@@ -453,7 +482,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="how" className="timeline-section">
+      <section id="how" className="timeline-section fade-in-section">
         <div className="timeline-header">
           <div className="section-label">How It Works</div>
           <h2>Three steps. Full control.</h2>
@@ -502,7 +531,7 @@ export default function LandingPage() {
         </section>
       )}
 
-      <section id="why" className="comparison">
+      <section id="why" className="comparison fade-in-section">
         <div className="section-label">Why Vault</div>
         <h2>Not another chatbot.</h2>
         <p className="section-subtitle">
@@ -531,7 +560,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="openclaw">
+      <section className="openclaw fade-in-section">
         <div className="section-label">Under The Hood</div>
         <h2>Powered by OpenClaw.</h2>
         <p className="section-subtitle">
@@ -554,7 +583,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="cta" className="final-cta">
+      <section id="cta" className="final-cta fade-in-section">
         <div className="final-cta-card">
           <h2>Ready to own your AI?</h2>
           <p className="section-subtitle">
@@ -572,7 +601,14 @@ export default function LandingPage() {
         <a href="/" className="logo-mark" style={{ textDecoration: 'none', color: 'inherit' }}>
           <Lock size={16} /> VaultAI
         </a>
-        <div>Your data stays yours. &middot; <a href="mailto:info@personalvaultai.com" style={{ color: 'var(--accent)', textDecoration: 'none' }}>info@personalvaultai.com</a></div>
+        <div className="trust-badges">
+          <span className="trust-badge">🔐 AES-256</span>
+          <span className="trust-badge">🖥️ Local-First</span>
+          <span className="trust-badge">🚫 Zero Data Harvesting</span>
+        </div>
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+          <a href="mailto:info@personalvaultai.com" style={{ color: 'var(--accent)', textDecoration: 'none' }}>info@personalvaultai.com</a>
+        </div>
       </footer>
     </div>
   );

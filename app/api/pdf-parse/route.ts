@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
+    const formData = await req.formData() as unknown as globalThis.FormData;
     const file = formData.get("file") as File | null;
 
     if (!file) {

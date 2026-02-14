@@ -9,7 +9,7 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
+    const formData = await req.formData() as unknown as globalThis.FormData;
     const audio = formData.get("audio") as File | null;
 
     if (!audio) {
