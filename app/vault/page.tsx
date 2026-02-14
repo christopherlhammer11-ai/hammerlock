@@ -1,9 +1,9 @@
 "use client";
 
-import { Eye, EyeOff, Lock, Shield } from "lucide-react";
+import { Eye, EyeOff, Lock, Shield, Zap, Globe, Brain, Mic } from "lucide-react";
 import { useVault } from "@/lib/vault-store";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { useI18n } from "@/lib/i18n";
 
 function getPasswordStrength(pw: string): "weak" | "medium" | "strong" {
@@ -22,6 +22,14 @@ function getPasswordStrength(pw: string): "weak" | "medium" | "strong" {
 const MAX_ATTEMPTS = 5;
 const COOLDOWN_MS = 30000;
 
+// ── First-launch welcome phases ──
+const WELCOME_FEATURES = [
+  { icon: Lock, label: "End-to-End Encrypted", desc: "AES-256 on your device" },
+  { icon: Brain, label: "Persistent Memory", desc: "Remembers your context" },
+  { icon: Globe, label: "7 LLM Providers", desc: "OpenAI, Claude, Gemini & more" },
+  { icon: Mic, label: "Voice & Search", desc: "Speak or search the web" },
+];
+
 export default function VaultPage() {
   const { hasVault, isUnlocked, initializeVault, unlockVault, clearVault } = useVault();
   const router = useRouter();
@@ -33,14 +41,64 @@ export default function VaultPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
-  const [mounted, setMounted] = useState(false);
   const attemptsRef = useRef(0);
   const mode: "create" | "unlock" = hasVault ? "unlock" : "create";
+
+  // ── Welcome sequence state ──
+  // Phase 0 = brand reveal, 1 = features, 2 = fade to form
+  const [welcomePhase, setWelcomePhase] = useState(-1); // -1 = not started
+  const [welcomeDone, setWelcomeDone] = useState(false);
+  const [cardVisible, setCardVisible] = useState(false);
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
   const strengthLabel = strength === "weak" ? t.vault_weak : strength === "medium" ? t.vault_medium : t.vault_strong;
 
-  useEffect(() => { setMounted(true); }, []);
+  // ── First-launch detection: show welcome only for brand-new users ──
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const seen = localStorage.getItem("vaultai_welcomed");
+    if (!hasVault && !seen) {
+      // First launch — run welcome sequence
+      setWelcomePhase(0);
+    } else {
+      // Returning user or vault exists — skip welcome
+      setWelcomeDone(true);
+      setTimeout(() => setCardVisible(true), 50);
+    }
+  }, [hasVault]);
+
+  // ── Welcome phase progression ──
+  useEffect(() => {
+    if (welcomePhase < 0) return;
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    if (welcomePhase === 0) {
+      // After brand reveal plays, move to features
+      timers.push(setTimeout(() => setWelcomePhase(1), 2800));
+    } else if (welcomePhase === 1) {
+      // After features play, move to form
+      timers.push(setTimeout(() => setWelcomePhase(2), 3200));
+    } else if (welcomePhase === 2) {
+      // Fade out welcome, show form
+      timers.push(setTimeout(() => {
+        localStorage.setItem("vaultai_welcomed", "1");
+        setWelcomeDone(true);
+        setTimeout(() => setCardVisible(true), 100);
+      }, 600));
+    }
+
+    return () => timers.forEach(clearTimeout);
+  }, [welcomePhase]);
+
+  // Skip welcome on click/key
+  const skipWelcome = useCallback(() => {
+    if (welcomeDone) return;
+    localStorage.setItem("vaultai_welcomed", "1");
+    setWelcomePhase(-1);
+    setWelcomeDone(true);
+    setTimeout(() => setCardVisible(true), 50);
+  }, [welcomeDone]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -128,7 +186,7 @@ export default function VaultPage() {
   };
 
   return (
-    <div className="vault-page">
+    <div className="vault-page" onClick={!welcomeDone ? skipWelcome : undefined}>
       {/* Ambient animated rings */}
       <div className="vault-ambient">
         <div className="vault-ring vault-ring-1" />
@@ -136,115 +194,160 @@ export default function VaultPage() {
         <div className="vault-ring vault-ring-3" />
       </div>
 
-      <div className={`vault-card${mounted ? " vault-card-enter" : ""}`}>
-        {/* Brand header */}
-        <div className="vault-brand">
-          <Lock size={14} />
-          <span>VaultAI</span>
-        </div>
-
-        {/* Animated lock/shield icon */}
-        <div className={`vault-hero-icon ${mode === "create" ? "vault-hero-create" : ""}`}>
-          {mode === "create" ? (
-            <Shield size={36} strokeWidth={1.5} />
-          ) : (
-            <Lock size={36} strokeWidth={1.5} />
-          )}
-        </div>
-
-        <h1>{mode === "create" ? t.vault_create_title : t.vault_unlock_title}</h1>
-        <p className="vault-subtext">
-          {mode === "create" ? t.vault_create_subtitle : t.vault_unlock_subtitle}
-        </p>
-
-        <div className="vault-form">
-          <label>{t.vault_password}</label>
-          <div className="vault-input-wrap">
-            <input
-              autoFocus
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(evt) => setPassword(evt.target.value)}
-              onKeyDown={(evt) => {
-                if (evt.key === "Enter" && mode === "unlock") handleSubmit();
-              }}
-              className={error ? "error" : ""}
-              placeholder="••••••••"
-            />
-            <button
-              type="button"
-              className="vault-toggle-pw"
-              onClick={() => setShowPassword(!showPassword)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
+      {/* ════════════════════════════════════════════════════════
+          FIRST-LAUNCH WELCOME SEQUENCE
+          ════════════════════════════════════════════════════════ */}
+      {!welcomeDone && welcomePhase >= 0 && (
+        <div className={`welcome-overlay ${welcomePhase === 2 ? "welcome-exit" : ""}`}>
+          {/* Phase 0: Brand reveal */}
+          <div className={`welcome-brand ${welcomePhase >= 0 ? "visible" : ""}`}>
+            <div className="welcome-lock-wrap">
+              <Lock size={48} strokeWidth={1.5} />
+            </div>
+            <h1 className="welcome-title">VaultAI</h1>
+            <p className="welcome-tagline">Private Intelligence</p>
           </div>
 
-          {mode === "create" && password.length > 0 && (
-            <>
-              <div className="pw-strength">
-                <div className={`pw-strength-bar ${strength}`} />
-              </div>
-              <div className={`pw-strength-label ${strength}`}>
-                {strengthLabel}
-              </div>
-            </>
-          )}
-
-          {mode === "create" && (
-            <>
-              <label>{t.vault_confirm}</label>
-              <div className="vault-input-wrap">
-                <input
-                  type={showConfirm ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(evt) => setConfirmPassword(evt.target.value)}
-                  onKeyDown={(evt) => {
-                    if (evt.key === "Enter") handleSubmit();
-                  }}
-                  className={error ? "error" : ""}
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  className="vault-toggle-pw"
-                  onClick={() => setShowConfirm(!showConfirm)}
-                  aria-label={showConfirm ? "Hide password" : "Show password"}
+          {/* Phase 1: Feature cards cascade */}
+          {welcomePhase >= 1 && (
+            <div className="welcome-features">
+              {WELCOME_FEATURES.map((feat, i) => (
+                <div
+                  key={feat.label}
+                  className="welcome-feature"
+                  style={{ animationDelay: `${i * 0.15}s` }}
                 >
-                  {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </>
+                  <div className="welcome-feat-icon">
+                    <feat.icon size={18} strokeWidth={1.8} />
+                  </div>
+                  <div>
+                    <div className="welcome-feat-label">{feat.label}</div>
+                    <div className="welcome-feat-desc">{feat.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
-          {error && <p className="vault-error">{error}</p>}
+
+          {/* Skip hint */}
+          <div className="welcome-skip">click anywhere to skip</div>
         </div>
+      )}
 
-        <button className="vault-submit" onClick={handleSubmit} disabled={loading || cooldownRemaining > 0}>
-          {cooldownRemaining > 0
-            ? t.vault_locked(Math.ceil(cooldownRemaining / 1000))
-            : loading
-              ? t.vault_processing
-              : mode === "create"
-                ? t.vault_create_btn
-                : t.vault_unlock_btn}
-        </button>
+      {/* ════════════════════════════════════════════════════════
+          VAULT FORM CARD
+          ════════════════════════════════════════════════════════ */}
+      {welcomeDone && (
+        <div className={`vault-card${cardVisible ? " vault-card-enter" : ""}`}>
+          {/* Brand header */}
+          <div className="vault-brand">
+            <Lock size={14} />
+            <span>VaultAI</span>
+          </div>
 
-        {mode === "unlock" && (
-          <button className="vault-reset" onClick={handleReset}>
-            {t.vault_reset}
+          {/* Animated lock/shield icon */}
+          <div className={`vault-hero-icon ${mode === "create" ? "vault-hero-create" : ""}`}>
+            {mode === "create" ? (
+              <Shield size={36} strokeWidth={1.5} />
+            ) : (
+              <Lock size={36} strokeWidth={1.5} />
+            )}
+          </div>
+
+          <h1>{mode === "create" ? t.vault_create_title : t.vault_unlock_title}</h1>
+          <p className="vault-subtext">
+            {mode === "create" ? t.vault_create_subtitle : t.vault_unlock_subtitle}
+          </p>
+
+          <div className="vault-form">
+            <label>{t.vault_password}</label>
+            <div className="vault-input-wrap">
+              <input
+                autoFocus
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(evt) => setPassword(evt.target.value)}
+                onKeyDown={(evt) => {
+                  if (evt.key === "Enter" && mode === "unlock") handleSubmit();
+                }}
+                className={error ? "error" : ""}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                className="vault-toggle-pw"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+
+            {mode === "create" && password.length > 0 && (
+              <>
+                <div className="pw-strength">
+                  <div className={`pw-strength-bar ${strength}`} />
+                </div>
+                <div className={`pw-strength-label ${strength}`}>
+                  {strengthLabel}
+                </div>
+              </>
+            )}
+
+            {mode === "create" && (
+              <>
+                <label>{t.vault_confirm}</label>
+                <div className="vault-input-wrap">
+                  <input
+                    type={showConfirm ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(evt) => setConfirmPassword(evt.target.value)}
+                    onKeyDown={(evt) => {
+                      if (evt.key === "Enter") handleSubmit();
+                    }}
+                    className={error ? "error" : ""}
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    className="vault-toggle-pw"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    aria-label={showConfirm ? "Hide password" : "Show password"}
+                  >
+                    {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </>
+            )}
+            {error && <p className="vault-error">{error}</p>}
+          </div>
+
+          <button className="vault-submit" onClick={handleSubmit} disabled={loading || cooldownRemaining > 0}>
+            {cooldownRemaining > 0
+              ? t.vault_locked(Math.ceil(cooldownRemaining / 1000))
+              : loading
+                ? t.vault_processing
+                : mode === "create"
+                  ? t.vault_create_btn
+                  : t.vault_unlock_btn}
           </button>
-        )}
 
-        {/* Trust footer */}
-        <div className="vault-trust">
-          <span>AES-256</span>
-          <span className="vault-trust-sep" />
-          <span>Local-Only</span>
-          <span className="vault-trust-sep" />
-          <span>Zero-Knowledge</span>
+          {mode === "unlock" && (
+            <button className="vault-reset" onClick={handleReset}>
+              {t.vault_reset}
+            </button>
+          )}
+
+          {/* Trust footer */}
+          <div className="vault-trust">
+            <span>AES-256</span>
+            <span className="vault-trust-sep" />
+            <span>Local-Only</span>
+            <span className="vault-trust-sep" />
+            <span>Zero-Knowledge</span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

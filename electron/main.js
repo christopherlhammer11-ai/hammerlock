@@ -261,7 +261,7 @@ async function ensureServersAndCreateWindow() {
 
   // 3. Minimum splash duration (let the animation play)
   // The splash animations take ~2s, and servers may start faster
-  const MIN_SPLASH_MS = 2400;
+  const MIN_SPLASH_MS = 3000;
   const elapsed = Date.now() - splashStart;
   if (elapsed < MIN_SPLASH_MS) {
     await new Promise((r) => setTimeout(r, MIN_SPLASH_MS - elapsed));
