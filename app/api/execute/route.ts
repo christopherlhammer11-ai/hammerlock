@@ -676,7 +676,25 @@ export async function POST(req: Request) {
     if (lowered === "!load-persona" || lowered.includes("load persona") || lowered.includes("tell me about myself")) {
       try {
         const persona = await readFileSafe(personaPath);
-        return NextResponse.json({ response: persona ? `**${apiStr(locale, "your_persona")}:**\n\n${persona}` : apiStr(locale, "no_persona") });
+        if (!persona) {
+          return NextResponse.json({ response: apiStr(locale, "no_persona") });
+        }
+        // Format persona fields nicely
+        const lines = persona.split("\n").filter((l: string) => l.trim());
+        const formatted = lines.map((line: string) => {
+          const colonIdx = line.indexOf(":");
+          if (colonIdx > 0 && colonIdx < 30) {
+            const key = line.slice(0, colonIdx).trim();
+            const val = line.slice(colonIdx + 1).trim();
+            return `**${key}:** ${val}`;
+          }
+          return `• ${line}`;
+        }).join("\n");
+        const memoryCount = lines.length;
+        const hint = memoryCount <= 4
+          ? `\n\n---\n💡 *Teach me more! Say \`remember: I prefer dark mode\` or \`remember: my favorite language is Python\` to build your profile.*`
+          : `\n\n---\n📝 *${memoryCount} items in your persona. Say \`remember: ...\` to add more.*`;
+        return NextResponse.json({ response: `🧠 **${apiStr(locale, "your_persona")}**\n\n${formatted}${hint}` });
       } catch {
         return NextResponse.json({ response: apiStr(locale, "no_persona_alt") });
       }
