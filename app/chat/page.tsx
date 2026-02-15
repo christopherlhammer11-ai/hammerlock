@@ -1078,7 +1078,7 @@ export default function ChatPage() {
               <div style={{ height: 8 }} />
               <div className="sidebar-label">{t.sidebar_tools_label}</div>
               <button className="sidebar-item" onClick={() => sendCommand("status")}><Settings size={14} /> {t.sidebar_system_status}</button>
-              <button className="sidebar-item" onClick={() => sendCommand(t.chat_tell_me_about)}><User size={14} /> {t.sidebar_my_persona}</button>
+              <button className="sidebar-item" onClick={() => sendCommand("!load-persona")}><User size={14} /> {t.sidebar_my_persona}</button>
               <button className="sidebar-item" onClick={handleGenerateReport}><BarChart3 size={14} /> {t.sidebar_generate_report}</button>
               <button className="sidebar-item" onClick={handleShare}><Share2 size={14} /> {t.sidebar_share_chat}</button>
               <button className="sidebar-item" onClick={handleExportChat}><Download size={14} /> {t.sidebar_export_chat}</button>

@@ -659,7 +659,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ response: status });
     }
 
-    if (lowered.includes("load persona") || lowered.includes("tell me about myself")) {
+    if (lowered === "!load-persona" || lowered.includes("load persona") || lowered.includes("tell me about myself")) {
       try {
         const persona = await readFileSafe(personaPath);
         return NextResponse.json({ response: persona ? `**${apiStr(locale, "your_persona")}:**\n\n${persona}` : apiStr(locale, "no_persona") });
