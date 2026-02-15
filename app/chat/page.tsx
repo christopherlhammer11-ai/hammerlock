@@ -547,6 +547,26 @@ export default function ChatPage() {
     } catch { /* ignore */ }
   }, [apiKeys, updateVaultData]);
 
+  // ---- AUTO-TITLE GENERATOR (non-blocking) ----
+  const generateConvoTitle = useCallback(async (userMsg: string, aiReply: string, convoId: string) => {
+    try {
+      const res = await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command: `Generate a very short title (3-6 words, no quotes, no period) summarizing this conversation:\nUser: ${userMsg.slice(0, 200)}\nAssistant: ${aiReply.slice(0, 200)}`,
+          locale,
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      const data = await res.json();
+      const title = (data.response || data.reply || "").replace(/^["']|["']$/g, "").replace(/\.+$/, "").trim();
+      if (title && title.length > 2 && title.length < 60) {
+        setConversations(cs => cs.map(c => c.id === convoId ? { ...c, name: title } : c));
+      }
+    } catch { /* non-critical, keep truncated user message */ }
+  }, [locale]);
+
   // ---- SEND MESSAGE ----
   const sendCommand = useCallback(async (preset?: string) => {
     const text = (preset || input).trim();
@@ -591,10 +611,19 @@ export default function ChatPage() {
       const reply = data.reply || data.response || data.result || t.chat_no_response;
       setMessages(prev => {
         const updated = prev.map(m => m.id===pid ? {...m,content:reply,pending:false,timestamp:new Date().toISOString()} : m);
-        // Update conversation
-        setConversations(cs => cs.map(c =>
-          c.id === activeConvoId ? { ...c, messages: updated, updatedAt: new Date().toISOString() } : c
-        ));
+        // Auto-name conversation from first user message (like Claude/ChatGPT)
+        const isFirstExchange = prev.filter(m => m.role === "user").length <= 1;
+        setConversations(cs => cs.map(c => {
+          if (c.id !== activeConvoId) return c;
+          if (isFirstExchange && c.name.startsWith(t.chat_default_name)) {
+            // Instant: use truncated user message as temporary name
+            const tempName = text.replace(/\n/g, " ").trim().slice(0, 45) + (text.length > 45 ? "…" : "");
+            // Background: ask LLM for a better summary title (non-blocking)
+            generateConvoTitle(text, reply, c.id);
+            return { ...c, name: tempName, messages: updated, updatedAt: new Date().toISOString() };
+          }
+          return { ...c, messages: updated, updatedAt: new Date().toISOString() };
+        }));
         return updated;
       });
       incrementMessageCount();
