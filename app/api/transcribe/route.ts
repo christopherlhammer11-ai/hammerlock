@@ -26,12 +26,19 @@ export async function POST(req: Request) {
     if (openaiKey) {
       try {
         const whisperForm = new FormData();
-        // Convert to a proper File with the right extension for Whisper
-        const audioBlob = new Blob([await audio.arrayBuffer()], { type: audio.type || "audio/webm" });
-        const ext = audio.type?.includes("wav") ? "wav" : "webm";
+        // Detect the correct file extension for Whisper API
+        const mimeType = audio.type || "audio/webm";
+        let ext = "webm";
+        if (mimeType.includes("mp4") || mimeType.includes("m4a")) ext = "mp4";
+        else if (mimeType.includes("wav")) ext = "wav";
+        else if (mimeType.includes("ogg")) ext = "ogg";
+        else if (mimeType.includes("mpeg") || mimeType.includes("mp3")) ext = "mp3";
+
+        console.log(`[transcribe] Audio: type=${mimeType}, size=${audio.size}, ext=${ext}`);
+
+        const audioBlob = new Blob([await audio.arrayBuffer()], { type: mimeType });
         whisperForm.append("file", audioBlob, `recording.${ext}`);
         whisperForm.append("model", "whisper-1");
-        whisperForm.append("language", "en");
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 25000);
@@ -49,12 +56,22 @@ export async function POST(req: Request) {
           if (text) {
             return NextResponse.json({ text, provider: "whisper" });
           }
+          console.log("[transcribe] Whisper returned empty text");
         } else {
           const errBody = await res.text();
-          console.error("[transcribe] Whisper API error:", res.status, errBody.slice(0, 300));
+          console.error("[transcribe] Whisper API error:", res.status, errBody.slice(0, 500));
+          // Return specific error so UI can show it
+          return NextResponse.json(
+            { error: `Whisper API error (${res.status}): ${errBody.slice(0, 200)}` },
+            { status: res.status }
+          );
         }
       } catch (err) {
-        console.error("[transcribe] Whisper failed:", (err as Error).message);
+        const msg = (err as Error).message;
+        console.error("[transcribe] Whisper failed:", msg);
+        if (msg.includes("abort")) {
+          return NextResponse.json({ error: "Transcription timed out. Try a shorter recording." }, { status: 408 });
+        }
       }
     }
 

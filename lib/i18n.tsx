@@ -483,6 +483,28 @@ const en = {
   site_success_questions: "Questions? Reach us at",
   site_success_back: "Back to Home",
   site_success_loading: "Loading...",
+
+  // ---- Tutorial modal ----
+  tutorial_title: "Get the Most Out of Your Vault",
+  tutorial_step1_desc: "VaultAI encrypts everything on your device. Your conversations, personas, and files never leave your machine.",
+  tutorial_step2_title: "6 Specialized Agents",
+  tutorial_step2_desc: "Switch between Strategist, Counsel, Analyst, Researcher, Operator, and Writer in the sidebar. Create your own custom agents too.",
+  tutorial_step3_title: "Voice & Web Search",
+  tutorial_step3_desc: "Click the microphone to dictate. Type 'search' to find anything on the web with cited sources. All queries are PII-scrubbed.",
+  tutorial_step4_title: "Teach It About You",
+  tutorial_step4_desc: "Say 'remember that...' to store preferences. Load your persona each session. VaultAI gets smarter the more you use it.",
+  tutorial_done_title: "You're All Set!",
+  tutorial_done_desc: "Start chatting, upload PDFs, run searches, or switch agents. Everything stays encrypted on your machine.",
+  tutorial_next: "Next",
+  tutorial_skip: "Skip",
+  tutorial_done: "Let's Go!",
+
+  // ---- Message actions ----
+  msg_copy: "Copy",
+  msg_copied: "Copied!",
+  msg_read_aloud: "Read aloud",
+  msg_stop_reading: "Stop reading",
+  msg_regenerate: "Regenerate",
 };
 
 // ---- Brazilian Portuguese ----
@@ -937,6 +959,25 @@ const ptBR: typeof en = {
   site_success_questions: "Dúvidas? Fale conosco em",
   site_success_back: "Voltar ao Início",
   site_success_loading: "Carregando...",
+  // ---- Tutorial modal ----
+  tutorial_title: "Aproveite ao Máximo Seu Cofre",
+  tutorial_step1_desc: "O VaultAI criptografa tudo no seu dispositivo. Suas conversas, personas e arquivos nunca saem da sua máquina.",
+  tutorial_step2_title: "6 Agentes Especializados",
+  tutorial_step2_desc: "Alterne entre Estrategista, Conselheiro, Analista, Pesquisador, Operador e Escritor na barra lateral. Crie seus próprios agentes personalizados também.",
+  tutorial_step3_title: "Voz e Busca Web",
+  tutorial_step3_desc: "Clique no microfone para ditar. Digite 'search' para encontrar qualquer coisa na web com fontes citadas. Todas as consultas têm PII removido.",
+  tutorial_step4_title: "Ensine Sobre Você",
+  tutorial_step4_desc: "Diga 'lembre que...' para guardar preferências. Carregue sua persona a cada sessão. O VaultAI fica mais inteligente quanto mais você usa.",
+  tutorial_done_title: "Tudo Pronto!",
+  tutorial_done_desc: "Comece a conversar, envie PDFs, faça buscas ou troque de agente. Tudo fica criptografado na sua máquina.",
+  tutorial_next: "Próximo",
+  tutorial_skip: "Pular",
+  tutorial_done: "Vamos Lá!",
+  msg_copy: "Copiar",
+  msg_copied: "Copiado!",
+  msg_read_aloud: "Ler em voz alta",
+  msg_stop_reading: "Parar leitura",
+  msg_regenerate: "Regenerar",
 };
 
 // ---- Spanish ----
@@ -1386,6 +1427,25 @@ const es: typeof en = {
   site_success_questions: "¿Preguntas? Contáctanos en",
   site_success_back: "Volver al Inicio",
   site_success_loading: "Cargando...",
+  // ---- Tutorial modal ----
+  tutorial_title: "Saca el Máximo de Tu Bóveda",
+  tutorial_step1_desc: "VaultAI encripta todo en tu dispositivo. Tus conversaciones, personas y archivos nunca salen de tu máquina.",
+  tutorial_step2_title: "6 Agentes Especializados",
+  tutorial_step2_desc: "Cambia entre Estratega, Consejero, Analista, Investigador, Operador y Escritor en la barra lateral. Crea tus propios agentes personalizados.",
+  tutorial_step3_title: "Voz y Búsqueda Web",
+  tutorial_step3_desc: "Haz clic en el micrófono para dictar. Escribe 'search' para buscar en la web con fuentes citadas. Todas las consultas eliminan datos personales.",
+  tutorial_step4_title: "Enséñale Sobre Ti",
+  tutorial_step4_desc: "Di 'recuerda que...' para guardar preferencias. Carga tu persona en cada sesión. VaultAI se vuelve más inteligente cuanto más lo usas.",
+  tutorial_done_title: "¡Todo Listo!",
+  tutorial_done_desc: "Empieza a chatear, sube PDFs, busca o cambia de agente. Todo queda encriptado en tu máquina.",
+  tutorial_next: "Siguiente",
+  tutorial_skip: "Omitir",
+  tutorial_done: "¡Vamos!",
+  msg_copy: "Copiar",
+  msg_copied: "¡Copiado!",
+  msg_read_aloud: "Leer en voz alta",
+  msg_stop_reading: "Detener lectura",
+  msg_regenerate: "Regenerar",
 };
 
 // ---- French ----
@@ -1829,6 +1889,25 @@ const fr: typeof en = {
   site_success_questions: "Des questions ? Contactez-nous à",
   site_success_back: "Retour à l'accueil",
   site_success_loading: "Chargement...",
+  // ---- Tutorial modal ----
+  tutorial_title: "Tirez le Meilleur de Votre Coffre",
+  tutorial_step1_desc: "VaultAI chiffre tout sur votre appareil. Vos conversations, personas et fichiers ne quittent jamais votre machine.",
+  tutorial_step2_title: "6 Agents Spécialisés",
+  tutorial_step2_desc: "Passez d'un agent à l'autre : Stratège, Conseiller, Analyste, Chercheur, Opérateur et Rédacteur dans la barre latérale. Créez aussi vos propres agents.",
+  tutorial_step3_title: "Voix et Recherche Web",
+  tutorial_step3_desc: "Cliquez sur le micro pour dicter. Tapez 'search' pour chercher sur le web avec des sources citées. Toutes les requêtes sont anonymisées.",
+  tutorial_step4_title: "Apprenez-lui à Vous Connaître",
+  tutorial_step4_desc: "Dites 'retiens que...' pour enregistrer vos préférences. Chargez votre persona à chaque session. VaultAI devient plus intelligent avec l'usage.",
+  tutorial_done_title: "Vous Êtes Prêt !",
+  tutorial_done_desc: "Commencez à discuter, téléchargez des PDF, lancez des recherches ou changez d'agent. Tout reste chiffré sur votre machine.",
+  tutorial_next: "Suivant",
+  tutorial_skip: "Passer",
+  tutorial_done: "C'est Parti !",
+  msg_copy: "Copier",
+  msg_copied: "Copié !",
+  msg_read_aloud: "Lire à voix haute",
+  msg_stop_reading: "Arrêter la lecture",
+  msg_regenerate: "Régénérer",
 };
 
 // ---- German ----
@@ -2271,6 +2350,25 @@ const de: typeof en = {
   site_success_questions: "Fragen? Erreiche uns unter",
   site_success_back: "Zurück zur Startseite",
   site_success_loading: "Laden...",
+  // ---- Tutorial modal ----
+  tutorial_title: "Hol das Beste aus Deinem Tresor",
+  tutorial_step1_desc: "VaultAI verschlüsselt alles auf deinem Gerät. Deine Gespräche, Personas und Dateien verlassen nie deinen Computer.",
+  tutorial_step2_title: "6 Spezialisierte Agenten",
+  tutorial_step2_desc: "Wechsle zwischen Stratege, Berater, Analyst, Forscher, Operator und Autor in der Seitenleiste. Erstelle auch eigene Agenten.",
+  tutorial_step3_title: "Sprache & Websuche",
+  tutorial_step3_desc: "Klicke auf das Mikrofon zum Diktieren. Tippe 'search' für eine Websuche mit Quellenangaben. Alle Anfragen werden anonymisiert.",
+  tutorial_step4_title: "Bring es Dir Bei",
+  tutorial_step4_desc: "Sage 'merke dir, dass...' um Präferenzen zu speichern. Lade deine Persona jede Sitzung. VaultAI wird schlauer, je mehr du es nutzt.",
+  tutorial_done_title: "Du Bist Bereit!",
+  tutorial_done_desc: "Starte einen Chat, lade PDFs hoch, suche im Web oder wechsle Agenten. Alles bleibt verschlüsselt auf deinem Gerät.",
+  tutorial_next: "Weiter",
+  tutorial_skip: "Überspringen",
+  tutorial_done: "Los Geht's!",
+  msg_copy: "Kopieren",
+  msg_copied: "Kopiert!",
+  msg_read_aloud: "Vorlesen",
+  msg_stop_reading: "Vorlesen stoppen",
+  msg_regenerate: "Neu generieren",
 };
 
 // ---- Chinese (Simplified) ----
@@ -2713,6 +2811,25 @@ const zh: typeof en = {
   site_success_questions: "有问题？联系我们：",
   site_success_back: "返回首页",
   site_success_loading: "加载中...",
+  // ---- Tutorial modal ----
+  tutorial_title: "充分利用你的保险库",
+  tutorial_step1_desc: "VaultAI 在你的设备上加密一切。你的对话、角色和文件永远不会离开你的机器。",
+  tutorial_step2_title: "6个专业代理",
+  tutorial_step2_desc: "在侧边栏中切换战略师、顾问、分析师、研究员、运营师和作家。还可以创建自定义代理。",
+  tutorial_step3_title: "语音和网络搜索",
+  tutorial_step3_desc: "点击麦克风进行语音输入。输入'search'在网上搜索并获取引用来源。所有查询都会移除个人信息。",
+  tutorial_step4_title: "教它了解你",
+  tutorial_step4_desc: "说'记住...'来存储偏好。每次会话加载你的角色。你用得越多，VaultAI就越智能。",
+  tutorial_done_title: "一切就绪！",
+  tutorial_done_desc: "开始聊天、上传PDF、运行搜索或切换代理。一切都加密存储在你的机器上。",
+  tutorial_next: "下一步",
+  tutorial_skip: "跳过",
+  tutorial_done: "开始吧！",
+  msg_copy: "复制",
+  msg_copied: "已复制！",
+  msg_read_aloud: "朗读",
+  msg_stop_reading: "停止朗读",
+  msg_regenerate: "重新生成",
 };
 
 // ---- Japanese ----
@@ -3155,6 +3272,25 @@ const ja: typeof en = {
   site_success_questions: "ご質問は",
   site_success_back: "ホームに戻る",
   site_success_loading: "読み込み中...",
+  // ---- Tutorial modal ----
+  tutorial_title: "Vaultを最大限に活用しよう",
+  tutorial_step1_desc: "VaultAIはデバイス上のすべてを暗号化します。会話、ペルソナ、ファイルがマシンから出ることはありません。",
+  tutorial_step2_title: "6つの専門エージェント",
+  tutorial_step2_desc: "サイドバーでストラテジスト、カウンセル、アナリスト、リサーチャー、オペレーター、ライターを切り替えられます。カスタムエージェントの作成も可能です。",
+  tutorial_step3_title: "音声とウェブ検索",
+  tutorial_step3_desc: "マイクをクリックして音声入力。'search'と入力してウェブ検索（出典付き）。すべてのクエリはPII除去済み。",
+  tutorial_step4_title: "あなたのことを教えて",
+  tutorial_step4_desc: "'覚えておいて...'と言って好みを保存。毎セッションでペルソナをロード。使うほどVaultAIは賢くなります。",
+  tutorial_done_title: "準備完了！",
+  tutorial_done_desc: "チャット、PDF、検索、エージェント切り替え — すべてマシン上で暗号化されます。",
+  tutorial_next: "次へ",
+  tutorial_skip: "スキップ",
+  tutorial_done: "始めよう！",
+  msg_copy: "コピー",
+  msg_copied: "コピーしました！",
+  msg_read_aloud: "読み上げ",
+  msg_stop_reading: "読み上げ停止",
+  msg_regenerate: "再生成",
 };
 
 // ---- Korean ----
@@ -3584,6 +3720,25 @@ const ko: typeof en = {
   site_success_questions: "질문이 있으시면 연락주세요:",
   site_success_back: "홈으로 돌아가기",
   site_success_loading: "로딩 중...",
+  // ---- Tutorial modal ----
+  tutorial_title: "볼트를 최대한 활용하세요",
+  tutorial_step1_desc: "VaultAI는 기기의 모든 것을 암호화합니다. 대화, 페르소나, 파일이 기기를 떠나지 않습니다.",
+  tutorial_step2_title: "6개의 전문 에이전트",
+  tutorial_step2_desc: "사이드바에서 전략가, 자문, 분석가, 연구원, 오퍼레이터, 작가를 전환하세요. 커스텀 에이전트도 만들 수 있습니다.",
+  tutorial_step3_title: "음성 및 웹 검색",
+  tutorial_step3_desc: "마이크를 클릭하여 받아쓰기. 'search'를 입력하면 인용 소스가 포함된 웹 검색. 모든 쿼리는 개인정보가 제거됩니다.",
+  tutorial_step4_title: "당신에 대해 가르치세요",
+  tutorial_step4_desc: "'기억해줘...'라고 말하면 선호도를 저장합니다. 매 세션마다 페르소나를 로드하세요. 많이 사용할수록 VaultAI가 똑똑해집니다.",
+  tutorial_done_title: "준비 완료!",
+  tutorial_done_desc: "채팅, PDF 업로드, 검색, 에이전트 전환을 시작하세요. 모든 것이 기기에서 암호화됩니다.",
+  tutorial_next: "다음",
+  tutorial_skip: "건너뛰기",
+  tutorial_done: "시작하기!",
+  msg_copy: "복사",
+  msg_copied: "복사됨!",
+  msg_read_aloud: "소리내어 읽기",
+  msg_stop_reading: "읽기 중지",
+  msg_regenerate: "재생성",
 };
 
 // ---- Arabic ----
@@ -4013,6 +4168,25 @@ const ar: typeof en = {
   site_success_questions: "أسئلة؟ تواصل معنا على",
   site_success_back: "العودة إلى الرئيسية",
   site_success_loading: "جارٍ التحميل...",
+  // ---- Tutorial modal ----
+  tutorial_title: "استفد من خزنتك إلى أقصى حد",
+  tutorial_step1_desc: "يشفّر VaultAI كل شيء على جهازك. محادثاتك وشخصياتك وملفاتك لا تغادر جهازك أبداً.",
+  tutorial_step2_title: "6 وكلاء متخصصين",
+  tutorial_step2_desc: "انتقل بين الاستراتيجي والمستشار والمحلل والباحث والمشغل والكاتب في الشريط الجانبي. أنشئ وكلاء مخصصين أيضاً.",
+  tutorial_step3_title: "الصوت والبحث في الويب",
+  tutorial_step3_desc: "انقر على الميكروفون للإملاء. اكتب 'search' للبحث في الويب مع مصادر مذكورة. جميع الاستعلامات تُزال منها المعلومات الشخصية.",
+  tutorial_step4_title: "علّمه عنك",
+  tutorial_step4_desc: "قل 'تذكر أن...' لحفظ التفضيلات. حمّل شخصيتك في كل جلسة. كلما استخدمت VaultAI أكثر أصبح أذكى.",
+  tutorial_done_title: "أنت جاهز!",
+  tutorial_done_desc: "ابدأ المحادثة، ارفع ملفات PDF، ابحث في الويب أو بدّل الوكلاء. كل شيء يبقى مشفراً على جهازك.",
+  tutorial_next: "التالي",
+  tutorial_skip: "تخطي",
+  tutorial_done: "هيا بنا!",
+  msg_copy: "نسخ",
+  msg_copied: "تم النسخ!",
+  msg_read_aloud: "قراءة بصوت عالٍ",
+  msg_stop_reading: "إيقاف القراءة",
+  msg_regenerate: "إعادة التوليد",
 };
 
 // ---- Hindi ----
@@ -4455,6 +4629,25 @@ const hi: typeof en = {
   site_success_questions: "सवाल? हमसे संपर्क करें",
   site_success_back: "होम पर वापस",
   site_success_loading: "लोड हो रहा है...",
+  // ---- Tutorial modal ----
+  tutorial_title: "अपने वॉल्ट का अधिकतम लाभ उठाएँ",
+  tutorial_step1_desc: "VaultAI आपके डिवाइस पर सब कुछ एन्क्रिप्ट करता है। आपकी बातचीत, पर्सोना और फ़ाइलें कभी आपकी मशीन नहीं छोड़तीं।",
+  tutorial_step2_title: "6 विशेष एजेंट",
+  tutorial_step2_desc: "साइडबार में रणनीतिकार, काउंसल, विश्लेषक, शोधकर्ता, ऑपरेटर और लेखक के बीच स्विच करें। अपने कस्टम एजेंट भी बनाएँ।",
+  tutorial_step3_title: "वॉइस और वेब खोज",
+  tutorial_step3_desc: "डिक्टेट करने के लिए माइक्रोफ़ोन क्लिक करें। उद्धृत स्रोतों के साथ वेब खोज के लिए 'search' टाइप करें। सभी क्वेरी PII-मुक्त हैं।",
+  tutorial_step4_title: "इसे अपने बारे में सिखाएँ",
+  tutorial_step4_desc: "प्राथमिकताएँ सहेजने के लिए 'याद रखो कि...' कहें। हर सत्र में अपना पर्सोना लोड करें। जितना ज़्यादा उपयोग करेंगे, VaultAI उतना स्मार्ट होगा।",
+  tutorial_done_title: "आप तैयार हैं!",
+  tutorial_done_desc: "चैटिंग शुरू करें, PDF अपलोड करें, खोजें चलाएँ या एजेंट बदलें। सब कुछ आपकी मशीन पर एन्क्रिप्टेड रहता है।",
+  tutorial_next: "अगला",
+  tutorial_skip: "छोड़ें",
+  tutorial_done: "चलिए शुरू करें!",
+  msg_copy: "कॉपी",
+  msg_copied: "कॉपी हो गया!",
+  msg_read_aloud: "ज़ोर से पढ़ें",
+  msg_stop_reading: "पढ़ना बंद करें",
+  msg_regenerate: "पुनः उत्पन्न करें",
 
 };
 
@@ -4898,6 +5091,25 @@ const ru: typeof en = {
   site_success_questions: "Вопросы? Пишите нам",
   site_success_back: "На главную",
   site_success_loading: "Загрузка...",
+  // ---- Tutorial modal ----
+  tutorial_title: "Максимум от Вашего Хранилища",
+  tutorial_step1_desc: "VaultAI шифрует всё на вашем устройстве. Ваши разговоры, персоны и файлы никогда не покидают вашу машину.",
+  tutorial_step2_title: "6 Специализированных Агентов",
+  tutorial_step2_desc: "Переключайтесь между Стратегом, Советником, Аналитиком, Исследователем, Оператором и Писателем в боковой панели. Создавайте собственных агентов.",
+  tutorial_step3_title: "Голос и Веб-поиск",
+  tutorial_step3_desc: "Нажмите на микрофон для диктовки. Введите 'search' для поиска в вебе с цитированием источников. Все запросы очищены от персональных данных.",
+  tutorial_step4_title: "Научите Его О Себе",
+  tutorial_step4_desc: "Скажите 'запомни, что...' для сохранения предпочтений. Загружайте персону каждую сессию. Чем больше используете VaultAI, тем умнее он становится.",
+  tutorial_done_title: "Всё Готово!",
+  tutorial_done_desc: "Начните общение, загружайте PDF, ищите в вебе или переключайте агентов. Всё остаётся зашифрованным на вашей машине.",
+  tutorial_next: "Далее",
+  tutorial_skip: "Пропустить",
+  tutorial_done: "Поехали!",
+  msg_copy: "Копировать",
+  msg_copied: "Скопировано!",
+  msg_read_aloud: "Прочитать вслух",
+  msg_stop_reading: "Остановить чтение",
+  msg_regenerate: "Перегенерировать",
 
 };
 

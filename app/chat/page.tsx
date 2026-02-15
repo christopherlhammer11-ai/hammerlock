@@ -3,6 +3,7 @@ import {
   Lock, Mic, MicOff, Paperclip, Send, Terminal, X, ChevronRight, Trash2,
   FileText, Share2, User, Search, BarChart3, Bot, Zap, Globe, Settings, Key,
   Plus, FolderPlus, MessageSquare, ChevronDown, Edit3, Check, Download,
+  Copy, Volume2, VolumeX, RefreshCw, Menu, PanelLeftClose,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -98,6 +99,11 @@ export default function ChatPage() {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [apiKeys, setApiKeys] = useState({ openai: "", anthropic: "", gemini: "", groq: "", mistral: "", deepseek: "", brave: "" });
   const [onboardingStep, setOnboardingStep] = useState(-1);
+  // ---- UI enhancements ----
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const [copiedToast, setCopiedToast] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(-1);
   const [onboardingAnswers, setOnboardingAnswers] = useState<Record<string, string>>({});
   const [onboardingInput, setOnboardingInput] = useState("");
   const [computeUnits, setComputeUnits] = useState<{ remaining: number; total: number; usingOwnKey: boolean } | null>(null);
@@ -660,6 +666,77 @@ export default function ChatPage() {
     }
   }, [isFeatureAvailable, isListening, showError, t]);
 
+  // ---- COPY TO CLIPBOARD ----
+  const handleCopy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedToast(true);
+      setTimeout(() => setCopiedToast(false), 2000);
+    });
+  }, []);
+
+  // ---- READ ALOUD (TTS) ----
+  const handleReadAloud = useCallback((msgId: string, text: string) => {
+    if (speakingMsgId === msgId) {
+      window.speechSynthesis.cancel();
+      setSpeakingMsgId(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text.replace(/[#*_`~\[\]]/g, ""));
+    utterance.onend = () => setSpeakingMsgId(null);
+    utterance.onerror = () => setSpeakingMsgId(null);
+    window.speechSynthesis.speak(utterance);
+    setSpeakingMsgId(msgId);
+  }, [speakingMsgId]);
+
+  // ---- REGENERATE LAST RESPONSE ----
+  const handleRegenerate = useCallback(() => {
+    const lastUserMsg = [...messages].reverse().find(m => m.role === "user");
+    if (lastUserMsg) {
+      // Remove the last assistant message
+      setMessages(prev => {
+        const copy = [...prev];
+        while (copy.length > 0 && copy[copy.length - 1].role === "ai") copy.pop();
+        return copy;
+      });
+      // Re-send the last user message
+      setTimeout(() => sendCommand(lastUserMsg.content), 100);
+    }
+  }, [messages, sendCommand]);
+
+  // ---- TUTORIAL (first launch) ----
+  const TUTORIAL_STEPS = [
+    { icon: "🔐", title: t.tutorial_title || "Get the Most Out of Your Vault", desc: t.tutorial_step1_desc || "VaultAI encrypts everything on your device. Your conversations, personas, and files never leave your machine." },
+    { icon: "🤖", title: t.tutorial_step2_title || "6 Specialized Agents", desc: t.tutorial_step2_desc || "Switch between Strategist, Counsel, Analyst, Researcher, Operator, and Writer in the sidebar. Create your own custom agents too." },
+    { icon: "🎙️", title: t.tutorial_step3_title || "Voice & Web Search", desc: t.tutorial_step3_desc || "Click the microphone to dictate. Type 'search' to find anything on the web with cited sources. All queries are PII-scrubbed." },
+    { icon: "🧠", title: t.tutorial_step4_title || "Teach It About You", desc: t.tutorial_step4_desc || "Say 'remember that...' to store preferences. Load your persona each session. VaultAI gets smarter the more you use it." },
+    { icon: "🚀", title: t.tutorial_done_title || "You're All Set!", desc: t.tutorial_done_desc || "Start chatting, upload PDFs, run searches, or switch agents. Everything stays encrypted on your machine." },
+  ];
+
+  useEffect(() => {
+    if (!isUnlocked) return;
+    if (onboardingStep >= 0) return; // Don't show during onboarding
+    if (showApiKeyModal) return;
+    if (typeof window === "undefined") return;
+    if (!localStorage.getItem("vaultai_tutorial_seen") && vaultData?.persona) {
+      setTutorialStep(0);
+    }
+  }, [isUnlocked, onboardingStep, showApiKeyModal, vaultData]);
+
+  const handleTutorialNext = useCallback(() => {
+    if (tutorialStep >= TUTORIAL_STEPS.length - 1) {
+      localStorage.setItem("vaultai_tutorial_seen", "1");
+      setTutorialStep(-1);
+    } else {
+      setTutorialStep(prev => prev + 1);
+    }
+  }, [tutorialStep, TUTORIAL_STEPS.length]);
+
+  const handleTutorialSkip = useCallback(() => {
+    localStorage.setItem("vaultai_tutorial_seen", "1");
+    setTutorialStep(-1);
+  }, []);
+
   // ---- PDF UPLOAD ----
   const handleUpload = useCallback(() => {
     if (!isFeatureAvailable("pdf_upload")) {
@@ -776,7 +853,7 @@ export default function ChatPage() {
 
   return (
     <div className="console-layout">
-      <aside className="console-sidebar">
+      <aside className={`console-sidebar${sidebarOpen ? "" : " collapsed"}`}>
         {/* Top: Console + New Chat */}
         <div className="sidebar-section">
           <div className="sidebar-label">{t.sidebar_console.toUpperCase()}</div>
@@ -1089,7 +1166,12 @@ export default function ChatPage() {
       </aside>
       <div className="console-main" style={{position:"relative"}}>
         <header className="console-topbar">
-          <div className="topbar-brand"><Lock size={18} /><span>VAULTAI</span></div>
+          <div className="topbar-brand" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button className="sidebar-toggle" onClick={() => setSidebarOpen(prev => !prev)} title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}>
+              {sidebarOpen ? <PanelLeftClose size={16} /> : <Menu size={16} />}
+            </button>
+            <Lock size={18} /><span>VAULTAI</span>
+          </div>
           <div className="topbar-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {(() => {
               const agent = getAgentById(activeAgentId, customAgents);
@@ -1262,7 +1344,20 @@ export default function ChatPage() {
                 }
                 return (
                   <>
-                    <Lock size={64} strokeWidth={1} style={{ color: "var(--accent)", opacity: 0.4 }} />
+                    <div style={{
+                      width: 72, height: 72, borderRadius: 20,
+                      background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.12)",
+                      display: "grid", placeItems: "center", marginBottom: 16,
+                      position: "relative",
+                    }}>
+                      <Lock size={36} strokeWidth={1.5} style={{ color: "var(--accent)" }} />
+                      <div style={{
+                        position: "absolute", inset: -6, borderRadius: 24,
+                        background: "radial-gradient(circle, rgba(0,255,136,0.08), transparent 70%)",
+                        animation: "vaultIconGlow 3s ease-in-out infinite",
+                        zIndex: -1,
+                      }} />
+                    </div>
                     <h2 className="empty-title">{t.chat_empty_title}</h2>
                     <p className="empty-subtitle">{t.chat_empty_subtitle}</p>
                     <div className="prompt-pills">
@@ -1270,19 +1365,56 @@ export default function ChatPage() {
                         <button key={pill} className="prompt-pill" onClick={() => sendCommand(pill)}>{pill}</button>
                       ))}
                     </div>
+                    <div className="feature-hints">
+                      <div className="feature-hint">🔐 {t.site_footer_aes || "AES-256"}</div>
+                      <div className="feature-hint">🎙️ {t.site_feat_voice_title || "Voice Input"}</div>
+                      <div className="feature-hint">🌐 {t.site_feat_search_title || "Web Search"}</div>
+                    </div>
                   </>
                 );
               })()}
             </div>
           )}
-          {messages.map(msg => (
+          {messages.map((msg, idx) => (
             <div key={msg.id} className={"console-message " + msg.role + (msg.pending ? " pending" : "")}>
-              <div className="message-meta"><span>{msg.role==="user" ? t.chat_you : (getAgentById(activeAgentId, customAgents)?.name?.toLowerCase() || t.chat_ai)}</span></div>
+              <div className="message-meta">
+                <span>{msg.role==="user" ? t.chat_you : (getAgentById(activeAgentId, customAgents)?.name?.toLowerCase() || t.chat_ai)}</span>
+                <span className="message-time">{new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}</span>
+              </div>
               <div><ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown></div>
               {msg.pending && <div className="message-status">{t.chat_processing}</div>}
+              {/* Message action buttons */}
+              {!msg.pending && msg.role === "ai" && (
+                <div className="message-actions">
+                  <button onClick={() => handleCopy(msg.content)} title={t.msg_copy || "Copy"}>
+                    <Copy size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleReadAloud(msg.id, msg.content)}
+                    title={speakingMsgId === msg.id ? (t.msg_stop_reading || "Stop") : (t.msg_read_aloud || "Read aloud")}
+                    className={speakingMsgId === msg.id ? "active" : ""}
+                  >
+                    {speakingMsgId === msg.id ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                  </button>
+                  {idx === messages.length - 1 && (
+                    <button onClick={handleRegenerate} title={t.msg_regenerate || "Regenerate"}>
+                      <RefreshCw size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           ))}
+          {/* Typing indicator */}
+          {sending && (
+            <div className="console-message ai">
+              <div className="message-meta"><span>{getAgentById(activeAgentId, customAgents)?.name?.toLowerCase() || t.chat_ai}</span></div>
+              <div className="typing-dots"><span /><span /><span /></div>
+            </div>
+          )}
         </div>
+        {/* Copied toast */}
+        {copiedToast && <div className="copied-toast">{t.msg_copied || "Copied!"}</div>}
 
         {/* API Key Configuration Modal — premium welcome flow */}
         {showApiKeyModal && (
@@ -1607,6 +1739,32 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Tutorial Modal */}
+      {tutorialStep >= 0 && (
+        <div className="tutorial-overlay" onClick={handleTutorialSkip}>
+          <div className="tutorial-modal" onClick={e => e.stopPropagation()}>
+            <div className="tutorial-icon">{TUTORIAL_STEPS[tutorialStep]?.icon}</div>
+            <div className="tutorial-progress">
+              {TUTORIAL_STEPS.map((_, i) => (
+                <div key={i} className={`dot${i === tutorialStep ? " active" : i < tutorialStep ? " done" : ""}`} />
+              ))}
+            </div>
+            <h2 className="tutorial-title">{TUTORIAL_STEPS[tutorialStep]?.title}</h2>
+            <p className="tutorial-desc">{TUTORIAL_STEPS[tutorialStep]?.desc}</p>
+            <div className="tutorial-actions">
+              {tutorialStep < TUTORIAL_STEPS.length - 1 && (
+                <button className="tutorial-skip-btn" onClick={handleTutorialSkip}>
+                  {t.tutorial_skip || "Skip"}
+                </button>
+              )}
+              <button className="tutorial-next-btn" onClick={handleTutorialNext}>
+                {tutorialStep >= TUTORIAL_STEPS.length - 1 ? (t.tutorial_done || "Let's Go!") : (t.tutorial_next || "Next")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
