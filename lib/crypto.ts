@@ -27,7 +27,7 @@ export function setActiveSalt(salt: Uint8Array | null) {
   activeSalt = salt;
 }
 
-async function deriveKey(
+export async function deriveKey(
   password: string,
   salt: Uint8Array,
   options?: { version?: KdfVersion }
