@@ -441,7 +441,8 @@ async function routeToLLM(prompt: string, options?: { context?: string; userProf
   // Inject language instruction if user selected a non-English locale
   if (options?.locale && options.locale !== "en") {
     const langName = LOCALE_LANG[options.locale] || options.locale;
-    systemPrompt += `\n\nIMPORTANT: Always respond in ${langName}. The user's interface is set to ${langName}, so all your replies must be in ${langName}.`;
+    const langInstruction = `\n\n⚠️ CRITICAL LANGUAGE REQUIREMENT: You MUST respond ENTIRELY in ${langName}. The user has selected ${langName} as their language. Every word of your response must be in ${langName}. Do NOT respond in English. Do NOT mix languages. Respond ONLY in ${langName}.`;
+    systemPrompt = langInstruction + "\n\n" + systemPrompt + langInstruction;
   }
 
   const userPrompt = options?.context ? `${options.context}\n\n${prompt}` : prompt;

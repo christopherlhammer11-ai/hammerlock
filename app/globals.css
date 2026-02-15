@@ -1350,15 +1350,25 @@ footer .logo-mark { font-size: 0.85rem; }
   padding: 24px 16px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 0;
   height: 100vh;
   height: 100dvh;
-  overflow-y: auto;
+  overflow: hidden;
   flex-shrink: 0;
   position: sticky;
   top: 0;
   align-self: flex-start;
   transition: width 0.2s ease, padding 0.2s ease, opacity 0.2s ease;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 8px;
 }
 
 .console-sidebar.collapsed {
@@ -1367,6 +1377,16 @@ footer .logo-mark { font-size: 0.85rem; }
   overflow: hidden;
   border-right: none;
   opacity: 0;
+}
+
+.sidebar-bottom {
+  margin-top: auto;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .sidebar-section {

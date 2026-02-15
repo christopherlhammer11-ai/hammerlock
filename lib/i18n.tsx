@@ -505,6 +505,8 @@ const en = {
   msg_read_aloud: "Read aloud",
   msg_stop_reading: "Stop reading",
   msg_regenerate: "Regenerate",
+  msg_save_vault: "Save to Vault",
+  msg_saved_vault: "Saved to Vault!",
 };
 
 // ---- Brazilian Portuguese ----
@@ -978,6 +980,8 @@ const ptBR: typeof en = {
   msg_read_aloud: "Ler em voz alta",
   msg_stop_reading: "Parar leitura",
   msg_regenerate: "Regenerar",
+  msg_save_vault: "Salvar no Vault",
+  msg_saved_vault: "Salvo no Vault!",
 };
 
 // ---- Spanish ----
@@ -1446,6 +1450,8 @@ const es: typeof en = {
   msg_read_aloud: "Leer en voz alta",
   msg_stop_reading: "Detener lectura",
   msg_regenerate: "Regenerar",
+  msg_save_vault: "Guardar en Vault",
+  msg_saved_vault: "¡Guardado en Vault!",
 };
 
 // ---- French ----
@@ -1908,6 +1914,8 @@ const fr: typeof en = {
   msg_read_aloud: "Lire à voix haute",
   msg_stop_reading: "Arrêter la lecture",
   msg_regenerate: "Régénérer",
+  msg_save_vault: "Sauvegarder dans Vault",
+  msg_saved_vault: "Sauvegardé dans Vault !",
 };
 
 // ---- German ----
@@ -2369,6 +2377,8 @@ const de: typeof en = {
   msg_read_aloud: "Vorlesen",
   msg_stop_reading: "Vorlesen stoppen",
   msg_regenerate: "Neu generieren",
+  msg_save_vault: "Im Vault speichern",
+  msg_saved_vault: "Im Vault gespeichert!",
 };
 
 // ---- Chinese (Simplified) ----
@@ -2830,6 +2840,8 @@ const zh: typeof en = {
   msg_read_aloud: "朗读",
   msg_stop_reading: "停止朗读",
   msg_regenerate: "重新生成",
+  msg_save_vault: "保存到保险库",
+  msg_saved_vault: "已保存到保险库！",
 };
 
 // ---- Japanese ----
@@ -3291,6 +3303,8 @@ const ja: typeof en = {
   msg_read_aloud: "読み上げ",
   msg_stop_reading: "読み上げ停止",
   msg_regenerate: "再生成",
+  msg_save_vault: "Vaultに保存",
+  msg_saved_vault: "Vaultに保存しました！",
 };
 
 // ---- Korean ----
@@ -3739,6 +3753,8 @@ const ko: typeof en = {
   msg_read_aloud: "소리내어 읽기",
   msg_stop_reading: "읽기 중지",
   msg_regenerate: "재생성",
+  msg_save_vault: "Vault에 저장",
+  msg_saved_vault: "Vault에 저장됨!",
 };
 
 // ---- Arabic ----
@@ -4187,6 +4203,8 @@ const ar: typeof en = {
   msg_read_aloud: "قراءة بصوت عالٍ",
   msg_stop_reading: "إيقاف القراءة",
   msg_regenerate: "إعادة التوليد",
+  msg_save_vault: "حفظ في الخزنة",
+  msg_saved_vault: "تم الحفظ في الخزنة!",
 };
 
 // ---- Hindi ----
@@ -4648,6 +4666,8 @@ const hi: typeof en = {
   msg_read_aloud: "ज़ोर से पढ़ें",
   msg_stop_reading: "पढ़ना बंद करें",
   msg_regenerate: "पुनः उत्पन्न करें",
+  msg_save_vault: "वॉल्ट में सहेजें",
+  msg_saved_vault: "वॉल्ट में सहेजा गया!",
 
 };
 
@@ -5110,6 +5130,8 @@ const ru: typeof en = {
   msg_read_aloud: "Прочитать вслух",
   msg_stop_reading: "Остановить чтение",
   msg_regenerate: "Перегенерировать",
+  msg_save_vault: "Сохранить в хранилище",
+  msg_saved_vault: "Сохранено в хранилище!",
 
 };
 

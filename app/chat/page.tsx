@@ -3,7 +3,7 @@ import {
   Lock, Mic, MicOff, Paperclip, Send, Terminal, X, ChevronRight, Trash2,
   FileText, Share2, User, Search, BarChart3, Bot, Zap, Globe, Settings, Key,
   Plus, FolderPlus, MessageSquare, ChevronDown, Edit3, Check, Download,
-  Copy, Volume2, VolumeX, RefreshCw, Menu, PanelLeftClose,
+  Copy, Volume2, VolumeX, RefreshCw, Menu, PanelLeftClose, Archive,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -674,6 +674,23 @@ export default function ChatPage() {
     });
   }, []);
 
+  // ---- SAVE TO VAULT ----
+  const [vaultSaved, setVaultSaved] = useState(false);
+  const handleSaveToVault = useCallback(async (text: string) => {
+    try {
+      const snippet = text.length > 500 ? text.slice(0, 500) + "..." : text;
+      const res = await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: `remember: ${snippet}`, locale }),
+      });
+      if (res.ok) {
+        setVaultSaved(true);
+        setTimeout(() => setVaultSaved(false), 2000);
+      }
+    } catch { /* silent */ }
+  }, [locale]);
+
   // ---- READ ALOUD (TTS) ----
   const handleReadAloud = useCallback((msgId: string, text: string) => {
     if (speakingMsgId === msgId) {
@@ -854,6 +871,7 @@ export default function ChatPage() {
   return (
     <div className="console-layout">
       <aside className={`console-sidebar${sidebarOpen ? "" : " collapsed"}`}>
+        <div className="sidebar-scroll">
         {/* Top: Console + New Chat */}
         <div className="sidebar-section">
           <div className="sidebar-label">{t.sidebar_console.toUpperCase()}</div>
@@ -1129,40 +1147,42 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Language picker */}
-        <div style={{ position: "relative" }}>
-          <button
-            className="sidebar-item"
-            onClick={() => setShowLangPicker(!showLangPicker)}
-            style={{ fontSize: "0.8rem", padding: "8px 12px" }}
-          >
-            <Globe size={14} /> {t.sidebar_language}: {LOCALE_LABELS[locale]}
-          </button>
-          {showLangPicker && (
-            <div style={{
-              position: "absolute", bottom: "100%", left: 0, right: 0,
-              background: "var(--bg-card, #111)", border: "1px solid var(--border-color, #1a1a1a)",
-              borderRadius: 8, padding: 4, zIndex: 50, maxHeight: 240, overflowY: "auto",
-              boxShadow: "0 -8px 24px rgba(0,0,0,0.5)",
-            }}>
-              {(Object.keys(LOCALE_LABELS) as Locale[]).map(loc => (
-                <button
-                  key={loc}
-                  onClick={() => { setLocale(loc); setShowLangPicker(false); }}
-                  style={{
-                    display: "block", width: "100%", padding: "6px 10px", background: loc === locale ? "var(--accent-subtle)" : "transparent",
-                    border: "none", color: loc === locale ? "var(--accent)" : "var(--text-secondary)",
-                    fontSize: "0.8rem", textAlign: "left", borderRadius: 6, cursor: "pointer",
-                  }}
-                >
-                  {LOCALE_LABELS[loc]}
-                </button>
-              ))}
-            </div>
-          )}
+        </div>{/* end sidebar-scroll */}
+        {/* Pinned bottom: Language picker + Lock */}
+        <div className="sidebar-bottom">
+          <div style={{ position: "relative" }}>
+            <button
+              className="sidebar-item"
+              onClick={() => setShowLangPicker(!showLangPicker)}
+              style={{ fontSize: "0.8rem", padding: "8px 12px" }}
+            >
+              <Globe size={14} /> {t.sidebar_language}: {LOCALE_LABELS[locale]}
+            </button>
+            {showLangPicker && (
+              <div style={{
+                position: "absolute", bottom: "100%", left: 0, right: 0,
+                background: "var(--bg-card, #111)", border: "1px solid var(--border-color, #1a1a1a)",
+                borderRadius: 8, padding: 4, zIndex: 50, maxHeight: 240, overflowY: "auto",
+                boxShadow: "0 -8px 24px rgba(0,0,0,0.5)",
+              }}>
+                {(Object.keys(LOCALE_LABELS) as Locale[]).map(loc => (
+                  <button
+                    key={loc}
+                    onClick={() => { setLocale(loc); setShowLangPicker(false); }}
+                    style={{
+                      display: "block", width: "100%", padding: "6px 10px", background: loc === locale ? "var(--accent-subtle)" : "transparent",
+                      border: "none", color: loc === locale ? "var(--accent)" : "var(--text-secondary)",
+                      fontSize: "0.8rem", textAlign: "left", borderRadius: 6, cursor: "pointer",
+                    }}
+                  >
+                    {LOCALE_LABELS[loc]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button className="sidebar-lock" onClick={handleLock}><Lock size={16} /> {t.sidebar_lock}</button>
         </div>
-
-        <button className="sidebar-lock" onClick={handleLock}><Lock size={16} /> {t.sidebar_lock}</button>
       </aside>
       <div className="console-main" style={{position:"relative"}}>
         <header className="console-topbar">
@@ -1383,23 +1403,30 @@ export default function ChatPage() {
               </div>
               <div><ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown></div>
               {msg.pending && <div className="message-status">{t.chat_processing}</div>}
-              {/* Message action buttons */}
-              {!msg.pending && msg.role === "ai" && (
+              {/* Message action buttons — copy on all messages, extra actions on AI */}
+              {!msg.pending && msg.role !== "error" && (
                 <div className="message-actions">
                   <button onClick={() => handleCopy(msg.content)} title={t.msg_copy || "Copy"}>
                     <Copy size={14} />
                   </button>
-                  <button
-                    onClick={() => handleReadAloud(msg.id, msg.content)}
-                    title={speakingMsgId === msg.id ? (t.msg_stop_reading || "Stop") : (t.msg_read_aloud || "Read aloud")}
-                    className={speakingMsgId === msg.id ? "active" : ""}
-                  >
-                    {speakingMsgId === msg.id ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                  </button>
-                  {idx === messages.length - 1 && (
-                    <button onClick={handleRegenerate} title={t.msg_regenerate || "Regenerate"}>
-                      <RefreshCw size={14} />
-                    </button>
+                  {msg.role === "ai" && (
+                    <>
+                      <button
+                        onClick={() => handleReadAloud(msg.id, msg.content)}
+                        title={speakingMsgId === msg.id ? (t.msg_stop_reading || "Stop") : (t.msg_read_aloud || "Read aloud")}
+                        className={speakingMsgId === msg.id ? "active" : ""}
+                      >
+                        {speakingMsgId === msg.id ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                      </button>
+                      <button onClick={() => handleSaveToVault(msg.content)} title={t.msg_save_vault || "Save to Vault"}>
+                        <Archive size={14} />
+                      </button>
+                      {idx === messages.length - 1 && (
+                        <button onClick={handleRegenerate} title={t.msg_regenerate || "Regenerate"}>
+                          <RefreshCw size={14} />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1413,8 +1440,9 @@ export default function ChatPage() {
             </div>
           )}
         </div>
-        {/* Copied toast */}
+        {/* Copied / Saved toasts */}
         {copiedToast && <div className="copied-toast">{t.msg_copied || "Copied!"}</div>}
+        {vaultSaved && <div className="copied-toast">🔐 {t.msg_saved_vault || "Saved to Vault!"}</div>}
 
         {/* API Key Configuration Modal — premium welcome flow */}
         {showApiKeyModal && (
