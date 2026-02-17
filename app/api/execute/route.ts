@@ -1214,11 +1214,23 @@ async function fetchBraveResults(query: string): Promise<BraveResult[]> {
   if (!braveKey) {
     throw new Error("Add BRAVE_API_KEY to .env.local");
   }
+
+  // Brave API rejects queries that are empty, too long, or contain only special chars
+  const cleanQuery = query.trim().replace(/\s+/g, " ");
+  if (!cleanQuery || cleanQuery.length < 2) {
+    console.warn("[brave] Query too short, skipping search:", JSON.stringify(query));
+    return [];
+  }
+  // Brave max query length is ~400 chars — truncate to last whole word before 400
+  const safeQuery = cleanQuery.length > 400
+    ? cleanQuery.slice(0, 400).replace(/\s+\S*$/, "")
+    : cleanQuery;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
     const res = await fetch(
-      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=10&country=US&search_lang=en`,
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(safeQuery)}&count=10&country=US&search_lang=en`,
       {
         headers: {
           Accept: "application/json",
@@ -1228,6 +1240,11 @@ async function fetchBraveResults(query: string): Promise<BraveResult[]> {
       }
     );
     if (!res.ok) {
+      // 422 = malformed query, 429 = rate limit — return empty instead of crashing
+      if (res.status === 422 || res.status === 429) {
+        console.warn(`[brave] API returned ${res.status} for query: ${safeQuery.slice(0, 80)}...`);
+        return [];
+      }
       throw new Error(`Brave API error: ${res.status}`);
     }
     const data = await res.json();

@@ -72,7 +72,7 @@ section "1/7  FIRST LAUNCH"
 step "Open HammerLock AI" \
      "Double-click HammerLock AI.app. A cinematic splash screen plays while the engine boots."
 
-step "Create your vault password" \
+step "Create your encryption password" \
      "This password is YOUR encryption key. It never leaves your device."
 
 echo -e "  ${LOCK} ${BOLD}Security notes:${RESET}"
@@ -105,7 +105,7 @@ cmd "\"my timezone is PST\""
 cmd "\"I'm now working on a fitness supplement brand\""
 echo ""
 
-tip "Your persona is stored encrypted in your local vault — never sent to any server."
+tip "Your persona is stored encrypted on your device — never sent to any server."
 
 wait_key
 
@@ -133,7 +133,7 @@ echo -e "  ${BOLD}For web search:${RESET}"
 echo -e "    ${DIM}○${RESET} ${BOLD}Brave Search API${RESET} — add a key for live web results"
 echo ""
 
-tip "Keys are encrypted in your vault. HammerLock AI auto-routes to the best available provider."
+tip "Keys are encrypted on your device. HammerLock AI auto-routes to the best available provider."
 echo ""
 tip "Get free API keys: OpenAI (platform.openai.com), Gemini (aistudio.google.com), Groq (console.groq.com)"
 
@@ -213,7 +213,7 @@ echo -e "    strips names, emails, phone numbers, and addresses."
 echo -e "    The LLM never sees your real personal data."
 echo ""
 echo -e "    ${LOCK} ${BOLD}Local-First Architecture${RESET}"
-echo -e "    Your vault, persona, conversations, and files stay on"
+echo -e "    Your data, persona, conversations, and files stay on"
 echo -e "    your machine. Nothing is uploaded. Nothing is synced."
 echo ""
 echo -e "    ${LOCK} ${BOLD}Zero-Knowledge Design${RESET}"
@@ -244,7 +244,7 @@ echo ""
 echo -e "    • ${BOLD}iPhone:${RESET} Safari → Share → Add to Home Screen"
 echo -e "    • ${BOLD}Android:${RESET} Chrome → Menu → Install App"
 echo ""
-echo -e "    Same encrypted vault, mobile-friendly interface."
+echo -e "    Same encrypted storage, mobile-friendly interface."
 echo ""
 
 tip "The landing page shows a QR code for easy mobile setup."
@@ -260,7 +260,7 @@ echo "  ║     \"Tell me about yourself\"                         ║"
 echo "  ║     \"Search for [anything]\"                          ║"
 echo "  ║     \"Help me draft a [document]\"                     ║"
 echo "  ║                                                      ║"
-echo "  ║   Questions? info@personalhammerlock.com                ║"
+echo "  ║   Questions? info@hammerlockai.com                ║"
 echo "  ║                                                      ║"
 echo "  ╚══════════════════════════════════════════════════════╝"
 echo -e "${RESET}"

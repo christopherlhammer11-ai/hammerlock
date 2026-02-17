@@ -32,10 +32,10 @@ export default function LandingPage() {
   const { t, locale, setLocale } = useI18n();
 
   const terminalLines = [
-    { text: <><span className="prompt">vault &gt;</span> <span className="command">{t.site_term_who}</span></>, delay: 0 },
+    { text: <><span className="prompt">hammerlock &gt;</span> <span className="command">{t.site_term_who}</span></>, delay: 0 },
     { text: <>{t.site_term_loading} <span className="success">{t.site_term_persona_file}</span></>, delay: 0.3 },
     { text: <>{t.site_term_persona_desc}</>, delay: 0.6 },
-    { text: <><span className="prompt">vault &gt;</span> <span className="command">{t.site_term_search_cmd}</span></>, delay: 0.9 },
+    { text: <><span className="prompt">hammerlock &gt;</span> <span className="command">{t.site_term_search_cmd}</span></>, delay: 0.9 },
     { text: <>{t.site_term_search_result} <span className="success">{t.site_term_search_done}</span></>, delay: 1.2 },
   ];
 
@@ -325,7 +325,7 @@ export default function LandingPage() {
               <h3>{card.headline}</h3>
               <p>{card.body}</p>
               <div className="usecase-terminal">
-                <div><span className="prompt">vault &gt;</span> {card.prompt}</div>
+                <div><span className="prompt">hammerlock &gt;</span> {card.prompt}</div>
                 <div className="meta">{card.response}</div>
               </div>
             </article>

@@ -91,7 +91,7 @@
     "mac": {
       "target": "dmg",
       "artifactName": "HammerLock-AI.${ext}",
-      "icon": "public/hammerlock-logo.png",
+      "icon": "build/icon.icns",
       "category": "public.app-category.productivity",
       "identity": "Christopher Hammer (89Q438GN53)",
       "hardenedRuntime": true,
@@ -120,7 +120,7 @@
         "width": 540,
         "height": 380
       },
-      "icon": "public/hammerlock-logo.png",
+      "icon": "build/icon.icns",
       "iconSize": 80,
       "background": null
     },

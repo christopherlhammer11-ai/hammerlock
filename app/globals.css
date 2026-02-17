@@ -5198,7 +5198,11 @@ footer .trust-badge {
   -webkit-app-region: drag;
 }
 
-/* Hidden drag-bar div: fallback invisible drag strip at very top */
+/* Hidden drag-bar div: always-present drag strip at very top of window.
+   In Electron 40+, -webkit-app-region: drag is processed at the compositor
+   level and works with pointer-events: none. However, some Electron versions
+   require actual pointer events. We use a transparent background so it doesn't
+   block visual content, and we let it receive pointer events so dragging works. */
 .electron-drag-bar { display: none; }
 .is-electron .electron-drag-bar {
   display: block;
@@ -5206,10 +5210,9 @@ footer .trust-badge {
   top: 0;
   left: 0;
   right: 0;
-  height: 48px;
+  height: 38px;
   -webkit-app-region: drag;
   z-index: 9999;
-  pointer-events: none;
 }
 
 /* ── Electron: punch NO-DRAG holes for all interactive elements ── */
@@ -5242,4 +5245,22 @@ footer .trust-badge {
 .is-electron .suggestion-card,
 .is-electron .agent-card {
   -webkit-app-region: no-drag;
+}
+
+/* Topbar buttons/links must sit above the drag-bar overlay (z-index: 9999) */
+.is-electron .console-topbar button,
+.is-electron .console-topbar a,
+.is-electron .console-topbar [role="button"],
+.electron-app .console-topbar button,
+.electron-app .console-topbar a,
+.electron-app .console-topbar [role="button"] {
+  position: relative;
+  z-index: 10000;
+}
+
+/* Sidebar must also sit above the drag-bar */
+.is-electron .console-sidebar,
+.electron-app .console-sidebar {
+  position: relative;
+  z-index: 10000;
 }

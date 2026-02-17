@@ -61,7 +61,7 @@ const NUDGE_CATALOG: Record<string, NudgeDef> = {
   vault_tip: {
     id: "vault_tip",
     icon: "📎",
-    message: "Upload PDFs and images with the paperclip button — I'll analyze them and store them encrypted in your Vault.",
+    message: "Upload PDFs and images with the paperclip button — I'll analyze them and store them encrypted on your device.",
   },
   agents_tip: {
     id: "agents_tip",
@@ -1301,7 +1301,7 @@ export default function ChatPage() {
 
   // ---- TUTORIAL (first launch) ----
   const TUTORIAL_STEPS = [
-    { icon: "🔐", title: t.tutorial_title || "Get the Most Out of Your Vault", desc: t.tutorial_step1_desc || "HammerLock AI encrypts everything on your device. Your conversations, personas, and files never leave your machine." },
+    { icon: "🔐", title: t.tutorial_title || "Get the Most Out of HammerLock AI", desc: t.tutorial_step1_desc || "HammerLock AI encrypts everything on your device. Your conversations, personas, and files never leave your machine." },
     { icon: "🤖", title: t.tutorial_step2_title || "6 Specialized Agents", desc: t.tutorial_step2_desc || "Switch between Strategist, Counsel, Analyst, Researcher, Operator, and Writer in the sidebar. Create your own custom agents too." },
     { icon: "🎙️", title: t.tutorial_step3_title || "Voice & Web Search", desc: t.tutorial_step3_desc || "Click the microphone to dictate. Type 'search' to find anything on the web with cited sources. All queries are PII-scrubbed." },
     { icon: "🧠", title: t.tutorial_step4_title || "Teach It About You", desc: t.tutorial_step4_desc || "Say 'remember that...' to store preferences. Load your persona each session. HammerLock AI gets smarter the more you use it." },
@@ -1782,7 +1782,7 @@ export default function ChatPage() {
               <button className="sidebar-item" onClick={handleShare}><Share2 size={14} /> {t.sidebar_share_chat}</button>
               <button className="sidebar-item" onClick={handleExportChat}><Download size={14} /> {t.sidebar_export_chat}</button>
               <button className="sidebar-item" onClick={handleUpload}><Paperclip size={14} /> {t.sidebar_upload_pdf}</button>
-              <button className="sidebar-item" onClick={() => setShowVaultPanel(true)}><Shield size={14} /> My Vault {vaultFiles.length > 0 && <span style={{ marginLeft: "auto", fontSize: "0.7rem", opacity: 0.5 }}>{vaultFiles.length}</span>}</button>
+              <button className="sidebar-item" onClick={() => setShowVaultPanel(true)}><Shield size={14} /> My Files {vaultFiles.length > 0 && <span style={{ marginLeft: "auto", fontSize: "0.7rem", opacity: 0.5 }}>{vaultFiles.length}</span>}</button>
               <button className="sidebar-item" onClick={() => setShowApiKeyModal(true)}><Key size={14} /> {t.sidebar_api_keys}</button>
 
               {/* Agent-specific quick commands */}
@@ -2184,7 +2184,7 @@ export default function ChatPage() {
                       >
                         {speakingMsgId === msg.id ? <VolumeX size={14} /> : <Volume2 size={14} />}
                       </button>
-                      <button onClick={() => saveSnippetToVault(msg.content)} title={t.msg_save_vault || "Save to Vault"}>
+                      <button onClick={() => saveSnippetToVault(msg.content)} title={t.msg_save_vault || "Save to HammerLock"}>
                         <Archive size={14} />
                       </button>
                       {idx === messages.length - 1 && (
@@ -2201,7 +2201,7 @@ export default function ChatPage() {
         </div>
         {/* Copied / Saved toasts */}
         {copiedToast && <div className="copied-toast">{t.msg_copied || "Copied!"}</div>}
-        {vaultSaved && <div className="copied-toast">🔐 {t.msg_saved_vault || "Saved to Vault!"}</div>}
+        {vaultSaved && <div className="copied-toast">🔐 {t.msg_saved_vault || "Saved!"}</div>}
 
         {/* Nudge toast — contextual tips with opt-out */}
         {activeNudge && (
@@ -2562,7 +2562,7 @@ export default function ChatPage() {
           <div className="vault-panel" onClick={e => e.stopPropagation()}>
             <div className="vault-panel-header">
               <Shield size={18} />
-              <h3>My Vault</h3>
+              <h3>My Files</h3>
               <span className="vault-count">{vaultFiles.length} items</span>
               <button className="ghost-btn" onClick={() => setShowVaultPanel(false)} style={{marginLeft:"auto"}}><X size={16} /></button>
             </div>
@@ -2573,7 +2573,7 @@ export default function ChatPage() {
                 <Search size={14} />
                 <input
                   type="text"
-                  placeholder="Search vault..."
+                  placeholder="Search files..."
                   value={vaultSearchQuery}
                   onChange={e => setVaultSearchQuery(e.target.value)}
                 />
@@ -2616,7 +2616,7 @@ export default function ChatPage() {
               {filteredVaultFiles.length === 0 ? (
                 <div className="vault-empty">
                   <Shield size={32} style={{opacity:0.2}} />
-                  <p>{vaultSearchQuery ? "No matching files" : "Your vault is empty"}</p>
+                  <p>{vaultSearchQuery ? "No matching files" : "No files yet"}</p>
                   <p style={{fontSize:"0.75rem",color:"var(--text-muted)"}}>
                     {vaultSearchQuery ? "Try a different search" : "Save chat responses, upload PDFs, or create notes to store them securely."}
                   </p>
@@ -2663,7 +2663,7 @@ export default function ChatPage() {
                       </button>
                       <button
                         className="ghost-btn vault-delete-btn"
-                        title="Remove from vault"
+                        title="Remove file"
                         onClick={() => deleteVaultFile(file.id)}
                       >
                         <Trash2 size={13} />
