@@ -3527,7 +3527,7 @@ footer .logo-mark { font-size: 0.85rem; }
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: var(--space-md) 14px;
+  padding: var(--space-lg) var(--space-md);
   text-align: left;
   position: relative;
   transition: all var(--transition-base);
@@ -3563,7 +3563,7 @@ footer .logo-mark { font-size: 0.85rem; }
 
 .pricing-card h3 {
   font-size: 1.25rem;
-  margin-bottom: var(--space-xs);
+  margin-bottom: var(--space-sm);
 }
 
 .pricing-description {
@@ -3576,7 +3576,7 @@ footer .logo-mark { font-size: 0.85rem; }
   display: flex;
   align-items: baseline;
   gap: 4px;
-  margin-bottom: var(--space-xs);
+  margin-bottom: var(--space-md);
 }
 
 .price-amount {
@@ -3591,26 +3591,12 @@ footer .logo-mark { font-size: 0.85rem; }
   color: var(--text-muted);
 }
 
-.pricing-savings {
-  color: var(--accent);
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: var(--space-sm);
-}
-
-.pricing-trial {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  margin-bottom: var(--space-lg);
-  font-family: var(--font-jetbrains);
-}
-
 .pricing-cta {
   width: 100%;
   text-align: center;
   justify-content: center;
   margin-bottom: var(--space-md);
-  padding: 12px;
+  padding: 14px;
   font-size: 0.85rem;
 }
 
@@ -3620,7 +3606,7 @@ footer .logo-mark { font-size: 0.85rem; }
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
 }
 
