@@ -113,6 +113,7 @@ const AGENT_EMOJI: Record<string, string> = {
   Bot: "\uD83E\uDD16", Brain: "\uD83E\uDDE0", Cpu: "\uD83D\uDCBB", Flame: "\uD83D\uDD25",
   Heart: "\u2764\uFE0F", Lightbulb: "\uD83D\uDCA1", Rocket: "\uD83D\uDE80", Shield: "\uD83D\uDEE1\uFE0F",
   Star: "\u2B50", Wand2: "\u2728", Zap: "\u26A1",
+  Wallet: "\uD83D\uDCB0", Megaphone: "\uD83D\uDCE3", Sword: "\u2694\uFE0F",
 };
 function AgentIcon({ name, size = 14 }: { name: string; size?: number }) {
   const emoji = AGENT_EMOJI[name] || "\uD83E\uDD16";
@@ -121,6 +122,30 @@ function AgentIcon({ name, size = 14 }: { name: string; size?: number }) {
 
 /** Agent onboarding tips — shown on first switch to each agent */
 const AGENT_INTRO_TIPS: Record<string, { tips: string[]; example: string }> = {
+  coach: {
+    tips: [
+      "Tell Coach about your fitness level and any injuries — it'll customize everything for you",
+      "Ask for quick workouts when you're short on time: \"Give me a 15-min full body workout\"",
+      "Get meal plans based on what you have: \"I have chicken, rice, and veggies — plan my week\"",
+    ],
+    example: "I'm a beginner, no gym — just dumbbells at home. Build me a 4-week plan to get stronger, 30 min/day.",
+  },
+  money: {
+    tips: [
+      "Start with the basics: \"I make $X/month after taxes\" — Money does the math from there",
+      "Be honest about debt — no judgment, just a plan: \"I owe $12K across 3 credit cards\"",
+      "Ask it to find savings: \"Where am I overspending?\" — paste your expenses and let it analyze",
+    ],
+    example: "I make $4,200/mo after taxes. Rent is $1,400, car is $380. Help me budget the rest and start saving.",
+  },
+  content: {
+    tips: [
+      "Always mention the platform — Instagram captions are different from LinkedIn posts",
+      "Describe your vibe: \"casual and funny\" vs \"professional and authoritative\" changes everything",
+      "Ask for bulk content: \"Give me 10 hooks\" or \"Plan a week of posts\" to batch your content creation",
+    ],
+    example: "I run a small bakery. Give me 5 Instagram captions for this week — fun, casual, with CTAs to order online.",
+  },
   strategist: {
     tips: [
       "Start by describing your business in 2\u20133 sentences \u2014 Strategist remembers context for the whole conversation",
@@ -232,6 +257,21 @@ const AGENT_ACTIONS: Record<string, WorkflowAction[]> = {
     { id: "save_notes", icon: "📝", label: "Save Draft", command: "Create note in Apple Notes: Draft\n\n{content}" },
     { id: "copy_clean", icon: "📋", label: "Copy Clean", command: "__copy_clean__" },
   ],
+  coach: [
+    { id: "save_plan", icon: "📝", label: "Save Plan", command: "Create note in Apple Notes: Fitness & Wellness Plan\n\n{content}" },
+    { id: "set_reminder", icon: "⏰", label: "Set Reminder", command: "Set a reminder: Time for your workout! Here's the plan: {content}" },
+    { id: "grocery_list", icon: "🛒", label: "Grocery List", command: "Create note in Apple Notes: Grocery List\n\n{content}" },
+  ],
+  money: [
+    { id: "save_budget", icon: "📝", label: "Save Budget", command: "Create note in Apple Notes: Budget Plan\n\n{content}" },
+    { id: "set_reminder", icon: "⏰", label: "Bill Reminder", command: "Set a reminder: Budget check-in — {content}" },
+    { id: "email_it", icon: "📧", label: "Email Summary", command: "Send email with subject 'Budget Summary from HammerLock AI': {content}" },
+  ],
+  content: [
+    { id: "copy_post", icon: "📋", label: "Copy Post", command: "__copy_clean__" },
+    { id: "save_calendar", icon: "📝", label: "Save Calendar", command: "Create note in Apple Notes: Content Calendar\n\n{content}" },
+    { id: "schedule_post", icon: "⏰", label: "Schedule Post", command: "Set a reminder: Time to post! Content ready: {content}" },
+  ],
   general: [
     { id: "email_it", icon: "📧", label: "Email This", command: "Send email with subject 'From HammerLock AI': {content}" },
     { id: "save_notes", icon: "📝", label: "Save to Notes", command: "Create note in Apple Notes: {content}" },
@@ -334,6 +374,45 @@ const WORKFLOW_CHAINS: Record<string, WorkflowChain[]> = {
         "Add to my todo list: Proofread and polish the draft, Get feedback from team, Schedule publication date",
       ],
       triggers: ["draft", "blog", "post", "article", "email", "copy", "pitch", "newsletter", "script"],
+    },
+  ],
+  coach: [
+    {
+      id: "fitness_routine",
+      icon: "💪",
+      label: "Save Plan → Set Reminders",
+      description: "Save workout plan → Create grocery list → Set daily reminder",
+      steps: [
+        "Create note in Apple Notes: Workout & Meal Plan\n\n{content}",
+        "Set a reminder for tomorrow at 7am: Time for your workout! Check your plan in Notes.",
+      ],
+      triggers: ["workout", "exercise", "meal plan", "calories", "protein", "sets", "reps", "cardio", "strength", "routine"],
+    },
+  ],
+  money: [
+    {
+      id: "budget_pipeline",
+      icon: "💰",
+      label: "Save Budget → Set Bill Reminders",
+      description: "Save budget to Notes → Set reminder for monthly check-in",
+      steps: [
+        "Create note in Apple Notes: Monthly Budget Plan\n\n{content}",
+        "Set a reminder: Monthly budget review — check spending against plan and adjust for next month",
+      ],
+      triggers: ["budget", "expense", "income", "debt", "saving", "payoff", "interest", "monthly", "credit card", "loan"],
+    },
+  ],
+  content: [
+    {
+      id: "content_pipeline",
+      icon: "📱",
+      label: "Save Calendar → Schedule Posts",
+      description: "Save content calendar → Set posting reminders",
+      steps: [
+        "Create note in Apple Notes: Content Calendar\n\n{content}",
+        "Set a reminder: Content posting day! Check your calendar in Notes for today's post.",
+      ],
+      triggers: ["post", "caption", "content", "instagram", "tiktok", "linkedin", "twitter", "hook", "carousel", "reel", "thread"],
     },
   ],
 };
