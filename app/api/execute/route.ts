@@ -12,6 +12,18 @@ import { hasCredit, deductCredit, getRemainingUnits } from "@/lib/compute-credit
 import { createAnonymizer } from "@/lib/anonymize";
 import { config as dotenvConfig } from "dotenv";
 import { decryptFromFile, encryptForFile, hasServerSessionKey, isEncrypted } from "@/lib/server-crypto";
+import { detectScheduleIntent, parseScheduleCommand } from "@/lib/schedule-parser";
+import {
+  type ScheduledTask,
+  getSchedulesFromVault,
+  addSchedule,
+  removeSchedule,
+  toggleSchedule,
+  formatSchedule,
+  formatTime12h,
+  DAY_NAMES,
+  SCHEDULES_VAULT_KEY,
+} from "@/lib/schedules";
 
 // Load user env from ~/.hammerlock/.env (for Electron packaged builds)
 // Note: If .env is encrypted, keys are loaded on vault unlock via /api/vault-session
@@ -2031,6 +2043,117 @@ ${formattedResults}
     }
 
     const lowered = normalized.toLowerCase();
+
+    // ---- SCHEDULED AGENT TASKS — "every day at 9am, have coach send me a workout" ----
+    // Runs BEFORE "status" check so messages containing "status" in task descriptions don't get hijacked.
+    const scheduleIntent = detectScheduleIntent(normalized);
+    if (scheduleIntent) {
+      const schedulesPath = path.join(os.homedir(), ".hammerlock", "schedules.json");
+
+      // Helper to read/write schedules file (encrypted at rest)
+      async function readSchedules(): Promise<ScheduledTask[]> {
+        try {
+          const raw = await fs.readFile(schedulesPath, "utf8");
+          const content = isEncrypted(raw) ? (decryptFromFile(raw) || "[]") : raw;
+          return JSON.parse(content) as ScheduledTask[];
+        } catch { return []; }
+      }
+      async function writeSchedules(tasks: ScheduledTask[]): Promise<void> {
+        await fs.mkdir(path.dirname(schedulesPath), { recursive: true });
+        const json = JSON.stringify(tasks, null, 2);
+        const toWrite = hasServerSessionKey() ? encryptForFile(json) : json;
+        await fs.writeFile(schedulesPath, toWrite, "utf8");
+      }
+
+      if (scheduleIntent === "create") {
+        const parsed = parseScheduleCommand(normalized);
+        if (!parsed.success) {
+          return NextResponse.json({
+            response: `❌ ${parsed.error}\n\n**Examples:**\n- "Every day at 9am, have Coach send me a workout plan"\n- "Weekdays at 8am, Money agent review my spending"\n- "Every Monday at 10am, Content agent draft social posts"\n- "Daily at 7pm, Analyst summarize market trends"`
+          });
+        }
+        const tasks = await readSchedules();
+        tasks.push(parsed.task);
+        await writeSchedules(tasks);
+        const agentName = parsed.task.agentId.charAt(0).toUpperCase() + parsed.task.agentId.slice(1);
+        const scheduleStr = formatSchedule(parsed.task);
+        return NextResponse.json({
+          response: `✅ **Scheduled!**\n\n🕐 **${scheduleStr}**\n🤖 Agent: **${agentName}**\n📋 Task: ${parsed.task.task}\n\nI'll run this automatically and notify you with the results. Say "my schedules" to view all scheduled tasks.`,
+          scheduleCreated: parsed.task,
+        });
+      }
+
+      if (scheduleIntent === "list") {
+        const tasks = await readSchedules();
+        if (tasks.length === 0) {
+          return NextResponse.json({
+            response: `📋 **No scheduled tasks yet.**\n\nSet one up like:\n- "Every day at 9am, have Coach send me a workout plan"\n- "Weekdays at 8am, Money agent check my budget"\n- "Every Monday at 10am, Content agent draft social posts"`
+          });
+        }
+        const lines = tasks.map((t, i) => {
+          const agentName = t.agentId.charAt(0).toUpperCase() + t.agentId.slice(1);
+          const status = t.enabled ? "🟢" : "⏸️";
+          return `${status} **${i + 1}.** ${formatSchedule(t)} — **${agentName}**: ${t.task}`;
+        });
+        return NextResponse.json({
+          response: `📋 **Your Scheduled Tasks**\n\n${lines.join("\n")}\n\n*Say "delete schedule 1" or "pause schedule 2" to manage them.*`,
+          schedules: tasks,
+        });
+      }
+
+      if (scheduleIntent === "delete") {
+        const tasks = await readSchedules();
+        // Try to extract a number: "delete schedule 1", "cancel schedule 2"
+        const numMatch = normalized.match(/(\d+)/);
+        if (numMatch) {
+          const idx = parseInt(numMatch[1], 10) - 1;
+          if (idx >= 0 && idx < tasks.length) {
+            const removed = tasks[idx];
+            tasks.splice(idx, 1);
+            await writeSchedules(tasks);
+            return NextResponse.json({
+              response: `🗑️ Deleted: **${removed.task}** (${formatSchedule(removed)})\n\n${tasks.length} scheduled task${tasks.length === 1 ? "" : "s"} remaining.`,
+              scheduleDeleted: removed.id,
+            });
+          }
+        }
+        // No number or invalid — list them
+        if (tasks.length === 0) {
+          return NextResponse.json({ response: "No scheduled tasks to delete." });
+        }
+        const lines = tasks.map((t, i) => `**${i + 1}.** ${formatSchedule(t)} — ${t.task}`);
+        return NextResponse.json({
+          response: `Which schedule do you want to delete?\n\n${lines.join("\n")}\n\nSay "delete schedule [number]" to remove one.`
+        });
+      }
+
+      if (scheduleIntent === "toggle") {
+        const tasks = await readSchedules();
+        const numMatch = normalized.match(/(\d+)/);
+        if (numMatch) {
+          const idx = parseInt(numMatch[1], 10) - 1;
+          if (idx >= 0 && idx < tasks.length) {
+            tasks[idx] = { ...tasks[idx], enabled: !tasks[idx].enabled };
+            await writeSchedules(tasks);
+            const status = tasks[idx].enabled ? "▶️ Resumed" : "⏸️ Paused";
+            return NextResponse.json({
+              response: `${status}: **${tasks[idx].task}** (${formatSchedule(tasks[idx])})`,
+              scheduleToggled: { id: tasks[idx].id, enabled: tasks[idx].enabled },
+            });
+          }
+        }
+        if (tasks.length === 0) {
+          return NextResponse.json({ response: "No scheduled tasks to toggle." });
+        }
+        const lines = tasks.map((t, i) => {
+          const status = t.enabled ? "🟢" : "⏸️";
+          return `${status} **${i + 1}.** ${formatSchedule(t)} — ${t.task}`;
+        });
+        return NextResponse.json({
+          response: `Which schedule do you want to pause/resume?\n\n${lines.join("\n")}\n\nSay "pause schedule [number]" or "resume schedule [number]".`
+        });
+      }
+    }
 
     if (lowered.includes("status")) {
       const status = await runStatus();

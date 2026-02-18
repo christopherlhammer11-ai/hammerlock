@@ -24,6 +24,9 @@ import { useNudges, type NudgeDef } from "@/lib/use-nudges";
 import NudgeToast from "@/components/NudgeToast";
 import SettingsPanel from "@/components/SettingsPanel";
 import SourcesAccordion from "@/components/SourcesAccordion";
+import PersonalVaultPanel from "@/components/PersonalVaultPanel";
+import { usePersonalVault } from "@/lib/personal-vault-store";
+import { type ScheduledTask, formatSchedule, formatTime12h } from "@/lib/schedules";
 
 type GatewayStatus = "connected" | "connecting" | "offline";
 
@@ -194,6 +197,14 @@ const AGENT_INTRO_TIPS: Record<string, { tips: string[]; example: string }> = {
     ],
     example: "Draft a cold email to a potential enterprise customer. We sell compliance automation for fintech. Keep it under 150 words.",
   },
+  director: {
+    tips: [
+      "Start with the platform and length: \"30-second TikTok\" vs. \"3-minute YouTube tutorial\" — Director optimizes for each",
+      "Describe your product/demo: \"It's an encrypted AI chat app\" — Director builds the visual story around it",
+      "Ask for complete packages: \"Give me the script, shot list, and voiceover\" — one prompt, everything you need",
+    ],
+    example: "Script a 60-second product demo video for HammerLock AI. Show the vault feature, agent switching, and privacy pitch. Punchy and modern.",
+  },
 };
 
 /** Vault settings key for tracking which agents have been introduced */
@@ -271,6 +282,11 @@ const AGENT_ACTIONS: Record<string, WorkflowAction[]> = {
     { id: "copy_post", icon: "📋", label: "Copy Post", command: "__copy_clean__" },
     { id: "save_calendar", icon: "📝", label: "Save Calendar", command: "Create note in Apple Notes: Content Calendar\n\n{content}" },
     { id: "schedule_post", icon: "⏰", label: "Schedule Post", command: "Set a reminder: Time to post! Content ready: {content}" },
+  ],
+  director: [
+    { id: "copy_script", icon: "📋", label: "Copy Script", command: "__copy_clean__" },
+    { id: "save_script", icon: "📝", label: "Save Script", command: "Create note in Apple Notes: Video Script\n\n{content}" },
+    { id: "email_script", icon: "📧", label: "Email Script", command: "Send email with subject 'Video Script from HammerLock AI': {content}" },
   ],
   general: [
     { id: "email_it", icon: "📧", label: "Email This", command: "Send email with subject 'From HammerLock AI': {content}" },
@@ -415,6 +431,31 @@ const WORKFLOW_CHAINS: Record<string, WorkflowChain[]> = {
       triggers: ["post", "caption", "content", "instagram", "tiktok", "linkedin", "twitter", "hook", "carousel", "reel", "thread"],
     },
   ],
+  director: [
+    {
+      id: "script_to_production",
+      icon: "🎬",
+      label: "Script → Save → Schedule Shoot",
+      description: "Save video script → Create shot list tasks → Schedule shoot day",
+      steps: [
+        "Create note in Apple Notes: Video Script\n\n{content}",
+        "Add to my todo list: Review and finalize script, Prep set and props, Record B-roll footage, Film main takes, Edit and add music",
+        "Set a reminder: Video shoot day! Script is saved in Notes — review it before you start.",
+      ],
+      triggers: ["script", "scene", "shot", "take", "voiceover", "b-roll", "hook", "cta", "demo", "tutorial", "walkthrough"],
+    },
+    {
+      id: "video_series_plan",
+      icon: "📺",
+      label: "Plan Series → Save → Remind",
+      description: "Save video series plan → Set weekly filming reminders",
+      steps: [
+        "Create note in Apple Notes: Video Series Plan\n\n{content}",
+        "Set a reminder: Video content day! Check your series plan in Notes and film the next episode.",
+      ],
+      triggers: ["series", "episode", "weekly", "campaign", "launch", "funnel", "playlist"],
+    },
+  ],
 };
 
 /** Detect which workflow chains are relevant based on AI response content */
@@ -456,6 +497,7 @@ function generateId() {
 export default function ChatPage() {
   const router = useRouter();
   const { lockVault, vaultData, updateVaultData, isUnlocked } = useVault();
+  const { pvIsUnlocked, pvHasVault } = usePersonalVault();
   const { subscription, messageCount, canSendMessage, incrementMessageCount, isFeatureAvailable } = useSubscription();
   const { t, locale, setLocale } = useI18n();
 
@@ -493,6 +535,7 @@ export default function ChatPage() {
 
   // ---- File Vault state ----
   const [showVaultPanel, setShowVaultPanel] = useState(false);
+  const [showPersonalVaultPanel, setShowPersonalVaultPanel] = useState(false);
   const [vaultSearchQuery, setVaultSearchQuery] = useState("");
   const [showNewNote, setShowNewNote] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState("");
@@ -633,6 +676,121 @@ export default function ChatPage() {
 
     return () => clearInterval(interval);
   }, [vaultData?.persona]);
+
+  // ---- SCHEDULED AGENT TASKS: check /api/schedules and execute due tasks ----
+  const scheduleFiredRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!isUnlocked) return;
+
+    const checkSchedules = async () => {
+      try {
+        const res = await fetch("/api/schedules");
+        if (!res.ok) return;
+        const { due } = await res.json() as { due: ScheduledTask[] };
+
+        for (const task of due) {
+          // Skip if already fired this cycle
+          const fireKey = `${task.id}-${new Date().toISOString().slice(0, 16)}`;
+          if (scheduleFiredRef.current.has(fireKey)) continue;
+          scheduleFiredRef.current.add(fireKey);
+
+          // Mark as fired on the server
+          await fetch("/api/schedules", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ taskId: task.id }),
+          });
+
+          // Get agent definition for system prompt
+          const agent = getAgentById(task.agentId);
+          const agentName = agent?.name || task.agentId;
+          const agentSystemPrompt = agent?.systemPrompt || "";
+
+          // Add a "running" message to chat
+          const schedMsgId = `sched-${Date.now()}-${task.id}`;
+          setMessages(prev => [...prev, {
+            id: schedMsgId,
+            role: "ai" as const,
+            content: `⏰ **Scheduled Task Running** — ${agentName} agent\n\n_${task.task}_\n\n⏳ Working on it...`,
+            timestamp: new Date().toISOString(),
+            pending: true,
+          }]);
+
+          // Execute the agent prompt via /api/execute
+          try {
+            const execRes = await fetch("/api/execute", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                command: task.prompt,
+                agentSystemPrompt,
+                locale: "en",
+                history: [],
+              }),
+            });
+            const data = await execRes.json();
+            const response = data.response || data.error || "Task completed but returned no output.";
+
+            // Update the message with the result
+            setMessages(prev => prev.map(m =>
+              m.id === schedMsgId ? {
+                ...m,
+                content: `⏰ **Scheduled Task Complete** — ${agentName} agent\n📋 _${task.task}_\n\n---\n\n${response}`,
+                pending: false,
+              } : m
+            ));
+
+            // Browser notification
+            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+              new Notification(`HammerLock AI — ${agentName}`, {
+                body: `Scheduled task complete: ${task.task}`,
+                icon: "/icon-512.png",
+              });
+            }
+
+            // TTS notification
+            try {
+              const ttsText = `Your scheduled ${agentName} task is complete: ${task.task}`;
+              fetch("/api/tts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: ttsText, voice: "nova" }),
+              }).then(r => {
+                if (r.ok && r.headers.get("content-type")?.includes("audio")) {
+                  r.blob().then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const audio = new Audio(url);
+                    audio.onended = () => URL.revokeObjectURL(url);
+                    audio.play();
+                  });
+                }
+              }).catch(() => {
+                if (typeof window !== "undefined" && window.speechSynthesis) {
+                  const utter = new SpeechSynthesisUtterance(`Scheduled task complete: ${task.task}`);
+                  window.speechSynthesis.speak(utter);
+                }
+              });
+            } catch { /* silent */ }
+
+          } catch (err) {
+            // Execution failed — update message with error
+            setMessages(prev => prev.map(m =>
+              m.id === schedMsgId ? {
+                ...m,
+                content: `⏰ **Scheduled Task Failed** — ${agentName} agent\n📋 _${task.task}_\n\n❌ ${(err as Error).message || "Unknown error"}`,
+                pending: false,
+              } : m
+            ));
+          }
+        }
+      } catch { /* silent — API might not be ready */ }
+    };
+
+    // Check immediately on mount, then every 30 seconds
+    checkSchedules();
+    const scheduleInterval = setInterval(checkSchedules, 30000);
+    return () => clearInterval(scheduleInterval);
+  }, [isUnlocked]);
 
   // Listen for Electron menu bar events (refs for stable callbacks)
   const createNewConversationRef = useRef<(() => void) | null>(null);
@@ -2159,6 +2317,7 @@ export default function ChatPage() {
               <button className="sidebar-item" onClick={handleExportChat}><Download size={14} /> {t.sidebar_export_chat}</button>
               <button className="sidebar-item" onClick={handleUpload}><Paperclip size={14} /> {t.sidebar_upload_pdf}</button>
               <button className="sidebar-item" onClick={() => setShowVaultPanel(true)}><Shield size={14} /> My Files {vaultFiles.length > 0 && <span style={{ marginLeft: "auto", fontSize: "0.7rem", opacity: 0.5 }}>{vaultFiles.length}</span>}</button>
+              <button className="sidebar-item" onClick={() => setShowPersonalVaultPanel(true)}><Lock size={14} /> Personal Vault {pvHasVault && <span style={{ marginLeft: "auto", fontSize: "0.65rem", opacity: 0.6 }}>{pvIsUnlocked ? "Open" : "Locked"}</span>}</button>
               <button className="sidebar-item" onClick={() => setShowApiKeyModal(true)}><Key size={14} /> {t.sidebar_api_keys}</button>
 
               {/* Agent-specific quick commands */}
@@ -3100,6 +3259,9 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+
+      {/* ---- PERSONAL VAULT PANEL ---- */}
+      <PersonalVaultPanel open={showPersonalVaultPanel} onClose={() => setShowPersonalVaultPanel(false)} />
 
       {/* ---- FILE VAULT PANEL ---- */}
       {showVaultPanel && (

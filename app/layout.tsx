@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { VaultProvider } from "@/lib/vault-store";
+import { PersonalVaultProvider } from "@/lib/personal-vault-store";
 import { SubscriptionProvider } from "@/lib/subscription-store";
 import { I18nProvider } from "@/lib/i18n";
 import Script from "next/script";
@@ -59,7 +60,9 @@ export default function RootLayout({
         <div className="electron-drag-bar" />
         <I18nProvider>
           <SubscriptionProvider>
-            <VaultProvider>{children}</VaultProvider>
+            <VaultProvider>
+              <PersonalVaultProvider>{children}</PersonalVaultProvider>
+            </VaultProvider>
           </SubscriptionProvider>
         </I18nProvider>
         <Script

@@ -111,6 +111,34 @@ export async function decrypt(encryptedData: string, key: CryptoKey): Promise<st
   return textDecoder.decode(plaintext);
 }
 
+/**
+ * Encrypt with an explicit salt — used by Personal Vault to avoid
+ * touching the main vault's activeSalt singleton.
+ */
+export async function encryptWithSalt(data: string, key: CryptoKey, salt: Uint8Array): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, textEncoder.encode(data))
+  );
+  const combined = new Uint8Array(salt.length + iv.length + ciphertext.length);
+  combined.set(salt, 0);
+  combined.set(iv, salt.length);
+  combined.set(ciphertext, salt.length + iv.length);
+  return bytesToBase64(combined);
+}
+
+/**
+ * Decrypt with an explicit salt length — used by Personal Vault.
+ * Does not read activeSalt.
+ */
+export async function decryptWithSalt(encryptedData: string, key: CryptoKey, saltLength: number = 16): Promise<string> {
+  const buffer = base64ToBytes(encryptedData);
+  const iv = buffer.slice(saltLength, saltLength + 12);
+  const ciphertext = buffer.slice(saltLength + 12);
+  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+  return textDecoder.decode(plaintext);
+}
+
 export async function hashPassword(password: string, salt: Uint8Array): Promise<string> {
   const passBytes = textEncoder.encode(password);
   const data = new Uint8Array(salt.length + passBytes.length);
