@@ -27,7 +27,6 @@ function isElectron(): boolean {
 
 export default function LandingPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [mobileUrl, setMobileUrl] = useState<string | null>(null);
   const [langOpen, setLangOpen] = useState(false);
@@ -88,12 +87,9 @@ export default function LandingPage() {
     },
     {
       name: t.site_plan_pro, description: t.site_plan_pro_desc, popular: true,
-      price: billingCycle === 'monthly' ? 29 : 249,
-      priceLabel: billingCycle === 'monthly' ? '$29' : '$249',
-      pricePeriod: billingCycle === 'monthly' ? t.site_plan_per_mo : t.site_plan_per_yr,
-      annualSavings: '28%',
+      price: 29, priceLabel: '$29', pricePeriod: t.site_plan_per_mo,
       features: [t.site_plan_pro_f1, t.site_plan_pro_f2, t.site_plan_pro_f3, t.site_plan_pro_f4, t.site_plan_pro_f5, t.site_plan_pro_f6, t.site_plan_pro_f7],
-      ctaAction: billingCycle === 'monthly' ? 'pro-monthly' : 'pro-annual',
+      ctaAction: 'pro-monthly',
     },
     {
       name: t.site_plan_teams, description: t.site_plan_teams_desc,
@@ -416,20 +412,6 @@ export default function LandingPage() {
           {t.site_sub_pricing}
         </p>
 
-        <div className="billing-toggle">
-          <button
-            className={billingCycle === 'monthly' ? 'active' : ''}
-            onClick={() => setBillingCycle('monthly')}
-          >
-            {t.site_billing_monthly}
-          </button>
-          <button
-            className={billingCycle === 'annual' ? 'active' : ''}
-            onClick={() => setBillingCycle('annual')}
-          >
-            {t.site_billing_annual} <span className="toggle-badge">{t.site_billing_save}</span>
-          </button>
-        </div>
 
         <div className="pricing-grid">
           {plans.map((plan) => (
@@ -444,9 +426,6 @@ export default function LandingPage() {
                   <span className="price-period">/{plan.pricePeriod}</span>
                 )}
               </div>
-              {billingCycle === 'annual' && plan.annualSavings && (
-                <div className="pricing-savings">{t.site_plan_save(plan.annualSavings)}</div>
-              )}
               {plan.ctaAction !== 'github' && plan.ctaAction !== 'contact' && (
                 <div className="pricing-trial">{t.site_trial_included}</div>
               )}
