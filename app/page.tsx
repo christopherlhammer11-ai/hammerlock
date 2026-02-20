@@ -929,6 +929,14 @@ export default function LandingPage() {
               <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Partnership Opportunities</span>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: 4 }}>We typically respond within 24 hours.</span>
             </div>
+
+            {/* Social Media */}
+            <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
+              <a href="https://x.com/hammerlockai" target="_blank" rel="noopener noreferrer" title="Follow us on X" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem', transition: 'color 0.2s' }}>𝕏</a>
+              <a href="https://youtube.com/@hammerlockai" target="_blank" rel="noopener noreferrer" title="Subscribe on YouTube" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>▶</a>
+              <a href="https://instagram.com/hammerlockai" target="_blank" rel="noopener noreferrer" title="Follow on Instagram" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>📷</a>
+              <a href="https://tiktok.com/@hammerlockai" target="_blank" rel="noopener noreferrer" title="Follow on TikTok" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>♪</a>
+            </div>
           </div>
         </div>
 
@@ -937,9 +945,12 @@ export default function LandingPage() {
           <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             &copy; {new Date().getFullYear()} HammerLock AI. All rights reserved. Built on OpenClaw (MIT License).
           </p>
-          <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Cancel anytime &middot; No long-term contracts &middot; <a href="mailto:info@hammerlockai.com" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>Questions? Contact us</a>
-          </p>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <a href="/terms" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '0.75rem' }}>Terms of Service</a>
+            <a href="/privacy" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '0.75rem' }}>Privacy Policy</a>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Cancel anytime &middot; No long-term contracts</span>
+            <a href="mailto:info@hammerlockai.com" style={{ color: 'var(--text-muted)', textDecoration: 'underline', fontSize: '0.75rem' }}>Contact us</a>
+          </div>
         </div>
       </footer>
     </div>
