@@ -934,7 +934,6 @@ export default function LandingPage() {
             {/* Social Media */}
             <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
               <a href="https://x.com/hammerlockai" target="_blank" rel="noopener noreferrer" title="Follow us on X" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem', transition: 'color 0.2s' }}>𝕏</a>
-              <a href="https://youtube.com/@hammerlockai" target="_blank" rel="noopener noreferrer" title="Subscribe on YouTube" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>▶</a>
               <a href="https://instagram.com/hammerlockai" target="_blank" rel="noopener noreferrer" title="Follow on Instagram" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>📷</a>
               <a href="https://tiktok.com/@hammerlockai" target="_blank" rel="noopener noreferrer" title="Follow on TikTok" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>♪</a>
             </div>

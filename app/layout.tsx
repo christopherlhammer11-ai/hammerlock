@@ -14,6 +14,7 @@ const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrai
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-brand", display: "swap" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://hammerlockai.com"),
   title: "HammerLock AI — Your AI. Your Data. Your Rules.",
   description: "Local-first AI with encrypted memory built for operators",
   manifest: "/manifest.json",
