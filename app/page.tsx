@@ -710,6 +710,8 @@ export default function LandingPage() {
         <p className="section-subtitle">
           {t.site_sub_openclaw}
         </p>
+
+        {/* Core pillars */}
         <div className="openclaw-pills">
           {[
             { label: t.site_oc_multi, desc: t.site_oc_multi_desc },
@@ -722,6 +724,102 @@ export default function LandingPage() {
               <span>{pill.desc}</span>
             </div>
           ))}
+        </div>
+
+        {/* How OpenClaw Works — Architecture */}
+        <div style={{ marginTop: 60, maxWidth: 900, marginLeft: 'auto', marginRight: 'auto' }}>
+          <h3 style={{ textAlign: 'center', fontSize: '1.3rem', marginBottom: 8, letterSpacing: '-0.02em' }}>
+            How OpenClaw Works
+          </h3>
+          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 32, maxWidth: 600, marginLeft: 'auto', marginRight: 'auto' }}>
+            OpenClaw is the open-source AI runtime that powers HammerLock. It handles provider routing, failover, streaming, and local model management — so you never depend on a single AI vendor.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
+            {[
+              { icon: '🔄', title: 'Parallel Provider Racing', desc: 'Sends your query to multiple AI providers simultaneously. The fastest response wins. If one provider is down, you never notice.' },
+              { icon: '🏠', title: 'Local-First with Ollama', desc: 'Run Llama, Mistral, Phi, or Gemma locally with Ollama. Zero latency, zero cost, zero data leaving your machine. Perfect for sensitive work.' },
+              { icon: '🔀', title: 'Automatic Failover', desc: 'If OpenAI is slow, Groq picks it up. If Groq is down, Anthropic steps in. Your workflow never stops, regardless of provider outages.' },
+              { icon: '🌊', title: 'Real-Time Streaming', desc: 'Tokens stream to your screen as they generate. No more staring at loading spinners — see the AI think in real time.' },
+              { icon: '🔑', title: 'Bring Your Own Keys', desc: 'Use your own API keys from any provider. Pay the providers directly at their rates. No markup, no middleman, no data routing through us.' },
+              { icon: '🛡️', title: 'PII Anonymization', desc: 'Built-in anonymizer strips personal data before it reaches any cloud API. Names, emails, phone numbers — automatically redacted and restored.' },
+            ].map((item) => (
+              <div key={item.title} style={{
+                padding: '20px 24px', background: 'rgba(17,17,17,0.6)',
+                border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12,
+                transition: 'all 0.2s ease',
+              }}>
+                <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>{item.icon}</div>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 6, color: 'var(--text-primary)' }}>{item.title}</h4>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* OpenClaw Use Cases */}
+        <div style={{ marginTop: 60, maxWidth: 900, marginLeft: 'auto', marginRight: 'auto' }}>
+          <h3 style={{ textAlign: 'center', fontSize: '1.3rem', marginBottom: 8, letterSpacing: '-0.02em' }}>
+            What You Can Build with OpenClaw
+          </h3>
+          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 32, maxWidth: 600, marginLeft: 'auto', marginRight: 'auto' }}>
+            OpenClaw isn&apos;t just for HammerLock. It&apos;s a standalone runtime you can embed in any application.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+            {[
+              { title: 'Private Legal AI', desc: 'Law firms processing client documents with zero cloud exposure. Contract review, case research, and compliance checks — all running locally with attorney-client privilege intact.', tag: 'Legal' },
+              { title: 'Healthcare Data Analysis', desc: 'HIPAA-compliant AI processing of patient data. Medical record summarization, clinical trial matching, and research synthesis without data leaving the hospital network.', tag: 'Healthcare' },
+              { title: 'Financial Modeling', desc: 'Investment firms running AI analysis on proprietary trading data. Portfolio optimization, risk assessment, and market research with no data leakage to third parties.', tag: 'Finance' },
+              { title: 'Government & Defense', desc: 'Air-gapped AI deployments for classified environments. Intelligence analysis, document processing, and decision support on isolated networks.', tag: 'Gov/Defense' },
+              { title: 'Enterprise Knowledge Base', desc: 'Companies deploying internal AI assistants trained on proprietary documentation. SOPs, product specs, and internal wikis — searchable and conversational.', tag: 'Enterprise' },
+              { title: 'Developer Tools', desc: 'Embed OpenClaw in your own applications. Build AI-powered features without vendor lock-in. Switch providers, add local models, or go fully offline — your architecture, your choice.', tag: 'Developers' },
+            ].map((uc) => (
+              <div key={uc.title} style={{
+                padding: '24px', background: 'rgba(17,17,17,0.6)',
+                border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12,
+                transition: 'all 0.2s ease', position: 'relative',
+              }}>
+                <span style={{
+                  display: 'inline-block', padding: '2px 10px', fontSize: '0.7rem', fontWeight: 700,
+                  letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent)',
+                  background: 'rgba(0,255,136,0.08)', borderRadius: 4, marginBottom: 10,
+                }}>{uc.tag}</span>
+                <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 8, color: 'var(--text-primary)' }}>{uc.title}</h4>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>{uc.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Supported Providers */}
+        <div style={{ marginTop: 60, textAlign: 'center', maxWidth: 700, marginLeft: 'auto', marginRight: 'auto' }}>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: 16, letterSpacing: '-0.02em' }}>
+            Supported AI Providers
+          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+            {['OpenAI (GPT-4o, GPT-4o-mini)', 'Anthropic (Claude Sonnet)', 'Google (Gemini Flash, Gemini Pro)', 'Groq (Llama 3.3 70B)', 'Mistral (Mistral Small)', 'DeepSeek (DeepSeek Chat)', 'Ollama (Llama, Phi, Gemma, Mistral — local)'].map((p) => (
+              <span key={p} style={{
+                padding: '6px 14px', fontSize: '0.78rem', background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, color: 'var(--text-secondary)',
+              }}>{p}</span>
+            ))}
+          </div>
+          <p style={{ marginTop: 20, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            New providers added regularly. All providers are optional — use one, some, or all.
+          </p>
+        </div>
+
+        {/* CTA */}
+        <div style={{ textAlign: 'center', marginTop: 48 }}>
+          <a href="#pricing" className="cta-main" style={{ display: 'inline-block', padding: '12px 32px', fontSize: '1rem', textDecoration: 'none', borderRadius: 10 }}>
+            Get Started with OpenClaw &rarr;
+          </a>
+          <div style={{ marginTop: 12 }}>
+            <a href="https://github.com/christopherlhammer11-ai/hammerlock" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textDecoration: 'none' }}>
+              View source on GitHub &rarr;
+            </a>
+          </div>
         </div>
       </section>
 
