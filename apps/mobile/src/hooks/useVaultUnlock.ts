@@ -1,11 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import {
-  DEFAULT_KDF_VERSION,
-  KdfVersion,
-  deriveKey,
-  hashPassword,
-  setActiveSalt,
-} from '../../../../lib/crypto';
+import { deriveKey, hashPassword } from '@mobile/lib/crypto';
 
 const VAULT_SALT = Uint8Array.from([88, 12, 33, 77, 190, 201, 12, 44, 5, 6, 7, 8, 9, 10, 11, 12]);
 const EXPECTED_PASSWORD_HASH = 'ax7pu2FZv3bfRrYRuCzweH/0nNP2Hj1BCs0txI4gWJQ=';
@@ -16,7 +10,6 @@ type UnlockState = 'locked' | 'unlocking' | 'ready';
 export interface VaultUnlockResult {
   status: UnlockState;
   error: string | null;
-  keyVersion: KdfVersion;
   sessionKey: CryptoKey | null;
   unlockedAt: number | null;
   unlockWithPassphrase: (passphrase: string) => Promise<void>;
@@ -27,29 +20,22 @@ export function useVaultUnlock(): VaultUnlockResult {
   const [status, setStatus] = useState<UnlockState>('locked');
   const [error, setError] = useState<string | null>(null);
   const [sessionKey, setSessionKey] = useState<CryptoKey | null>(null);
-  const [keyVersion, setKeyVersion] = useState<KdfVersion>(DEFAULT_KDF_VERSION);
   const [unlockedAt, setUnlockedAt] = useState<number | null>(null);
 
-  const ensureSalt = useCallback(() => {
-    setActiveSalt(VAULT_SALT);
-  }, []);
-
-  const persistKey = useCallback((key: CryptoKey, version: KdfVersion) => {
+  const persistKey = useCallback((key: CryptoKey) => {
     setSessionKey(key);
-    setKeyVersion(version);
     setUnlockedAt(Date.now());
     setStatus('ready');
   }, []);
 
   const validatePassphrase = useCallback(async (passphrase: string) => {
-    ensureSalt();
     const attemptHash = await hashPassword(passphrase, VAULT_SALT);
     if (attemptHash !== EXPECTED_PASSWORD_HASH) {
       throw new Error('Incorrect passphrase.');
     }
-    const { key, version } = await deriveKey(passphrase, VAULT_SALT);
-    persistKey(key, version);
-  }, [ensureSalt, persistKey]);
+    const key = await deriveKey(passphrase, VAULT_SALT);
+    persistKey(key);
+  }, [persistKey]);
 
   const unlockWithPassphrase = useCallback(async (passphrase: string) => {
     setStatus('unlocking');
@@ -78,7 +64,7 @@ export function useVaultUnlock(): VaultUnlockResult {
   }, [validatePassphrase]);
 
   return useMemo(
-    () => ({ status, error, keyVersion, sessionKey, unlockedAt, unlockWithPassphrase, unlockWithBiometrics }),
-    [status, error, keyVersion, sessionKey, unlockedAt, unlockWithPassphrase, unlockWithBiometrics]
+    () => ({ status, error, sessionKey, unlockedAt, unlockWithPassphrase, unlockWithBiometrics }),
+    [status, error, sessionKey, unlockedAt, unlockWithPassphrase, unlockWithBiometrics]
   );
 }

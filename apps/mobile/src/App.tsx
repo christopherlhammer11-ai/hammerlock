@@ -13,6 +13,7 @@ import PasswordSetupScreen from '@mobile/screens/PasswordSetupScreen';
 import WelcomeScreen from '@mobile/screens/WelcomeScreen';
 import PersonaSelectionScreen from '@mobile/screens/PersonaSelectionScreen';
 import FirstChatTutorialScreen from '@mobile/screens/FirstChatTutorialScreen';
+import SettingsScreen from '@mobile/screens/SettingsScreen';
 import { palette } from '@mobile/theme/colors';
 
 enableScreens(true);
@@ -47,6 +48,7 @@ function Navigator() {
       <Stack.Screen name="PasswordSetup" component={PasswordSetupScreen} />
       <Stack.Screen name="PersonaSelection" component={PersonaSelectionScreen} />
       <Stack.Screen name="FirstChatTutorial" component={FirstChatTutorialScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );
 }
