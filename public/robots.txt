@@ -1,0 +1,9 @@
+# HammerLock AI — robots.txt
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /chat
+Disallow: /vault
+Disallow: /activate
+
+Sitemap: https://hammerlockai.com/sitemap.xml

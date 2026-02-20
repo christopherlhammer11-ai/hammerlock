@@ -21,7 +21,7 @@ export type SubscriptionStatus = {
   activatedAt: string | null;
 };
 
-const FREE_MESSAGE_LIMIT = 999999; // uncapped — re-enable when products go live
+const FREE_MESSAGE_LIMIT = 15; // free tier: 15 messages before upgrade prompt
 
 const STORAGE_KEY = "vault_subscription";
 

@@ -286,9 +286,20 @@ function createWindow() {
 async function transitionToVault() {
   if (!mainWindow) return;
 
-  // Skip license gate for now — products aren't for sale yet.
-  // When ready to enforce, re-enable the /api/license/check call.
+  // License gate: check tier on startup, redirect to /activate if no license
   let targetPath = "/vault";
+  try {
+    const checkRes = await fetch(`http://127.0.0.1:${NEXT_PORT}/api/license/check`);
+    const checkData = await checkRes.json();
+    if (checkData.needsActivation) {
+      targetPath = "/activate";
+    } else if (checkData.tier) {
+      // Store tier for in-app use
+      global.licenseTier = checkData.tier;
+    }
+  } catch (err) {
+    console.warn("[license] Check failed, defaulting to vault:", err.message);
+  }
 
   const targetURL = `http://127.0.0.1:${NEXT_PORT}${targetPath}`;
 

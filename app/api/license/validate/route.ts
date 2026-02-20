@@ -8,9 +8,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isValidKeyFormat } from "@/lib/license-keys";
+import { createRateLimiter } from "@/lib/rate-limit";
+
+// 20 validation attempts per minute per IP — periodic re-validation should be infrequent
+const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 20 });
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+    const limited = limiter.check(ip);
+    if (limited) {
+      return NextResponse.json(
+        { valid: false, error: "Too many requests. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(limited.retryAfterMs / 1000)) } }
+      );
+    }
+
     const { licenseKey, deviceId } = await req.json();
 
     if (!licenseKey || !isValidKeyFormat(licenseKey)) {
