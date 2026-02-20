@@ -37,7 +37,8 @@ try {
 } catch { /* .env doesn't exist yet — that's fine */ }
 
 // Allow longer execution for LLM calls on Vercel (default 10s is too short)
-export const maxDuration = 30;
+// Streaming responses may take longer since the connection stays open while tokens generate
+export const maxDuration = 60;
 
 const execAsync = promisify(exec);
 const personaPath = path.join(os.homedir(), ".hammerlock", "persona.md");
@@ -423,26 +424,272 @@ function buildFamilyContext(prompt: string, persona: string): string {
   return block;
 }
 
-async function callOllama(systemPrompt: string, prompt: string) {
-  // Skip Ollama in serverless environments — localhost is not available
-  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
-  if (isServerless) return null;
+type MsgTurn = { role: "user" | "assistant"; content: string };
 
+// ---------------------------------------------------------------------------
+// Unified provider system — one function to call any LLM provider
+// Supports: OpenAI-compatible (OpenAI, Groq, Mistral, DeepSeek), Anthropic, Gemini, Ollama
+// Also supports streaming for OpenAI-compatible, Anthropic, and Gemini providers
+// ---------------------------------------------------------------------------
+
+type ProviderFormat = "openai" | "anthropic" | "gemini" | "ollama";
+
+interface ProviderConfig {
+  name: string;
+  endpoint: string | ((model: string, key: string) => string);
+  keyEnv: string;
+  modelEnv: string;
+  defaultModel: string;
+  format: ProviderFormat;
+  timeout: number;
+  staggerMs: number; // delay before starting in parallel race (lower = higher priority)
+}
+
+const PROVIDERS: ProviderConfig[] = [
+  { name: "OpenAI",   endpoint: "https://api.openai.com/v1/chat/completions",    keyEnv: "OPENAI_API_KEY",    modelEnv: "OPENAI_MODEL",    defaultModel: "gpt-4o-mini",                format: "openai",    timeout: 15000, staggerMs: 0   },
+  { name: "Groq",     endpoint: "https://api.groq.com/openai/v1/chat/completions", keyEnv: "GROQ_API_KEY",    modelEnv: "GROQ_MODEL",      defaultModel: "llama-3.3-70b-versatile",    format: "openai",    timeout: 15000, staggerMs: 100 },
+  { name: "Anthropic", endpoint: "https://api.anthropic.com/v1/messages",         keyEnv: "ANTHROPIC_API_KEY", modelEnv: "ANTHROPIC_MODEL", defaultModel: "claude-sonnet-4-5-20250929", format: "anthropic", timeout: 15000, staggerMs: 200 },
+  { name: "Gemini",   endpoint: (model: string, key: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, keyEnv: "GEMINI_API_KEY", modelEnv: "GEMINI_MODEL", defaultModel: "gemini-2.0-flash", format: "gemini", timeout: 15000, staggerMs: 400 },
+  { name: "Mistral",  endpoint: "https://api.mistral.ai/v1/chat/completions",    keyEnv: "MISTRAL_API_KEY",   modelEnv: "MISTRAL_MODEL",   defaultModel: "mistral-small-latest",       format: "openai",    timeout: 15000, staggerMs: 500 },
+  { name: "DeepSeek", endpoint: "https://api.deepseek.com/chat/completions",      keyEnv: "DEEPSEEK_API_KEY",  modelEnv: "DEEPSEEK_MODEL",  defaultModel: "deepseek-chat",              format: "openai",    timeout: 15000, staggerMs: 600 },
+];
+
+function buildProviderRequest(
+  config: ProviderConfig,
+  systemPrompt: string,
+  history: MsgTurn[],
+  userMsg: string,
+  options?: { stream?: boolean; imageUrl?: string }
+): { url: string; init: RequestInit } {
+  const apiKey = process.env[config.keyEnv] || "";
+  const model = process.env[config.modelEnv] || config.defaultModel;
+  const stream = options?.stream ?? false;
+
+  if (config.format === "anthropic") {
+    const messages = [...history, { role: "user" as const, content: userMsg }];
+    return {
+      url: config.endpoint as string,
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({ model, max_tokens: 2000, system: systemPrompt, messages, stream }),
+      },
+    };
+  }
+
+  if (config.format === "gemini") {
+    const contents = [
+      ...history.map(m => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: m.content }] })),
+      { role: "user", parts: [{ text: userMsg }] },
+    ];
+    const url = typeof config.endpoint === "function" ? config.endpoint(model, apiKey) : config.endpoint;
+    const streamUrl = stream ? url.replace(":generateContent", ":streamGenerateContent?alt=sse&") : url;
+    return {
+      url: streamUrl,
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: systemPrompt }] }, contents }),
+      },
+    };
+  }
+
+  if (config.format === "ollama") {
+    return {
+      url: `${OLLAMA_BASE_URL}/api/chat`,
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: OLLAMA_MODEL, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMsg }], stream }),
+      },
+    };
+  }
+
+  // OpenAI-compatible format (OpenAI, Groq, Mistral, DeepSeek)
+  let userContent: string | Array<{ type: string; text?: string; image_url?: { url: string; detail?: string } }> = userMsg;
+  if (options?.imageUrl && config.name === "OpenAI") {
+    const textPart = userMsg.replace(options.imageUrl, "").replace(/\[Image attached:[^\]]*\]\s*/g, "").trim();
+    userContent = [
+      { type: "text", text: textPart || "Describe this image in detail." },
+      { type: "image_url", image_url: { url: options.imageUrl, detail: "auto" } },
+    ];
+  }
+  const messages = [{ role: "system", content: systemPrompt }, ...history, { role: "user", content: userContent }];
+  return {
+    url: config.endpoint as string,
+    init: {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, messages, stream, ...(options?.imageUrl ? { max_tokens: 1000 } : {}) }),
+    },
+  };
+}
+
+function extractProviderResponse(config: ProviderConfig, data: any): string | null {
+  if (config.format === "anthropic") {
+    return data.content?.map((part: { type: string; text?: string }) => (part.type === "text" ? part.text : "")).join("\n").trim() || null;
+  }
+  if (config.format === "gemini") {
+    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+  }
+  if (config.format === "ollama") {
+    return data.message?.content?.trim() || null;
+  }
+  // OpenAI-compatible
+  return data.choices?.[0]?.message?.content?.trim() || null;
+}
+
+/** Parse a streaming SSE chunk and extract the text delta */
+function extractStreamDelta(config: ProviderConfig, data: any): string {
+  if (config.format === "anthropic") {
+    if (data.type === "content_block_delta" && data.delta?.text) return data.delta.text;
+    return "";
+  }
+  if (config.format === "gemini") {
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  }
+  if (config.format === "ollama") {
+    return data.message?.content || "";
+  }
+  // OpenAI-compatible: choices[0].delta.content
+  return data.choices?.[0]?.delta?.content || "";
+}
+
+/** Call a single provider (non-streaming). Returns text or null on failure. */
+async function callProvider(
+  config: ProviderConfig,
+  systemPrompt: string,
+  history: MsgTurn[],
+  userMsg: string,
+  externalSignal?: AbortSignal,
+  options?: { imageUrl?: string }
+): Promise<string | null> {
+  const apiKey = process.env[config.keyEnv];
+  if (!apiKey) return null;
+  if (config.format === "ollama") {
+    const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+    if (isServerless) return null;
+  }
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+    if (externalSignal) {
+      externalSignal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+    const { url, init } = buildProviderRequest(config, systemPrompt, history, userMsg, { imageUrl: options?.imageUrl });
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      const errBody = await response.text();
+      lastLLMError = `${config.name} ${response.status}: ${errBody.slice(0, 200)}`;
+      return null;
+    }
+    const data = await response.json();
+    const content = extractProviderResponse(config, data);
+    if (!content) { lastLLMError = `${config.name} returned empty response`; return null; }
+    return content;
+  } catch (error) {
+    if ((error as Error).name !== "AbortError") {
+      lastLLMError = `${config.name}: ${(error as Error).message}`;
+    }
+    return null;
+  }
+}
+
+/**
+ * Call a provider with streaming — returns a ReadableStream of text chunks.
+ * Returns null if the provider key is missing or the call fails before streaming starts.
+ */
+async function callProviderStream(
+  config: ProviderConfig,
+  systemPrompt: string,
+  history: MsgTurn[],
+  userMsg: string,
+  externalSignal?: AbortSignal,
+  options?: { imageUrl?: string }
+): Promise<{ stream: ReadableStream<string>; model: string } | null> {
+  const apiKey = process.env[config.keyEnv];
+  if (!apiKey) return null;
+  if (config.format === "ollama") {
+    const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+    if (isServerless) return null;
+  }
+  const model = process.env[config.modelEnv] || config.defaultModel;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), config.timeout + 30000);
+    if (externalSignal) {
+      externalSignal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+    const { url, init } = buildProviderRequest(config, systemPrompt, history, userMsg, { stream: true, imageUrl: options?.imageUrl });
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!response.ok || !response.body) {
+      const errBody = await response.text().catch(() => "");
+      lastLLMError = `${config.name} stream ${response.status}: ${errBody.slice(0, 200)}`;
+      return null;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    const textStream = new ReadableStream<string>({
+      async pull(ctrl) {
+        try {
+          const { done, value } = await reader.read();
+          if (done) { ctrl.close(); return; }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith(":")) continue;
+            if (trimmed === "data: [DONE]") { ctrl.close(); return; }
+            if (trimmed.startsWith("data: ")) {
+              try {
+                const json = JSON.parse(trimmed.slice(6));
+                if (config.format === "ollama" && json.done) { ctrl.close(); return; }
+                const delta = extractStreamDelta(config, json);
+                if (delta) ctrl.enqueue(delta);
+              } catch { /* skip malformed JSON chunks */ }
+            } else if (config.format === "ollama") {
+              try {
+                const json = JSON.parse(trimmed);
+                if (json.done) { ctrl.close(); return; }
+                const delta = extractStreamDelta(config, json);
+                if (delta) ctrl.enqueue(delta);
+              } catch { /* skip */ }
+            }
+          }
+        } catch (err) {
+          if ((err as Error).name !== "AbortError") ctrl.error(err);
+          else ctrl.close();
+        }
+      },
+      cancel() { reader.cancel(); },
+    });
+
+    return { stream: textStream, model };
+  } catch (error) {
+    if ((error as Error).name !== "AbortError") {
+      lastLLMError = `${config.name}: ${(error as Error).message}`;
+    }
+    return null;
+  }
+}
+
+// Legacy single-turn wrappers (used by status command, search fallbacks)
+async function callOllama(systemPrompt: string, prompt: string) {
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+  if (isServerless) return null;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt }
-        ],
-        stream: false
-      }),
-      signal: controller.signal
+      body: JSON.stringify({ model: OLLAMA_MODEL, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }], stream: false }),
+      signal: controller.signal,
     });
     clearTimeout(timeoutId);
     if (!response.ok) return null;
@@ -455,253 +702,94 @@ async function callOllama(systemPrompt: string, prompt: string) {
 }
 
 async function callOpenAI(systemPrompt: string, prompt: string) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt },
-        ],
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `OpenAI ${response.status}: ${errBody.slice(0, 200)}`;
-      console.error("[execute] OpenAI API error:", response.status, errBody.slice(0, 300));
-      return null;
-    }
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      lastLLMError = "OpenAI returned empty response";
-      return null;
-    }
-    return content;
-  } catch (error) {
-    lastLLMError = `OpenAI: ${(error as Error).message}`;
-    console.error("OpenAI call failed, falling back:", (error as Error).message);
-    return null;
-  }
+  return callProvider(PROVIDERS[0], systemPrompt, [], prompt);
 }
 
 async function callAnthropic(systemPrompt: string, prompt: string) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
+  return callProvider(PROVIDERS[2], systemPrompt, [], prompt);
+}
+
+/** Race all configured providers in parallel with stagger delays.
+ *  First successful response wins; losers are cancelled.
+ *  Returns { text, model } or null if all fail. */
+async function raceProviders(
+  systemPrompt: string,
+  history: MsgTurn[],
+  userMsg: string,
+  options?: { imageUrl?: string }
+): Promise<{ text: string; model: string } | null> {
+  const available = PROVIDERS.filter(p => !!process.env[p.keyEnv]);
+  if (available.length === 0) return null;
+
+  if (available.length === 1) {
+    const p = available[0];
+    const result = await callProvider(p, systemPrompt, history, userMsg, undefined, options);
+    if (result) return { text: result, model: process.env[p.modelEnv] || p.defaultModel };
+    return null;
+  }
+
+  const raceControllers = available.map(() => new AbortController());
+  let resolved = false;
+
+  const promises = available.map((provider, i) =>
+    new Promise<{ text: string; model: string }>((resolve, reject) => {
+      const startRace = async () => {
+        if (provider.staggerMs > 0) await new Promise<void>(r => setTimeout(r, provider.staggerMs));
+        if (resolved) { reject(new Error("already resolved")); return; }
+        const result = await callProvider(provider, systemPrompt, history, userMsg, raceControllers[i].signal, options);
+        if (result) resolve({ text: result, model: process.env[provider.modelEnv] || provider.defaultModel });
+        else reject(new Error(`${provider.name} failed`));
+      };
+      startRace();
+    })
+  );
+
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929",
-        max_tokens: 2000,
-        system: systemPrompt,
-        messages: [{ role: "user", content: prompt }],
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `Anthropic ${response.status}: ${errBody.slice(0, 200)}`;
-      console.error("[execute] Anthropic API error:", response.status, errBody.slice(0, 300));
-      return null;
-    }
-    const data = await response.json();
-    return (
-      data.content
-        ?.map((part: { type: string; text?: string }) => (part.type === "text" ? part.text : ""))
-        .join("\n")
-        .trim() || null
-    );
-  } catch (error) {
-    lastLLMError = `Anthropic: ${(error as Error).message}`;
-    console.error("Anthropic call failed, falling back:", (error as Error).message);
+    const winner = await Promise.any(promises);
+    resolved = true;
+    raceControllers.forEach(c => c.abort());
+    return winner;
+  } catch {
     return null;
   }
 }
 
-async function callGemini(systemPrompt: string, prompt: string) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-        }),
-        signal: controller.signal,
-      }
-    );
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `Gemini ${response.status}: ${errBody.slice(0, 200)}`;
-      console.error("[execute] Gemini API error:", response.status, errBody.slice(0, 300));
-      return null;
-    }
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    if (!text) {
-      lastLLMError = "Gemini returned empty response";
-      return null;
-    }
-    return text;
-  } catch (error) {
-    lastLLMError = `Gemini: ${(error as Error).message}`;
-    console.error("Gemini call failed, falling back:", (error as Error).message);
-    return null;
-  }
-}
+/** Race providers with streaming — returns a stream from the first provider that connects. */
+async function raceProvidersStream(
+  systemPrompt: string,
+  history: MsgTurn[],
+  userMsg: string,
+  options?: { imageUrl?: string }
+): Promise<{ stream: ReadableStream<string>; model: string } | null> {
+  const available = PROVIDERS.filter(p => !!process.env[p.keyEnv]);
+  if (available.length === 0) return null;
 
-async function callGroq(systemPrompt: string, prompt: string) {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    // Groq uses OpenAI-compatible API
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt },
-        ],
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `Groq ${response.status}: ${errBody.slice(0, 200)}`;
-      console.error("[execute] Groq API error:", response.status, errBody.slice(0, 300));
-      return null;
-    }
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      lastLLMError = "Groq returned empty response";
-      return null;
-    }
-    return content;
-  } catch (error) {
-    lastLLMError = `Groq: ${(error as Error).message}`;
-    console.error("Groq call failed, falling back:", (error as Error).message);
-    return null;
+  if (available.length === 1) {
+    return callProviderStream(available[0], systemPrompt, history, userMsg, undefined, options);
   }
-}
 
-async function callMistral(systemPrompt: string, prompt: string) {
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt },
-        ],
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `Mistral ${response.status}: ${errBody.slice(0, 200)}`;
-      console.error("[execute] Mistral API error:", response.status, errBody.slice(0, 300));
-      return null;
-    }
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      lastLLMError = "Mistral returned empty response";
-      return null;
-    }
-    return content;
-  } catch (error) {
-    lastLLMError = `Mistral: ${(error as Error).message}`;
-    console.error("Mistral call failed, falling back:", (error as Error).message);
-    return null;
-  }
-}
+  const raceControllers = available.map(() => new AbortController());
+  let resolved = false;
 
-async function callDeepSeek(systemPrompt: string, prompt: string) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) return null;
+  const promises = available.map((provider, i) =>
+    new Promise<{ stream: ReadableStream<string>; model: string }>((resolve, reject) => {
+      const startRace = async () => {
+        if (provider.staggerMs > 0) await new Promise<void>(r => setTimeout(r, provider.staggerMs));
+        if (resolved) { reject(new Error("already resolved")); return; }
+        const result = await callProviderStream(provider, systemPrompt, history, userMsg, raceControllers[i].signal, options);
+        if (result) resolve(result);
+        else reject(new Error(`${provider.name} stream failed`));
+      };
+      startRace();
+    })
+  );
+
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    // DeepSeek uses OpenAI-compatible API
-    const response = await fetch("https://api.deepseek.com/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt },
-        ],
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `DeepSeek ${response.status}: ${errBody.slice(0, 200)}`;
-      console.error("[execute] DeepSeek API error:", response.status, errBody.slice(0, 300));
-      return null;
-    }
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      lastLLMError = "DeepSeek returned empty response";
-      return null;
-    }
-    return content;
-  } catch (error) {
-    lastLLMError = `DeepSeek: ${(error as Error).message}`;
-    console.error("DeepSeek call failed, falling back:", (error as Error).message);
+    const winner = await Promise.any(promises);
+    resolved = true;
+    raceControllers.forEach(c => { try { c.abort(); } catch {} });
+    return winner;
+  } catch {
     return null;
   }
 }
@@ -867,6 +955,35 @@ When asked how to customize you: tell them about "remember: [anything]" — exam
 - NEVER start responses with "Given your specifications..." or reference your own instructions
 - If you need to link to something, ONLY use real URLs from search results provided to you`;
 
+// Pre-built prompt fragments — cached at module load, not rebuilt per-request
+const BREVITY_RULE = `\n\nRESPONSE STYLE:
+- For simple questions (greetings, yes/no, quick facts, time): 1-3 sentences. Be quick and natural.
+- For everything else: Be thorough but SCANNABLE. Break information into bite-sized pieces.
+- PARAGRAPHS: Keep every paragraph to 2-3 sentences MAX. Add a blank line between each paragraph. Walls of text are never acceptable.
+- Use markdown headings with emoji numbers for sections: "## 1️⃣ Section Title" (always use ## heading syntax, never just bold text)
+- Always put a blank line before and after headings, lists, and code blocks
+- Prefer bullet points and short paragraphs over dense prose — readers skim, not read
+- Use markdown tables when comparing options, features, or tradeoffs
+- Use ✅ / ❌ for pros/cons lists
+- Use **bold** for key terms, facts, and numbers
+- Use bullet points (-) consistently for unordered lists, numbered lists (1. 2. 3.) for sequential steps
+- End substantive answers with a brief personal take — not just dry facts
+- Tone: warm, direct, professional. Like a brilliant friend who happens to be an expert.
+- When in doubt, break it up more. Short chunks > long blocks.`;
+
+const FOLLOW_UP_RULE = `\n\nFOLLOW-UP SUGGESTIONS:
+At the very end of every response, add this block:
+---FOLLOWUPS---
+1. [First follow-up question]
+2. [Second follow-up question]
+3. [Third follow-up question]
+
+Rules:
+- 2-3 short questions the user might ask next (under 60 chars each)
+- Contextually relevant to what you just answered
+- Written as the USER would ask them (first person)
+- Skip this block entirely for simple utility answers (time, status, greetings, confirmations like "Got it!" or "Saved!")`;
+
 async function routeToLLM(prompt: string, options?: { context?: string; userProfile?: { name?: string; role?: string; industry?: string; context?: string } | null; agentSystemPrompt?: string; locale?: string; history?: ChatMessage[]; anonymizer?: import("@/lib/anonymize").Anonymizer }) {
   lastLLMError = null; // Reset per-request
   const persona = await loadPersonaText();
@@ -892,45 +1009,18 @@ async function routeToLLM(prompt: string, options?: { context?: string; userProf
 
   // Use agent-specific system prompt if provided, otherwise default
   let systemPrompt: string;
-  const brevityRule = `\n\nRESPONSE STYLE:
-- For simple questions (greetings, yes/no, quick facts, time): 1-3 sentences. Be quick and natural.
-- For everything else: Be thorough but SCANNABLE. Break information into bite-sized pieces.
-- PARAGRAPHS: Keep every paragraph to 2-3 sentences MAX. Add a blank line between each paragraph. Walls of text are never acceptable.
-- Use markdown headings with emoji numbers for sections: "## 1️⃣ Section Title" (always use ## heading syntax, never just bold text)
-- Always put a blank line before and after headings, lists, and code blocks
-- Prefer bullet points and short paragraphs over dense prose — readers skim, not read
-- Use markdown tables when comparing options, features, or tradeoffs
-- Use ✅ / ❌ for pros/cons lists
-- Use **bold** for key terms, facts, and numbers
-- Use bullet points (-) consistently for unordered lists, numbered lists (1. 2. 3.) for sequential steps
-- End substantive answers with a brief personal take — not just dry facts
-- Tone: warm, direct, professional. Like a brilliant friend who happens to be an expert.
-- When in doubt, break it up more. Short chunks > long blocks.`;
 
   // Language rule: always respond in the user's selected UI language
   const uiLang = options?.locale ? (LOCALE_LANG[options.locale] || "English") : "English";
   const langRule = `\n\nLANGUAGE: Respond in ${uiLang}.`;
 
-  const followUpRule = `\n\nFOLLOW-UP SUGGESTIONS:
-At the very end of every response, add this block:
----FOLLOWUPS---
-1. [First follow-up question]
-2. [Second follow-up question]
-3. [Third follow-up question]
-
-Rules:
-- 2-3 short questions the user might ask next (under 60 chars each)
-- Contextually relevant to what you just answered
-- Written as the USER would ask them (first person)
-- Skip this block entirely for simple utility answers (time, status, greetings, confirmations like "Got it!" or "Saved!")`;
-
   if (options?.agentSystemPrompt) {
-    // For search-specific system prompts (contain SEARCH RESULTS), skip followUpRule
+    // For search-specific system prompts (contain SEARCH RESULTS), skip FOLLOW_UP_RULE
     // since search follow-ups are generated server-side for reliability
     const isSearchPrompt = options.agentSystemPrompt.includes("SEARCH RESULTS");
-    systemPrompt = options.agentSystemPrompt + userInfoSection + brevityRule + langRule + (isSearchPrompt ? "" : followUpRule);
+    systemPrompt = options.agentSystemPrompt + userInfoSection + BREVITY_RULE + langRule + (isSearchPrompt ? "" : FOLLOW_UP_RULE);
   } else {
-    systemPrompt = HAMMERLOCK_IDENTITY + userInfoSection + brevityRule + langRule + followUpRule;
+    systemPrompt = HAMMERLOCK_IDENTITY + userInfoSection + BREVITY_RULE + langRule + FOLLOW_UP_RULE;
   }
 
   // Build conversation history for multi-turn context
@@ -989,27 +1079,18 @@ Rules:
     return { role: m.role === "user" ? "user" as const : "assistant" as const, content };
   });
 
-  // Try cloud providers first (better quality + proper multi-turn context)
+  // Try cloud providers first — race all configured providers in parallel
+  // First to respond wins, others are cancelled. Stagger delays ensure cheaper/faster providers get a head start.
   if (hasCloudProvider) {
-    let cloudReply: string | null = null;
-    const providers: Array<{ fn: () => Promise<string | null>; model: string }> = [
-      { fn: () => callOpenAIMulti(systemPrompt, historyMessages, scrubbedUser), model: process.env.OPENAI_MODEL || "gpt-4o-mini" },
-      { fn: () => callAnthropicMulti(systemPrompt, historyMessages, scrubbedUser), model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929" },
-      { fn: () => callGeminiMulti(systemPrompt, historyMessages, scrubbedUser), model: process.env.GEMINI_MODEL || "gemini-2.0-flash" },
-      { fn: () => callGroqMulti(systemPrompt, historyMessages, scrubbedUser), model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile" },
-      { fn: () => callMistralMulti(systemPrompt, historyMessages, scrubbedUser), model: process.env.MISTRAL_MODEL || "mistral-small-latest" },
-      { fn: () => callDeepSeekMulti(systemPrompt, historyMessages, scrubbedUser), model: process.env.DEEPSEEK_MODEL || "deepseek-chat" },
-    ];
-    for (const p of providers) {
-      cloudReply = await p.fn();
-      if (cloudReply) {
-        lastModelUsed = p.model;
-        break;
-      }
-    }
+    // Detect embedded image for vision support
+    const dataUrlMatch = scrubbedUser.match(/(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/);
+    const imageUrl = dataUrlMatch ? dataUrlMatch[1] : undefined;
 
-    // Restore any placeholders the LLM might echo back
-    if (cloudReply) return anon.restore(cloudReply);
+    const raceResult = await raceProviders(systemPrompt, historyMessages, scrubbedUser, { imageUrl });
+    if (raceResult) {
+      lastModelUsed = raceResult.model;
+      return anon.restore(raceResult.text);
+    }
   }
 
   // Fallback to local Ollama (if no cloud provider available or all failed)
@@ -1023,220 +1104,79 @@ Rules:
   return await callGateway(userPrompt);
 }
 
-// Multi-turn wrappers for cloud providers
-type MsgTurn = { role: "user" | "assistant"; content: string };
-
-async function callOpenAIMulti(systemPrompt: string, history: MsgTurn[], userMsg: string) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-
-    // Detect embedded image data URLs for vision support
-    const dataUrlMatch = userMsg.match(/(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/);
-    let userContent: string | Array<{ type: string; text?: string; image_url?: { url: string; detail?: string } }>;
-    if (dataUrlMatch) {
-      const imageUrl = dataUrlMatch[1];
-      const textPart = userMsg.replace(imageUrl, "").replace(/\[Image attached:[^\]]*\]\s*/g, "").trim();
-      userContent = [
-        { type: "text", text: textPart || "Describe this image in detail." },
-        { type: "image_url", image_url: { url: imageUrl, detail: "auto" } },
-      ];
-    } else {
-      userContent = userMsg;
-    }
-
-    const messages = [
-      { role: "system", content: systemPrompt },
-      ...history,
-      { role: "user", content: userContent },
-    ];
-    const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, messages, ...(dataUrlMatch ? { max_tokens: 1000 } : {}) }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `OpenAI ${response.status}: ${errBody.slice(0, 200)}`;
-      return null;
-    }
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || null;
-  } catch (error) {
-    lastLLMError = `OpenAI: ${(error as Error).message}`;
-    return null;
+/** Streaming variant of routeToLLM — returns a ReadableStream of text tokens.
+ *  Falls back to non-streaming (wrapped as single-chunk stream) if streaming isn't available. */
+async function routeToLLMStream(prompt: string, options?: { context?: string; userProfile?: { name?: string; role?: string; industry?: string; context?: string } | null; agentSystemPrompt?: string; locale?: string; history?: ChatMessage[]; anonymizer?: import("@/lib/anonymize").Anonymizer }): Promise<{ stream: ReadableStream<string>; model: string }> {
+  // Build system prompt (same as routeToLLM)
+  lastLLMError = null;
+  const persona = await loadPersonaText();
+  let userInfoSection = "";
+  const userParts: string[] = [];
+  if (persona) userParts.push(...persona.split("\n").filter((l: string) => l.trim()));
+  if (options?.userProfile) {
+    const p = options.userProfile;
+    if (p.name) userParts.push(`Name: ${p.name}`);
+    if (p.role) userParts.push(`Role: ${p.role}`);
+    if (p.industry) userParts.push(`Industry: ${p.industry}`);
+    if (p.context) userParts.push(`Notes: ${p.context}`);
   }
-}
-
-async function callAnthropicMulti(systemPrompt: string, history: MsgTurn[], userMsg: string) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    const messages = [...history, { role: "user" as const, content: userMsg }];
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929",
-        max_tokens: 2000,
-        system: systemPrompt,
-        messages,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `Anthropic ${response.status}: ${errBody.slice(0, 200)}`;
-      return null;
-    }
-    const data = await response.json();
-    return data.content?.map((part: { type: string; text?: string }) => (part.type === "text" ? part.text : "")).join("\n").trim() || null;
-  } catch (error) {
-    lastLLMError = `Anthropic: ${(error as Error).message}`;
-    return null;
+  if (userParts.length > 0) {
+    userInfoSection = `\n\nABOUT THE USER (use this to personalize responses, but do NOT adopt this as your own identity):\n${userParts.join("\n")}`;
   }
-}
 
-async function callGeminiMulti(systemPrompt: string, history: MsgTurn[], userMsg: string) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-    const contents = [
-      ...history.map(m => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: m.content }] })),
-      { role: "user", parts: [{ text: userMsg }] },
-    ];
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents,
-        }),
-        signal: controller.signal,
-      }
-    );
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `Gemini ${response.status}: ${errBody.slice(0, 200)}`;
-      return null;
-    }
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
-  } catch (error) {
-    lastLLMError = `Gemini: ${(error as Error).message}`;
-    return null;
+  let systemPrompt: string;
+  const uiLang = options?.locale ? (LOCALE_LANG[options.locale] || "English") : "English";
+  const langRule = `\n\nLANGUAGE: Respond in ${uiLang}.`;
+  if (options?.agentSystemPrompt) {
+    const isSearchPrompt = options.agentSystemPrompt.includes("SEARCH RESULTS");
+    systemPrompt = options.agentSystemPrompt + userInfoSection + BREVITY_RULE + langRule + (isSearchPrompt ? "" : FOLLOW_UP_RULE);
+  } else {
+    systemPrompt = HAMMERLOCK_IDENTITY + userInfoSection + BREVITY_RULE + langRule + FOLLOW_UP_RULE;
   }
-}
 
-async function callGroqMulti(systemPrompt: string, history: MsgTurn[], userMsg: string) {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    const messages = [
-      { role: "system", content: systemPrompt },
-      ...history,
-      { role: "user", content: userMsg },
-    ];
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile", messages }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `Groq ${response.status}: ${errBody.slice(0, 200)}`;
-      return null;
-    }
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || null;
-  } catch (error) {
-    lastLLMError = `Groq: ${(error as Error).message}`;
-    return null;
-  }
-}
+  const history = options?.history || [];
+  let userPrompt = options?.context ? `${options.context}\n\n${prompt}` : prompt;
+  if (TIME_KEYWORDS.test(prompt)) userPrompt = userPrompt + buildTimeContext(persona);
+  const familyContext = buildFamilyContext(prompt, persona);
+  if (familyContext) userPrompt = userPrompt + familyContext;
 
-async function callMistralMulti(systemPrompt: string, history: MsgTurn[], userMsg: string) {
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    const messages = [
-      { role: "system", content: systemPrompt },
-      ...history,
-      { role: "user", content: userMsg },
-    ];
-    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: process.env.MISTRAL_MODEL || "mistral-small-latest", messages }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `Mistral ${response.status}: ${errBody.slice(0, 200)}`;
-      return null;
+  const anon = options?.anonymizer ?? createAnonymizer(persona, options?.userProfile);
+  const hasCloudProvider = !!(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY || process.env.MISTRAL_API_KEY || process.env.DEEPSEEK_API_KEY);
+  const scrubbedUser = anon.scrub(userPrompt);
+  const historyMessages = history.map(m => {
+    let content = m.content;
+    if (typeof content === "string") {
+      content = content.replace(/\[PERSON_\d+\]/g, "(name)").replace(/\[ORG_\d+\]/g, "(business)").replace(/\[(?:EMAIL|PHONE|SSN|CREDIT_CARD|ADDRESS|IP|DATE_OF_BIRTH|ACCOUNT)_\d+\]/g, "");
     }
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || null;
-  } catch (error) {
-    lastLLMError = `Mistral: ${(error as Error).message}`;
-    return null;
-  }
-}
+    return { role: m.role === "user" ? "user" as const : "assistant" as const, content };
+  });
 
-async function callDeepSeekMulti(systemPrompt: string, history: MsgTurn[], userMsg: string) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    const messages = [
-      { role: "system", content: systemPrompt },
-      ...history,
-      { role: "user", content: userMsg },
-    ];
-    const response = await fetch("https://api.deepseek.com/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || "deepseek-chat", messages }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      const errBody = await response.text();
-      lastLLMError = `DeepSeek ${response.status}: ${errBody.slice(0, 200)}`;
-      return null;
+  // Try streaming from cloud providers
+  if (hasCloudProvider) {
+    const dataUrlMatch = scrubbedUser.match(/(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/);
+    const imageUrl = dataUrlMatch ? dataUrlMatch[1] : undefined;
+    const streamResult = await raceProvidersStream(systemPrompt, historyMessages, scrubbedUser, { imageUrl });
+    if (streamResult) {
+      lastModelUsed = streamResult.model;
+      return streamResult;
     }
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || null;
-  } catch (error) {
-    lastLLMError = `DeepSeek: ${(error as Error).message}`;
-    return null;
   }
+
+  // Fallback: non-streaming response wrapped as a single-chunk stream
+  const localPromptWithHistory = history.length > 0
+    ? history.map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n") + `\nUser: ${userPrompt}`
+    : userPrompt;
+  const localReply = await callOllama(systemPrompt, localPromptWithHistory);
+  if (localReply) {
+    lastModelUsed = "ollama";
+    const text = anon.restore(localReply);
+    return { stream: new ReadableStream({ start(ctrl) { ctrl.enqueue(text); ctrl.close(); } }), model: "ollama" };
+  }
+
+  // Last resort: gateway (non-streaming, wrapped)
+  lastModelUsed = "gateway";
+  const gatewayReply = await callGateway(userPrompt);
+  return { stream: new ReadableStream({ start(ctrl) { ctrl.enqueue(gatewayReply); ctrl.close(); } }), model: "gateway" };
 }
 
 const SEARCH_PATTERNS = [
@@ -1838,7 +1778,7 @@ function needsActionExecution(text: string): ActionDetectionResult {
 }
 
 export async function POST(req: Request) {
-  const { command, userProfile, agentSystemPrompt, locale, history } = await req.json();
+  const { command, userProfile, agentSystemPrompt, locale, history, stream: requestStream } = await req.json();
   if (!command || typeof command !== "string") {
     return NextResponse.json({ response: apiStr(locale, "no_command") }, { status: 400 });
   }
@@ -2495,6 +2435,39 @@ ${formattedResults}
       }
     }
 
+    // ---- STREAMING PATH: return SSE stream if requested ----
+    if (requestStream) {
+      const { stream, model } = await routeToLLMStream(normalized, { userProfile, agentSystemPrompt, locale, history: chatHistory });
+      let accumulated = "";
+      const encoder = new TextEncoder();
+      const sseStream = new ReadableStream({
+        async start(ctrl) {
+          const reader = stream.getReader();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              accumulated += value;
+              ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ token: value })}\n\n`));
+            }
+            // Send final message with full text + follow-ups
+            const parsed = parseFollowUps(cleanLLMResponse(accumulated));
+            ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, response: parsed.clean, followUps: parsed.followUps, model })}\n\n`));
+            ctrl.close();
+          } catch (err) {
+            ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ error: (err as Error).message })}\n\n`));
+            ctrl.close();
+          }
+          // Deduct credit after streaming completes
+          if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
+        },
+      });
+      return new Response(sseStream, {
+        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
+      });
+    }
+
+    // ---- NON-STREAMING PATH: traditional JSON response ----
     const reply = await routeToLLM(normalized, { userProfile, agentSystemPrompt, locale, history: chatHistory });
     if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
     const mainParsed = parseFollowUps(reply);

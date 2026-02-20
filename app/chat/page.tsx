@@ -1304,11 +1304,22 @@ export default function ChatPage() {
 
     try {
       const currentAgent = getAgentById(activeAgentId, customAgents);
-      // Send conversation history for context (last 20 messages, excluding pending)
-      const recentHistory = messages
-        .filter(m => !m.pending && (m.role === "user" || m.role === "ai"))
-        .slice(-20)
-        .map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+      // Token-aware conversation history: walk backward with a ~3 000-token budget
+      // (~12 000 chars). Always keep at least the last 2 messages for context.
+      const TOKEN_BUDGET = 3000;          // rough token limit for history
+      const MAX_MSG_CHARS = 2000;         // truncate individual long messages
+      const MIN_MSGS = 2;                 // always include at least 2 messages
+      const eligibleMsgs = messages
+        .filter(m => !m.pending && (m.role === "user" || m.role === "ai"));
+      const recentHistory: { role: string; content: string }[] = [];
+      let tokenBudgetLeft = TOKEN_BUDGET;
+      for (let i = eligibleMsgs.length - 1; i >= 0 && (tokenBudgetLeft > 0 || recentHistory.length < MIN_MSGS); i--) {
+        let txt = eligibleMsgs[i].content;
+        if (txt.length > MAX_MSG_CHARS) txt = txt.slice(0, MAX_MSG_CHARS) + "…[truncated]";
+        const estTokens = Math.ceil(txt.length / 4);
+        recentHistory.unshift({ role: eligibleMsgs[i].role === "user" ? "user" : "assistant", content: txt });
+        tokenBudgetLeft -= estTokens;
+      }
       // Build user profile from vault persona data so the LLM knows who the user is
       const personaText = vaultData?.persona || "";
       const personaParts: Record<string, string> = {};
@@ -1324,43 +1335,88 @@ export default function ChatPage() {
         }
       });
       const userProfile = Object.keys(personaParts).length > 0 ? personaParts : undefined;
-      const res = await fetch("/api/execute", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({command:fullText,persona:"operator",userProfile,agentSystemPrompt:currentAgent?.systemPrompt,locale,history:recentHistory})});
-      const data = await res.json();
-      if (!res.ok) {
-        showError(`Gateway error: ${data.response || data.error || t.error_unknown}`);
-        setMessages(prev => prev.map(m => m.id===pid ? {...m,role:"error",content:data.response || data.error || t.error_request_failed,pending:false} : m));
-        return;
-      }
-      // Handle credit exhaustion
-      if (data.creditExhausted) {
-        setMessages(prev => prev.map(m => m.id===pid ? {...m,content:data.response,pending:false,timestamp:new Date().toISOString()} : m));
-        setComputeUnits(prev => prev ? { ...prev, remaining: 0 } : null);
-        return;
+      const res = await fetch("/api/execute", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({command:fullText,persona:"operator",userProfile,agentSystemPrompt:currentAgent?.systemPrompt,locale,history:recentHistory,stream:true})});
+
+      // ---- STREAMING PATH: read SSE tokens as they arrive ----
+      const contentType = res.headers.get("content-type") || "";
+      let reply = "";
+      let msgFollowUps: string[] | undefined;
+      let msgSources: any[] | undefined;
+      let msgSourcesSummary: string | undefined;
+      let msgActionType: string | undefined;
+      let msgActionStatus: "success" | "error" | undefined;
+
+      if (contentType.includes("text/event-stream") && res.body) {
+        // Streaming response — display tokens progressively
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let sseBuffer = "";
+        let accumulated = "";
+        let rafPending = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          sseBuffer += decoder.decode(value, { stream: true });
+          const sseLines = sseBuffer.split("\n\n");
+          sseBuffer = sseLines.pop() || "";
+
+          for (const block of sseLines) {
+            const dataLine = block.split("\n").find(l => l.startsWith("data: "));
+            if (!dataLine) continue;
+            try {
+              const json = JSON.parse(dataLine.slice(6));
+              if (json.token) {
+                accumulated += json.token;
+                // Throttle UI updates to ~60fps with requestAnimationFrame
+                if (!rafPending) {
+                  rafPending = true;
+                  const snapshot = accumulated;
+                  requestAnimationFrame(() => {
+                    setMessages(prev => prev.map(m => m.id === pid ? { ...m, content: snapshot, pending: true } : m));
+                    rafPending = false;
+                  });
+                }
+              }
+              if (json.done) {
+                reply = json.response || accumulated;
+                msgFollowUps = Array.isArray(json.followUps) ? json.followUps : undefined;
+              }
+              if (json.error) {
+                reply = `Error: ${json.error}`;
+              }
+            } catch { /* skip malformed SSE chunks */ }
+          }
+        }
+        if (!reply) reply = accumulated;
+      } else {
+        // ---- JSON FALLBACK: non-streaming response (search, actions, special commands) ----
+        const data = await res.json();
+        if (!res.ok) {
+          showError(`Gateway error: ${data.response || data.error || t.error_unknown}`);
+          setMessages(prev => prev.map(m => m.id===pid ? {...m,role:"error",content:data.response || data.error || t.error_request_failed,pending:false} : m));
+          return;
+        }
+        if (data.creditExhausted) {
+          setMessages(prev => prev.map(m => m.id===pid ? {...m,content:data.response,pending:false,timestamp:new Date().toISOString()} : m));
+          setComputeUnits(prev => prev ? { ...prev, remaining: 0 } : null);
+          return;
+        }
+        if (data.switchLocale) setLocale(data.switchLocale as Locale);
+        if (data.setNudges !== undefined) {
+          updateVaultData((prev) => ({ ...prev, settings: { ...prev.settings, nudges_enabled: data.setNudges } }));
+        }
+        reply = data.reply || data.response || data.result || t.chat_no_response;
+        msgSources = Array.isArray(data.sources) ? data.sources : undefined;
+        msgSourcesSummary = data.sourcesSummary || undefined;
+        msgFollowUps = Array.isArray(data.followUps) ? data.followUps : undefined;
+        msgActionType = typeof data.actionType === "string" ? data.actionType : undefined;
+        msgActionStatus = (data.actionStatus === "success" || data.actionStatus === "error") ? data.actionStatus as "success" | "error" : undefined;
       }
 
-      // Handle language switch directive from server
-      if (data.switchLocale) {
-        setLocale(data.switchLocale as Locale);
-      }
-
-      // Handle nudge toggle directive from server
-      if (data.setNudges !== undefined) {
-        updateVaultData((prev) => ({
-          ...prev,
-          settings: { ...prev.settings, nudges_enabled: data.setNudges },
-        }));
-      }
-
-      const reply = data.reply || data.response || data.result || t.chat_no_response;
-      const msgSources = Array.isArray(data.sources) ? data.sources : undefined;
-      const msgSourcesSummary = data.sourcesSummary || undefined;
-      const msgFollowUps = Array.isArray(data.followUps) ? data.followUps : undefined;
-      const msgActionType = typeof data.actionType === "string" ? data.actionType : undefined;
-      const msgActionStatus = (data.actionStatus === "success" || data.actionStatus === "error")
-        ? data.actionStatus as "success" | "error" : undefined;
+      // Finalize message with full response
       setMessages(prev => {
         const updated = prev.map(m => m.id===pid ? {...m,content:reply,pending:false,timestamp:new Date().toISOString(),sources:msgSources,sourcesSummary:msgSourcesSummary,followUps:msgFollowUps,actionType:msgActionType,actionStatus:msgActionStatus} : m);
-        // Auto-name conversation from first user message (like Claude/ChatGPT)
         const isFirstExchange = prev.filter(m => m.role === "user").length <= 1;
         setConversations(cs => cs.map(c => {
           if (c.id !== activeConvoId) return c;
