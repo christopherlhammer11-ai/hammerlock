@@ -5452,7 +5452,22 @@ footer .trust-badge {
   .timeline-steps::before { left: 6px; }
   .timeline-step { padding-left: 24px; }
   .timeline-step::before { left: -6px; width: 36px; height: 36px; font-size: 0.8rem; }
-  footer.site-footer { flex-direction: column; gap: 20px; text-align: center; }
+  footer.site-footer {
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+    padding: 40px 20px 24px !important;
+  }
+  footer.site-footer > div:first-child {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+    text-align: center;
+  }
+  footer.site-footer > div:last-child {
+    flex-direction: column !important;
+    text-align: center;
+    gap: 8px !important;
+  }
 
   /* Chat responsive — sidebar becomes compact horizontal strip */
   .console-layout { flex-direction: column; height: 100vh; height: 100dvh; }
