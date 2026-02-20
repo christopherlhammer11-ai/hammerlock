@@ -632,6 +632,33 @@ section p.section-subtitle {
   margin: 0;
 }
 
+/* Expandable card states */
+.feature-card.expanded,
+.usecase-card.expanded {
+  border-color: rgba(0, 255, 136, 0.25);
+  background: rgba(0, 255, 136, 0.03);
+  transform: translateY(-4px);
+}
+
+.card-expand {
+  animation: expandIn 0.3s ease forwards;
+}
+
+@keyframes expandIn {
+  from { opacity: 0; max-height: 0; transform: translateY(-8px); }
+  to { opacity: 1; max-height: 300px; transform: translateY(0); }
+}
+
+.card-expand .cta-main,
+.card-expand .btn-secondary {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card-expand .cta-main:hover,
+.card-expand .btn-secondary:hover {
+  transform: scale(1.05);
+}
+
 /* Timeline */
 section.timeline-section {
   padding: 0 8vw 120px;

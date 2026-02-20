@@ -31,6 +31,9 @@ export default function LandingPage() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [mobileUrl, setMobileUrl] = useState<string | null>(null);
   const [langOpen, setLangOpen] = useState(false);
+  const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
+  const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
+  const [expandedUseCase, setExpandedUseCase] = useState<string | null>(null);
   const langRef = useRef<HTMLDivElement>(null);
   const { t, locale, setLocale } = useI18n();
 
@@ -43,16 +46,36 @@ export default function LandingPage() {
   ];
 
   const features = [
-    { icon: '🔐', title: t.site_feat_encrypt_title, body: t.site_feat_encrypt_body },
-    { icon: '🌐', title: t.site_feat_search_title, body: t.site_feat_search_body },
-    { icon: '🧠', title: t.site_feat_memory_title, body: t.site_feat_memory_body },
-    { icon: '🎙️', title: t.site_feat_voice_title, body: t.site_feat_voice_body },
-    { icon: '🌍', title: t.site_feat_lang_title, body: t.site_feat_lang_body },
-    { icon: '💳', title: t.site_feat_credits_title, body: t.site_feat_credits_body },
-    { icon: '📄', title: t.site_feat_pdf_title, body: t.site_feat_pdf_body },
-    { icon: '🗄️', title: t.site_feat_vault_title, body: t.site_feat_vault_body },
-    { icon: '🤖', title: t.site_feat_agents_title, body: t.site_feat_agents_body },
-    { icon: '⚡', title: t.site_feat_perf_title, body: t.site_feat_perf_body },
+    { icon: '🔐', title: t.site_feat_encrypt_title, body: t.site_feat_encrypt_body,
+      detail: 'AES-256-GCM encryption with PBKDF2 key derivation. Your data never leaves your device unencrypted — not even metadata.',
+      cta: 'See Security Details', ctaLink: '#why' },
+    { icon: '🌐', title: t.site_feat_search_title, body: t.site_feat_search_body,
+      detail: 'Real-time web search powered by Brave Search API. Get current information with source citations — all processed locally.',
+      cta: 'Try Pro Free', ctaLink: '#pricing' },
+    { icon: '🧠', title: t.site_feat_memory_title, body: t.site_feat_memory_body,
+      detail: 'Your personal vault remembers your role, preferences, and context. Every conversation builds on what came before.',
+      cta: 'Learn More', ctaLink: '#how' },
+    { icon: '🎙️', title: t.site_feat_voice_title, body: t.site_feat_voice_body,
+      detail: 'Whisper-powered transcription for voice input. Text-to-speech for hands-free responses. Works offline with Ollama.',
+      cta: 'Get Pro', ctaLink: '#pricing' },
+    { icon: '🌍', title: t.site_feat_lang_title, body: t.site_feat_lang_body,
+      detail: '11 languages supported: English, Spanish, Portuguese, French, German, Chinese, Japanese, Korean, Arabic, Hindi, and Russian.',
+      cta: 'Try It Free', ctaLink: '#pricing' },
+    { icon: '💳', title: t.site_feat_credits_title, body: t.site_feat_credits_body,
+      detail: 'Pro includes 1,000 monthly credits. Need more? Add a Booster (+1,500) or Power Pack (+5,000). Or bring your own API keys for unlimited.',
+      cta: 'View Plans', ctaLink: '#pricing' },
+    { icon: '📄', title: t.site_feat_pdf_title, body: t.site_feat_pdf_body,
+      detail: 'Upload any PDF and ask questions about it. Generate formatted reports and export conversations. All processing stays local.',
+      cta: 'Get Pro', ctaLink: '#pricing' },
+    { icon: '🗄️', title: t.site_feat_vault_title, body: t.site_feat_vault_body,
+      detail: 'Encrypted personal vault stores your profile, notes, and preferences. Synced across sessions, never sent to the cloud.',
+      cta: 'Start Free', ctaLink: '#pricing' },
+    { icon: '🤖', title: t.site_feat_agents_title, body: t.site_feat_agents_body,
+      detail: '6 built-in specialist agents plus custom agent builder. Each agent has domain expertise and tailored system prompts.',
+      cta: 'Meet the Agents', ctaLink: '#agents' },
+    { icon: '⚡', title: t.site_feat_perf_title, body: t.site_feat_perf_body,
+      detail: 'Parallel provider racing across 6+ LLMs. Streaming responses start in under 1 second. Token-aware context management.',
+      cta: 'Get Started', ctaLink: '#pricing' },
   ];
 
   const steps = [
@@ -348,7 +371,12 @@ export default function LandingPage() {
               response: t.site_uc_ops_response,
             },
           ].map((card) => (
-            <article key={card.label} className="usecase-card">
+            <article
+              key={card.label}
+              className={`usecase-card${expandedUseCase === card.label ? ' expanded' : ''}`}
+              onClick={() => setExpandedUseCase(expandedUseCase === card.label ? null : card.label)}
+              style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
+            >
               <div className="usecase-label">{card.label}</div>
               <h3>{card.headline}</h3>
               <p>{card.body}</p>
@@ -356,6 +384,20 @@ export default function LandingPage() {
                 <div><span className="prompt">hammerlock &gt;</span> {card.prompt}</div>
                 <div className="meta">{card.response}</div>
               </div>
+              {expandedUseCase === card.label && (
+                <div className="card-expand" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,255,136,0.15)' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
+                    {card.label === t.site_uc_founders_label && 'Pitch decks, competitor analysis, investor prep, go-to-market plans — all with your encrypted context. Your strategy stays yours.'}
+                    {card.label === t.site_uc_legal_label && 'Contract review, clause flagging, NDA drafts, compliance checklists — processed locally with zero cloud exposure.'}
+                    {card.label === t.site_uc_finance_label && 'Revenue modeling, expense tracking, cash flow projections, investor reporting — your financials never leave your machine.'}
+                    {card.label === t.site_uc_ops_label && 'SOPs, workflow automation, team scheduling, process optimization — operational intelligence that learns your business.'}
+                  </p>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <a href="#agents" onClick={(e) => e.stopPropagation()} className="btn-secondary" style={{ textDecoration: 'none', padding: '8px 16px', fontSize: '0.85rem', borderRadius: 8 }}>Meet the Agents &rarr;</a>
+                    <a href="#pricing" onClick={(e) => e.stopPropagation()} className="cta-main" style={{ display: 'inline-block', padding: '8px 20px', fontSize: '0.85rem', textDecoration: 'none', borderRadius: 8 }}>Get Started &rarr;</a>
+                  </div>
+                </div>
+              )}
             </article>
           ))}
         </div>
@@ -369,10 +411,28 @@ export default function LandingPage() {
         </p>
         <div className="features-grid">
           {features.map((feature) => (
-            <article key={feature.title} className="feature-card">
+            <article
+              key={feature.title}
+              className={`feature-card${expandedFeature === feature.title ? ' expanded' : ''}`}
+              onClick={() => setExpandedFeature(expandedFeature === feature.title ? null : feature.title)}
+              style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
+            >
               <div style={{ fontSize: "1.75rem" }}>{feature.icon}</div>
               <h3>{feature.title}</h3>
               <p>{feature.body}</p>
+              {expandedFeature === feature.title && (
+                <div className="card-expand" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,255,136,0.15)' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>{feature.detail}</p>
+                  <a
+                    href={feature.ctaLink}
+                    onClick={(e) => e.stopPropagation()}
+                    className="cta-main"
+                    style={{ display: 'inline-block', padding: '8px 20px', fontSize: '0.85rem', textDecoration: 'none', borderRadius: 8 }}
+                  >
+                    {feature.cta} &rarr;
+                  </a>
+                </div>
+              )}
             </article>
           ))}
         </div>
@@ -387,17 +447,47 @@ export default function LandingPage() {
         </p>
         <div className="features-grid">
           {[
-            { icon: '🎯', title: t.site_agent_strategist_title, body: t.site_agent_strategist_body },
-            { icon: '⚖️', title: t.site_agent_counsel_title, body: t.site_agent_counsel_body },
-            { icon: '📈', title: t.site_agent_analyst_title, body: t.site_agent_analyst_body },
-            { icon: '📚', title: t.site_agent_researcher_title, body: t.site_agent_researcher_body },
-            { icon: '🔧', title: t.site_agent_operator_title, body: t.site_agent_operator_body },
-            { icon: '✍️', title: t.site_agent_writer_title, body: t.site_agent_writer_body },
+            { icon: '🎯', title: t.site_agent_strategist_title, body: t.site_agent_strategist_body,
+              detail: 'Build pitch decks, analyze market positioning, model scenarios, and plan go-to-market strategy. Thinks like a founder.',
+              cta: 'Get Pro', ctaLink: '#pricing' },
+            { icon: '⚖️', title: t.site_agent_counsel_title, body: t.site_agent_counsel_body,
+              detail: 'Review contracts, flag risky clauses, draft NDAs, and summarize legal documents. Not legal advice — but a powerful first pass.',
+              cta: 'Get Pro', ctaLink: '#pricing' },
+            { icon: '📈', title: t.site_agent_analyst_title, body: t.site_agent_analyst_body,
+              detail: 'Financial modeling, revenue projections, expense analysis, and KPI dashboards. Speak in numbers, get answers in context.',
+              cta: 'Get Pro', ctaLink: '#pricing' },
+            { icon: '📚', title: t.site_agent_researcher_title, body: t.site_agent_researcher_body,
+              detail: 'Deep web research with source citations. Competitive analysis, market sizing, industry reports — all summarized for you.',
+              cta: 'Get Pro', ctaLink: '#pricing' },
+            { icon: '🔧', title: t.site_agent_operator_title, body: t.site_agent_operator_body,
+              detail: 'Your default general-purpose agent. Handles everything from quick questions to complex multi-step tasks. Always ready.',
+              cta: 'Try Free', ctaLink: '#pricing' },
+            { icon: '✍️', title: t.site_agent_writer_title, body: t.site_agent_writer_body,
+              detail: 'Blog posts, emails, social media copy, product descriptions — all in your voice. Learns your tone from your vault persona.',
+              cta: 'Get Pro', ctaLink: '#pricing' },
           ].map((agent) => (
-            <article key={agent.title} className="feature-card">
+            <article
+              key={agent.title}
+              className={`feature-card${expandedAgent === agent.title ? ' expanded' : ''}`}
+              onClick={() => setExpandedAgent(expandedAgent === agent.title ? null : agent.title)}
+              style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
+            >
               <div style={{ fontSize: '1.75rem' }}>{agent.icon}</div>
               <h3>{agent.title}</h3>
               <p>{agent.body}</p>
+              {expandedAgent === agent.title && (
+                <div className="card-expand" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,255,136,0.15)' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>{agent.detail}</p>
+                  <a
+                    href={agent.ctaLink}
+                    onClick={(e) => e.stopPropagation()}
+                    className="cta-main"
+                    style={{ display: 'inline-block', padding: '8px 20px', fontSize: '0.85rem', textDecoration: 'none', borderRadius: 8 }}
+                  >
+                    {agent.cta} &rarr;
+                  </a>
+                </div>
+              )}
             </article>
           ))}
         </div>
