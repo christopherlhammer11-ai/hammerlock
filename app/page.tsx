@@ -318,7 +318,7 @@ export default function LandingPage() {
             poster="/brand/hammerlock-og-banner.jpg"
             className="hero-video"
           >
-            <source src="/videos/hammerlock-hero-final.mp4" type="video/mp4" />
+            <source src="/videos/hammerlock-hero-fast.mp4" type="video/mp4" />
           </video>
           <div className="hero-video-overlay">
             <span className="hero-video-badge">See it in action</span>
@@ -394,6 +394,10 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      <div className="visual-break fade-in-section">
+        <img src="/media/pii-scrubbing.png" alt="Automatic PII scrubbing — personal data anonymized before any cloud query" className="visual-break-img" loading="lazy" />
+      </div>
 
       <section id="features" className="features fade-in-section">
         <div className="section-label">{t.site_section_features}</div>
@@ -685,6 +689,9 @@ export default function LandingPage() {
         <p className="section-subtitle">
           {t.site_sub_why}
         </p>
+        <div className="visual-break" style={{ paddingTop: 0, paddingBottom: 32 }}>
+          <img src="/media/leaking-trade-secrets.png" alt="Is your AI leaking trade secrets?" className="visual-break-img" loading="lazy" />
+        </div>
         <div className="comparison-table-wrap">
           <table className="comparison-table">
             <thead>
@@ -713,6 +720,9 @@ export default function LandingPage() {
         <p className="section-subtitle">
           {t.site_sub_openclaw}
         </p>
+        <div className="visual-break" style={{ paddingTop: 0, paddingBottom: 32 }}>
+          <img src="/media/openclaw-superagent.png" alt="The OpenClaw Superagent — 27 native skills, local runtime" className="visual-break-img" loading="lazy" />
+        </div>
 
         {/* Core pillars */}
         <div className="openclaw-pills">
