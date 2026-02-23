@@ -395,10 +395,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <div className="visual-break fade-in-section">
-        <img src="/media/pii-scrubbing.png" alt="Automatic PII scrubbing — personal data anonymized before any cloud query" className="visual-break-img" loading="lazy" />
-      </div>
-
       <section id="features" className="features fade-in-section">
         <div className="section-label">{t.site_section_features}</div>
         <h2>{t.site_features_h2}</h2>
