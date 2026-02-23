@@ -4,7 +4,7 @@ import { Key, Shield, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useCallback, useRef, useEffect } from "react";
 
-const REMOTE_API = "https://hammerlockai.com";
+const REMOTE_API = "https://www.hammerlockai.com";
 
 export default function ActivatePage() {
   const router = useRouter();
@@ -77,8 +77,14 @@ export default function ActivatePage() {
       if (!deviceRes.ok) throw new Error("Failed to get device ID");
       const { deviceId, deviceName } = await deviceRes.json();
 
-      // 2. Activate against remote server
-      const activateRes = await fetch(`${REMOTE_API}/api/license/activate`, {
+      // 2. Activate — use local proxy on desktop (avoids CORS), remote on web
+      const isLocal = typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+      const activateUrl = isLocal
+        ? "/api/license/activate-proxy"
+        : `${REMOTE_API}/api/license/activate`;
+
+      const activateRes = await fetch(activateUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ licenseKey: fullKey, deviceId, deviceName }),

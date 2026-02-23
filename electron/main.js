@@ -16,7 +16,7 @@
  */
 
 import { app, BrowserWindow, shell, Menu, session, systemPreferences } from "electron";
-import { spawn } from "child_process";
+import { spawn, exec as execCb } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 import net from "net";
@@ -30,6 +30,7 @@ const ROOT = path.resolve(__dirname, "..");
 // Load .env from multiple locations (first found wins per key).
 // Skip files that look encrypted (start with HAMMERLOCK_ENC:).
 import fs from "fs";
+import crypto from "crypto";
 
 function loadEnvIfPlaintext(envPath) {
   try {
@@ -50,11 +51,38 @@ loadEnvIfPlaintext(path.join(os.homedir(), ".hammerlock", ".env"));
 loadEnvIfPlaintext(path.join(ROOT, ".env.local"));
 // 3. Source checkout — fallback for local dev
 loadEnvIfPlaintext(path.join(ROOT, ".env"));
-const IS_DEV = !app.isPackaged;
+const IS_DEV = false; // Production mode — use pre-built Next.js for speed
+
+// Set app name early — before menus are built. Without this,
+// Electron defaults to "Electron" in the menu bar and Dock during dev.
+app.name = "HammerLock AI";
+if (process.platform === "darwin") {
+  // Also set the CFBundleName equivalent for macOS Dock/About
+  app.setName("HammerLock AI");
+}
+
+// Set user agent globally so all windows include "Electron" and "HammerLock"
+// for reliable client-side detection (isElectron() checks).
+app.userAgentFallback = app.userAgentFallback.includes("Electron")
+  ? app.userAgentFallback
+  : app.userAgentFallback + " Electron HammerLockAI";
 
 const NEXT_PORT = 3100; // Use a different port from dev to avoid conflicts
 const GATEWAY_PORT = 18789;
 const GATEWAY_PROFILE = "hammerlock";
+
+// ---------------------------------------------------------------------------
+// Resolve OpenClaw path: bundled (node_modules) > system (/opt/homebrew/bin)
+// ---------------------------------------------------------------------------
+function getOpenClawBin() {
+  // 1. Bundled in node_modules (production DMG)
+  const bundled = path.join(ROOT, "node_modules", "openclaw", "openclaw.mjs");
+  if (fs.existsSync(bundled)) {
+    return { command: process.execPath, args: [bundled], isBundled: true };
+  }
+  // 2. System-installed (dev / fallback)
+  return { command: "openclaw", args: [], isBundled: false };
+}
 
 let mainWindow = null;
 let gatewayProcess = null;
@@ -127,6 +155,102 @@ function waitForPort(port, timeoutMs = 45000) {
 }
 
 // ---------------------------------------------------------------------------
+// Ensure hammerlock profile config exists (auto-create for new installs)
+// ---------------------------------------------------------------------------
+function ensureHammerlockProfile() {
+  const hammerlockProfileDir = path.join(os.homedir(), ".openclaw-hammerlock");
+  const hammerlockConfig = path.join(hammerlockProfileDir, "openclaw.json");
+  const baseConfig = path.join(os.homedir(), ".openclaw", "openclaw.json");
+
+  // Already exists — nothing to do
+  if (fs.existsSync(hammerlockConfig)) {
+    console.log("[hammerlock] Profile config found:", hammerlockConfig);
+    return;
+  }
+
+  // Read token from the base OpenClaw profile, or generate a fresh one
+  let token = null;
+  try {
+    const baseData = JSON.parse(fs.readFileSync(baseConfig, "utf-8"));
+    token = baseData?.gateway?.auth?.token || baseData?.gateway?.remote?.token;
+    if (token) {
+      console.log("[hammerlock] Borrowing gateway token from base OpenClaw profile");
+    }
+  } catch {
+    // Base profile doesn't exist or is invalid — that's ok
+  }
+
+  if (!token) {
+    // Generate a random 24-byte hex token
+    token = crypto.randomBytes(24).toString("hex");
+    console.log("[hammerlock] Generated fresh gateway token");
+  }
+
+  // Create the profile directory and config
+  try {
+    fs.mkdirSync(hammerlockProfileDir, { recursive: true });
+    const profileConfig = {
+      gateway: {
+        mode: "local",
+        auth: { mode: "token", token },
+        remote: { token },
+      },
+    };
+    fs.writeFileSync(hammerlockConfig, JSON.stringify(profileConfig, null, 2) + "\n");
+    console.log("[hammerlock] Created hammerlock profile config:", hammerlockConfig);
+  } catch (err) {
+    console.warn("[hammerlock] Could not create profile config:", err.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Start OpenClaw dedicated browser (for browser automation skills)
+// ---------------------------------------------------------------------------
+async function startBrowser() {
+  try {
+    const ocBin = getOpenClawBin();
+    // Check if browser is already running
+    const checkArgs = [...ocBin.args, "browser", "status", "--json"];
+    const status = await new Promise((resolve) => {
+      execCb(
+        `${ocBin.command} ${checkArgs.join(" ")}`,
+        { timeout: 5000 },
+        (err, stdout) => {
+          if (err) return resolve(null);
+          try { resolve(JSON.parse(stdout)); } catch { resolve(null); }
+        }
+      );
+    });
+
+    if (status?.running) {
+      console.log("[hammerlock] Browser already running");
+      return;
+    }
+
+    // Start the browser (uses default profile — "openclaw" driver)
+    console.log("[hammerlock] Starting OpenClaw browser for web automation...");
+    const startArgs = [...ocBin.args, "browser", "start"];
+    await new Promise((resolve, reject) => {
+      execCb(
+        `${ocBin.command} ${startArgs.join(" ")}`,
+        { timeout: 15000 },
+        (err, stdout, stderr) => {
+          if (err) {
+            console.warn("[hammerlock] Browser start failed (non-critical):", err.message);
+            resolve(); // Non-critical — app works without browser automation
+          } else {
+            console.log("[hammerlock] Browser ready for web automation");
+            resolve();
+          }
+        }
+      );
+    });
+  } catch (err) {
+    console.warn("[hammerlock] Browser start failed (non-critical):", err.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Start OpenClaw gateway (if not already running)
 // ---------------------------------------------------------------------------
 async function startGateway() {
@@ -137,11 +261,28 @@ async function startGateway() {
   }
 
   try {
+    const ocBin = getOpenClawBin();
     console.log(`[hammerlock] Starting OpenClaw gateway on port ${GATEWAY_PORT}...`);
-    gatewayProcess = spawn("openclaw", ["--profile", GATEWAY_PROFILE, "gateway", "--port", String(GATEWAY_PORT)], {
+    console.log(`[hammerlock] OpenClaw: ${ocBin.isBundled ? "bundled" : "system"} (${ocBin.command})`);
+
+    // Read the gateway token from profile config for env passthrough
+    let gatewayToken;
+    try {
+      const profileData = JSON.parse(
+        fs.readFileSync(path.join(os.homedir(), ".openclaw-hammerlock", "openclaw.json"), "utf-8")
+      );
+      gatewayToken = profileData?.gateway?.auth?.token;
+    } catch { /* ok */ }
+
+    const gatewayArgs = [...ocBin.args, "--profile", GATEWAY_PROFILE, "gateway", "--port", String(GATEWAY_PORT)];
+    gatewayProcess = spawn(ocBin.command, gatewayArgs, {
       cwd: ROOT,
       stdio: "pipe",
-      env: { ...process.env, FORCE_COLOR: "0" },
+      env: {
+        ...process.env,
+        FORCE_COLOR: "0",
+        ...(gatewayToken ? { OPENCLAW_GATEWAY_TOKEN: gatewayToken } : {}),
+      },
     });
 
     gatewayProcess.stdout?.on("data", (d) => console.log(`[gateway] ${d.toString().trim()}`));
@@ -323,11 +464,18 @@ async function ensureServersAndCreateWindow() {
   // 1. Show splash screen immediately
   createWindow();
 
-  // 2. Start servers in parallel while user sees splash
+  // 2. Ensure hammerlock profile config exists (creates if missing)
+  ensureHammerlockProfile();
+
+  // 3. Start servers in parallel while user sees splash
   await Promise.all([startGateway(), startNext()]);
+
+  // 4. Start the dedicated browser for web automation (non-blocking)
+  //    Runs after gateway is up since it relies on gateway services
+  startBrowser().catch(() => {}); // Fire-and-forget — not critical for app startup
   appReady = true;
 
-  // 3. Minimum splash duration (let the animation play)
+  // 5. Minimum splash duration (let the animation play)
   // The splash animations take ~2s, and servers may start faster
   const MIN_SPLASH_MS = 3000;
   const elapsed = Date.now() - splashStart;
@@ -335,7 +483,7 @@ async function ensureServersAndCreateWindow() {
     await new Promise((r) => setTimeout(r, MIN_SPLASH_MS - elapsed));
   }
 
-  // 4. Crossfade to vault
+  // 6. Crossfade to vault
   await transitionToVault();
 }
 
@@ -546,10 +694,22 @@ app.whenReady().then(async () => {
     return allowed.includes(permission);
   });
 
-  // On macOS, proactively request microphone permission so the OS dialog
-  // appears on first launch rather than silently failing.
+  // On macOS, proactively request permissions so the OS dialogs
+  // appear on first launch rather than silently failing later.
   if (process.platform === "darwin") {
     systemPreferences.askForMediaAccess("microphone").catch(() => {});
+
+    // Trigger Calendar, Reminders, and Contacts permission dialogs.
+    // AppleScript access triggers the native macOS permission prompt automatically.
+    // These run in the background — if already granted, they're instant no-ops.
+    // Calendar — triggers "HammerLock AI wants to access your Calendar"
+    execCb(`osascript -e 'tell application "Calendar" to get name of calendars' 2>/dev/null`, { timeout: 10000 }, () => {});
+    // Reminders — triggers "HammerLock AI wants to access your Reminders"
+    execCb(`osascript -e 'tell application "Reminders" to get name of lists' 2>/dev/null`, { timeout: 10000 }, () => {});
+    // Notes — triggers "HammerLock AI wants to access Notes"
+    execCb(`osascript -e 'tell application "Notes" to get name of folders' 2>/dev/null`, { timeout: 10000 }, () => {});
+    // Contacts — triggers via AppleScript too
+    execCb(`osascript -e 'tell application "Contacts" to get name of people' 2>/dev/null`, { timeout: 10000 }, () => {});
   }
 
   splashStart = Date.now();
@@ -619,4 +779,9 @@ app.on("before-quit", () => {
     console.log("[hammerlock] Stopping Next.js...");
     nextProcess.kill("SIGTERM");
   }
+  // Stop the dedicated browser (best-effort, non-blocking)
+  try {
+    const ocBin = getOpenClawBin();
+    execCb(`${ocBin.command} ${[...ocBin.args, "browser", "stop"].join(" ")}`, { timeout: 3000 }, () => {});
+  } catch { /* ignore */ }
 });

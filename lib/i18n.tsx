@@ -277,7 +277,7 @@ const en = {
   site_hero_h1_1: "Your AI.",
   site_hero_h1_2: "Your Data.",
   site_hero_h1_3: "Your Rules.",
-  site_hero_sub: "An AI assistant that lives on your device. Encrypted memory, PII-scrubbed queries, real-time search.",
+  site_hero_sub: "An AI assistant that lives on your device. AES-256 encrypted, 27 native skills, browser automation, voice — all local-first.",
   site_section_features: "What You Get",
   site_section_agents: "Specialized Agents",
   site_section_pricing: "Pricing",
@@ -328,7 +328,7 @@ const en = {
   site_feat_pdf_title: "PDF Upload & Markdown Export",
   site_feat_pdf_body: "Upload PDFs for instant analysis. Export conversations and reports as clean markdown. All files stay encrypted on your device.",
   site_feat_agents_title: "Specialized Agents",
-  site_feat_agents_body: "Eleven built-in agents — Coach, Money, Content, Director, Strategist, Counsel, Analyst, Researcher, Operator, Writer — plus the ability to build custom agents in seconds.",
+  site_feat_agents_body: "Eleven built-in agents — Coach, Money, Content, Director, Strategist, Counsel, Analyst, Researcher, Operator, Writer — plus 27 native skills: Apple Calendar, Reminders, Notes, iMessage, email, GitHub, smart home, browser automation, voice, and more.",
   site_feat_vault_title: "Encrypted File Vault",
   site_feat_vault_body: "Save chat responses, upload PDFs, and create private notes — all AES-256 encrypted on your device. Your vault is your personal knowledge base that only you can unlock.",
   site_feat_perf_title: "Feather-Light Performance",
@@ -337,12 +337,12 @@ const en = {
   // ---- Landing page: how it works steps ----
   site_step1_title: "Download HammerLock AI",
   site_step1_body: "Install the desktop app and set an encryption password. That password is your key — we never see it, store it, or recover it. Your encryption, your rules.",
-  site_step2_title: "Install Ollama (Your AI Engine)",
-  site_step2_body: "HammerLock AI needs a local AI engine to think. Install Ollama free from ollama.com, then run 'ollama pull llama3.1' to download your first model. One command — done.",
+  site_step2_title: "Choose Your AI Engine",
+  site_step2_body: "Run local with Ollama (free, private) or connect cloud providers like OpenAI, Anthropic, or Google. HammerLock auto-routes to the fastest available model. Bring your own keys — no markup.",
   site_step3_title: "Load Your Persona",
   site_step3_body: "Answer a few quick questions and HammerLock AI builds your persona — your background, your context, your preferences. Encrypted locally, loaded every session.",
-  site_step4_title: "Ask. Search. Build.",
-  site_step4_body: "Chat naturally, run web searches, upload PDFs, generate reports. Everything runs on your hardware. Close it and it's locked. Open it and you're right where you left off.",
+  site_step4_title: "Ask. Search. Automate.",
+  site_step4_body: "Chat naturally, search the web, manage your calendar, send messages, control smart home devices, automate browser tasks, upload PDFs — all from one encrypted interface. Close it and it's locked.",
 
   // ---- Landing page: comparison table rows ----
   site_cmp_local_storage: "Data stored on your device",
@@ -350,7 +350,7 @@ const en = {
   site_cmp_pii: "PII scrubbed before cloud queries",
   site_cmp_no_train: "Never trains on your data",
   site_cmp_agents: "Specialized AI agents",
-  site_cmp_agents_val: "11 built-in + custom",
+  site_cmp_agents_val: "11 agents + 27 skills",
   site_cmp_memory: "Persistent memory across sessions",
   site_cmp_search: "Web search with cited sources",
   site_cmp_search_typical: "Limited",
@@ -430,17 +430,17 @@ const en = {
   site_plan_free_f4: "Self-host, fork, customize",
   site_plan_free_f5: "Community-driven support",
   site_plan_core_f1: "Everything in Free, unlimited messages",
-  site_plan_core_f2: "11 specialized AI agents",
+  site_plan_core_f2: "11 specialized AI agents + 27 native skills",
   site_plan_core_f3: "Encrypted personal vault",
   site_plan_core_f4: "Persona files & memory",
-  site_plan_core_f5: "Chat sharing & export",
+  site_plan_core_f5: "Calendar, Reminders, Notes & email integration",
   site_plan_pro_f1: "Everything in Core",
-  site_plan_pro_f2: "Brave-powered private web search",
+  site_plan_pro_f2: "27 native skills (Calendar, Reminders, Notes, iMessage, email, GitHub, smart home, browser)",
   site_plan_pro_f3: "Voice input & output (Whisper + TTS)",
-  site_plan_pro_f4: "PDF upload, analysis & export",
-  site_plan_pro_f5: "Automated report generation",
+  site_plan_pro_f4: "Browser automation & Grok/SuperGrok integration",
+  site_plan_pro_f5: "PDF upload, analysis & export",
   site_plan_pro_f6: "1,000 monthly cloud AI credits (GPT-4o, Claude, Gemini + more)",
-  site_plan_pro_f7: "Priority support",
+  site_plan_pro_f7: "Brave-powered private web search + priority support",
   site_plan_teams_f1: "Everything in Pro",
   site_plan_teams_f2: "Per-seat licensing — add or remove anytime",
   site_plan_teams_f3: "Centralized team billing",
@@ -520,7 +520,7 @@ const en = {
 
   // ---- Success page ----
   site_success_title: "Welcome to HammerLock AI",
-  site_success_subtitle: "Your subscription is active. Your 7-day free trial starts now.",
+  site_success_subtitle: "Your plan is active. Download the app and enter your license key to get started.",
   site_success_plan_activated: (plan: string) => `${plan} plan activated`,
   site_success_confirmation: "Confirmation",
   site_success_get_started: "Get Started",
@@ -1043,7 +1043,7 @@ const ptBR: typeof en = {
 
   // ---- Página de sucesso ----
   site_success_title: "Bem-vindo ao HammerLock AI",
-  site_success_subtitle: "Sua assinatura está ativa. Seu período de teste grátis de 7 dias começa agora.",
+  site_success_subtitle: "Seu plano está ativo. Baixe o app e insira sua chave de licença para começar.",
   site_success_plan_activated: (plan: string) => `Plano ${plan} ativado`,
   site_success_confirmation: "Confirmação",
   site_success_get_started: "Começar",
@@ -1558,7 +1558,7 @@ const es: typeof en = {
 
   // ---- Página de éxito ----
   site_success_title: "Bienvenido a HammerLock AI",
-  site_success_subtitle: "Tu suscripción está activa. Tu prueba gratuita de 7 días comienza ahora.",
+  site_success_subtitle: "Tu plan está activo. Descarga la app e introduce tu clave de licencia para empezar.",
   site_success_plan_activated: (plan: string) => `Plan ${plan} activado`,
   site_success_confirmation: "Confirmación",
   site_success_get_started: "Comenzar",
@@ -2067,7 +2067,7 @@ const fr: typeof en = {
 
   // ---- Page de succès ----
   site_success_title: "Bienvenue sur HammerLock AI",
-  site_success_subtitle: "Votre abonnement est actif. Votre essai gratuit de 7 jours commence maintenant.",
+  site_success_subtitle: "Votre plan est actif. Téléchargez l'app et entrez votre clé de licence pour commencer.",
   site_success_plan_activated: (plan: string) => `Plan ${plan} activé`,
   site_success_confirmation: "Confirmation",
   site_success_get_started: "Commencer",
@@ -2575,7 +2575,7 @@ const de: typeof en = {
 
   // ---- Erfolgsseite ----
   site_success_title: "Willkommen bei HammerLock AI",
-  site_success_subtitle: "Dein Abonnement ist aktiv. Deine 7-tägige kostenlose Testphase beginnt jetzt.",
+  site_success_subtitle: "Dein Plan ist aktiv. Lade die App herunter und gib deinen Lizenzschlüssel ein.",
   site_success_plan_activated: (plan: string) => `${plan}-Plan aktiviert`,
   site_success_confirmation: "Bestätigung",
   site_success_get_started: "Loslegen",
@@ -3083,7 +3083,7 @@ const zh: typeof en = {
 
   // ---- 成功页 ----
   site_success_title: "欢迎使用 HammerLock AI",
-  site_success_subtitle: "你的订阅已激活。7 天免费试用现在开始。",
+  site_success_subtitle: "你的计划已激活。下载应用并输入许可密钥即可开始。",
   site_success_plan_activated: (plan: string) => `${plan} 计划已激活`,
   site_success_confirmation: "确认",
   site_success_get_started: "开始使用",
@@ -3591,7 +3591,7 @@ const ja: typeof en = {
 
   // ---- 成功ページ ----
   site_success_title: "HammerLock AIへようこそ",
-  site_success_subtitle: "サブスクリプションが有効になりました。7日間の無料トライアルが今すぐ始まります。",
+  site_success_subtitle: "プランが有効になりました。アプリをダウンロードしてライセンスキーを入力してください。",
   site_success_plan_activated: (plan: string) => `${plan}プランが有効化されました`,
   site_success_confirmation: "確認",
   site_success_get_started: "始める",
@@ -4087,7 +4087,7 @@ const ko: typeof en = {
   site_getapp_back: "홈으로 돌아가기",
   // ---- Success page ----
   site_success_title: "HammerLock AI에 오신 것을 환영합니다",
-  site_success_subtitle: "구독이 활성화되었습니다. 7일 무료 체험이 지금 시작됩니다.",
+  site_success_subtitle: "플랜이 활성화되었습니다. 앱을 다운로드하고 라이선스 키를 입력하세요.",
   site_success_plan_activated: (plan: string) => `${plan} 플랜 활성화됨`,
   site_success_confirmation: "확인",
   site_success_get_started: "시작하기",
@@ -4583,7 +4583,7 @@ const ar: typeof en = {
   site_getapp_back: "العودة إلى الرئيسية",
   // ---- Success page ----
   site_success_title: "مرحبًا بك في HammerLock AI",
-  site_success_subtitle: "اشتراكك نشط. تبدأ فترتك التجريبية المجانية لمدة 7 أيام الآن.",
+  site_success_subtitle: "خطتك نشطة. قم بتنزيل التطبيق وأدخل مفتاح الترخيص للبدء.",
   site_success_plan_activated: (plan: string) => `تم تفعيل خطة ${plan}`,
   site_success_confirmation: "التأكيد",
   site_success_get_started: "ابدأ الآن",
@@ -5091,7 +5091,7 @@ const hi: typeof en = {
 
   // ---- Success page ----
   site_success_title: "HammerLock AI में आपका स्वागत है",
-  site_success_subtitle: "आपकी सदस्यता सक्रिय है। आपका 7-दिन का मुफ़्त ट्रायल अभी शुरू होता है।",
+  site_success_subtitle: "आपकी योजना सक्रिय है। ऐप डाउनलोड करें और शुरू करने के लिए अपनी लाइसेंस कुंजी दर्ज करें।",
   site_success_plan_activated: (plan: string) => `${plan} प्लान सक्रिय`,
   site_success_confirmation: "पुष्टि",
   site_success_get_started: "शुरू करें",
@@ -5600,7 +5600,7 @@ const ru: typeof en = {
 
   // ---- Success page ----
   site_success_title: "Добро пожаловать в HammerLock AI",
-  site_success_subtitle: "Ваша подписка активна. 7-дневный бесплатный период начинается сейчас.",
+  site_success_subtitle: "Ваш план активен. Скачайте приложение и введите лицензионный ключ для начала.",
   site_success_plan_activated: (plan: string) => `Тариф ${plan} активирован`,
   site_success_confirmation: "Подтверждение",
   site_success_get_started: "Начать",

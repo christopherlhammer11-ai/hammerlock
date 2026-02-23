@@ -25,10 +25,18 @@ export const maxDuration = 30;
 const WHISPER_HALLUCINATIONS = new Set([
   "you", "thank you", "thanks", "bye", "the end", "thanks for watching",
   "thank you for watching", "subscribe", "like and subscribe",
-  "please subscribe", "see you next time", "goodbye",
+  "please subscribe", "see you next time", "goodbye", "hello",
+  "so", "um", "uh", "hmm", "okay", "ok", "right", "yes", "no",
+  "i dont know", "i don't know", "what", "huh",
+  // Common Whisper silence artifacts
+  "...", "…", ".", "", " ",
+  "music", "music playing", "silence", "background noise",
+  "applause", "laughter", "coughing", "breathing",
   // Whisper sometimes echoes the prompt back as the transcription
   "the user is speaking a command or question to an ai assistant called hammerlock",
   "the user is speaking a command or question to an ai assistant called hammerlock.",
+  "the user is speaking a command or question to an ai assistant called hammerlock ai",
+  "hammerlock ai", "hammerlock",
 ]);
 
 // Map locale codes to Whisper language codes

@@ -12,6 +12,8 @@ import { hasCredit, deductCredit, getRemainingUnits } from "@/lib/compute-credit
 import { createAnonymizer } from "@/lib/anonymize";
 import { config as dotenvConfig } from "dotenv";
 import { decryptFromFile, encryptForFile, hasServerSessionKey, isEncrypted } from "@/lib/server-crypto";
+import { openclawCommand, getBinPath, isMacOS, isWindows, isLinux } from "@/lib/openclaw-paths";
+import { existsSync } from "fs";
 import { detectScheduleIntent, parseScheduleCommand } from "@/lib/schedule-parser";
 import {
   type ScheduledTask,
@@ -41,6 +43,19 @@ try {
 export const maxDuration = 60;
 
 const execAsync = promisify(exec);
+
+// ── Bundled OpenClaw + tool path resolution ──
+// Uses shared resolver from lib/openclaw-paths.ts
+// Priority: bundled (node_modules/openclaw) > system (/opt/homebrew/bin/openclaw)
+function resolveOpenClawCmd(subcommand: string, profile = "hammerlock"): string {
+  return openclawCommand(subcommand, profile);
+}
+function resolveBinPath(name: string): string {
+  const resolved = getBinPath(name);
+  // Quote paths that contain spaces (bundled paths in .app bundles)
+  return resolved.includes(" ") ? `"${resolved}"` : resolved;
+}
+
 const personaPath = path.join(os.homedir(), ".hammerlock", "persona.md");
 const planPath = path.join(os.homedir(), ".hammerlock", "plan.md");
 const vaultJsonPath = path.join(process.cwd(), "vault.json");
@@ -821,16 +836,13 @@ async function callGateway(prompt: string): Promise<string> {
   // Skip CLI gateway in serverless environments (it doesn't exist there)
   const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
   if (isServerless) {
-    const detail = lastLLMError ? ` Last error: ${lastLLMError}` : "";
-    throw new Error(
-      `No LLM provider responded.${detail} Check that your API key is valid.`
-    );
+    throw new Error(friendlyLLMError());
   }
 
   try {
     const escaped = prompt.replace(/'/g, "'\\''");
     const { stdout } = await execAsync(
-      `openclaw --profile hammerlock agent --agent main --message '${escaped}' --json --no-color`,
+      resolveOpenClawCmd(`agent --agent main --message '${escaped}' --json --no-color`),
       { timeout: 30000 }
     );
     const result = JSON.parse(stdout);
@@ -838,50 +850,730 @@ async function callGateway(prompt: string): Promise<string> {
       return result.result?.payloads?.[0]?.text || "No response from gateway agent";
     }
     throw new Error(result.summary || "Gateway agent failed");
-  } catch (error) {
-    throw new Error(
-      `No LLM provider configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY, or ensure the OpenClaw gateway is running. (${(error as Error).message})`
-    );
+  } catch {
+    throw new Error(friendlyLLMError());
   }
 }
 
-// ── OpenClaw Action Execution ──
-// Enhanced gateway call for skill-based actions (reminders, email, smart home, etc.)
+/** Produce a clean, user-friendly error instead of raw CLI dumps */
+function friendlyLLMError(): string {
+  if (lastLLMError) {
+    if (lastLLMError.includes("insufficient_quota") || lastLLMError.includes("exceeded")) {
+      return "Your API key has run out of credits. Please add billing to your OpenAI account or add a different API key in Settings (⚙️).";
+    }
+    if (lastLLMError.includes("401") || lastLLMError.includes("invalid_api_key") || lastLLMError.includes("Incorrect API key")) {
+      return "Your API key is invalid or expired. Please update it in Settings (⚙️).";
+    }
+    if (lastLLMError.includes("429") || lastLLMError.includes("rate_limit")) {
+      return "API rate limit reached. Please wait a moment and try again.";
+    }
+  }
+  return "No AI provider available. Open Settings (⚙️) and add an API key from OpenAI, Anthropic, Google, or another provider.";
+}
+
+// ── Native Action Execution ──
+// Direct CLI calls for macOS integrations — more reliable than routing through LLM agent.
+// Falls back to OpenClaw agent for complex/multi-step actions.
 
 type GatewayActionResult = {
   response: string;
   actionType: string;
   success: boolean;
+  /** macOS deep link URL to open the created resource (e.g. x-apple-reminderkit://, applenotes://) */
+  deepLink?: string;
 };
 
-async function callGatewayAction(
+// ── Reminder parsing: extract title, due date/time from natural language ──
+function parseReminderFromMessage(msg: string): { title: string; due: string; list?: string } | null {
+  const lower = msg.toLowerCase();
+
+  // Extract list if mentioned: "... to my Work list" / "... in Personal"
+  let list: string | undefined;
+  const listMatch = msg.match(/(?:to\s+(?:my\s+)?|in\s+(?:my\s+)?)(\w+)\s+list/i);
+  if (listMatch) list = listMatch[1];
+
+  // Remove the action prefix to get the content
+  let content = msg
+    .replace(/^(?:set\s+a?\s*reminder\s+(?:to\s+|for\s+)?|add\s+(?:a\s+)?reminder\s+(?:to\s+|for\s+)?|create\s+a?\s*reminder\s+(?:to\s+|for\s+)?|remind\s+me\s+(?:to\s+)?|add\s+to\s+(?:my\s+)?(?:apple\s+)?reminders?\s+)/i, "")
+    .trim();
+
+  // Extract time/date from end: "at 3pm", "tomorrow at noon", "at 10:30am tomorrow"
+  let due = "";
+  // Match patterns like "tomorrow at 3pm", "today at noon", "at 5pm", "at 10:30 am tomorrow"
+  const timePatterns = [
+    /\b(tomorrow|today|tonight)\s+at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?(?:\s+(?:tomorrow|today))?)/i,
+    /\bat\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(tomorrow|today|tonight)?/i,
+    /\b(tomorrow|today|tonight)\b/i,
+    /\b(next\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b/i,
+    /\b(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)\b/,
+  ];
+
+  for (const pattern of timePatterns) {
+    const match = content.match(pattern);
+    if (match) {
+      // Build due string
+      const fullMatch = match[0];
+      content = content.replace(fullMatch, "").replace(/\s+/g, " ").trim();
+
+      // Normalize time
+      if (/tomorrow/i.test(fullMatch)) {
+        const timeMatch = fullMatch.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
+        if (timeMatch) {
+          const t = timeMatch[1].trim();
+          // Convert "3pm" -> "15:00", "noon" -> "12:00"
+          const normalized = normalizeTime(t);
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          due = `${tomorrow.toISOString().split("T")[0]} ${normalized}`;
+        } else {
+          due = "tomorrow";
+        }
+      } else if (/today|tonight/i.test(fullMatch)) {
+        const timeMatch = fullMatch.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
+        if (timeMatch) {
+          const normalized = normalizeTime(timeMatch[1].trim());
+          due = `${new Date().toISOString().split("T")[0]} ${normalized}`;
+        } else if (/tonight/i.test(fullMatch)) {
+          due = `${new Date().toISOString().split("T")[0]} 20:00`;
+        } else {
+          due = "today";
+        }
+      } else if (/\d{4}-\d{2}-\d{2}/.test(fullMatch)) {
+        due = fullMatch.trim();
+      } else {
+        // "at 5pm" without day = today
+        const timeMatch = fullMatch.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
+        if (timeMatch) {
+          const normalized = normalizeTime(timeMatch[1].trim());
+          due = `${new Date().toISOString().split("T")[0]} ${normalized}`;
+        }
+      }
+      break;
+    }
+  }
+
+  // Clean up trailing punctuation/prepositions from title
+  const title = content.replace(/\s+(?:at|on|by|for|in)\s*$/i, "").replace(/[.,!?]+$/, "").trim();
+  if (!title) return null;
+
+  // Only return a parsed reminder if we have a real due date.
+  // Vague requests like "make me a bill reminder" should go to the
+  // OpenClaw agent which can ask follow-up questions for details.
+  if (!due) return null;
+
+  return { title, due, list };
+}
+
+function normalizeTime(t: string): string {
+  // "3pm" -> "15:00", "noon" -> "12:00", "10:30am" -> "10:30"
+  if (/noon/i.test(t)) return "12:00";
+  if (/midnight/i.test(t)) return "00:00";
+
+  const match = t.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if (!match) return "09:00";
+
+  let hours = parseInt(match[1]);
+  const minutes = match[2] || "00";
+  const period = match[3]?.toLowerCase();
+
+  if (period === "pm" && hours < 12) hours += 12;
+  if (period === "am" && hours === 12) hours = 0;
+
+  return `${String(hours).padStart(2, "0")}:${minutes}`;
+}
+
+// ── Notes parsing: extract title and body ──
+function parseNoteFromMessage(msg: string): { title: string; body: string } | null {
+  // Strip the command prefix — handles: "create note in Apple Notes: Title",
+  // "create a note called My Note", "save a note about X", etc.
+  let content = msg
+    .replace(/^(?:create\s+(?:a\s+)?note\s+(?:in\s+(?:apple\s+)?notes?[\s:]*)?(?:called|titled|named|about)?\s*|(?:make|save|write)\s+(?:a\s+)?note\s+(?:in\s+(?:apple\s+)?notes?[\s:]*)?(?:called|titled|named|about)?\s*|add\s+to\s+(?:my\s+)?(?:apple\s+)?notes?\s+app[\s:]*)/i, "")
+    .trim();
+
+  // Handle "Title\nBody" format (colon-separated from prefix or newline-separated)
+  const newlineIdx = content.indexOf("\n");
+  if (newlineIdx > 0) {
+    const title = content.slice(0, newlineIdx).replace(/^['"":\s]+|['"":\s]+$/g, "").trim();
+    const body = content.slice(newlineIdx + 1).trim();
+    if (title) return { title, body };
+  }
+
+  // Split on "with the content", "saying", "with body", "that says"
+  const splitMatch = content.match(/^(.+?)\s+(?:with\s+(?:the\s+)?(?:content|body|text)|saying|that\s+says)\s+['""]?(.+?)['""]?\s*$/is);
+  if (splitMatch) {
+    return { title: splitMatch[1].replace(/^['""]+|['""]+$/g, "").trim(), body: splitMatch[2].trim() };
+  }
+
+  // Just a title, no body
+  const title = content.replace(/^['"":\s]+|['"":\s]+$/g, "").trim();
+  return title ? { title, body: "" } : null;
+}
+
+// ── Calendar parsing: extract event details ──
+function parseCalendarFromMessage(msg: string): { query: boolean; title?: string; date?: string; time?: string } {
+  const lower = msg.toLowerCase();
+
+  // Read queries
+  if (/(?:what(?:'s|\s+is)\s+on\s+my\s+calendar|check\s+my\s+calendar|show\s+(?:me\s+)?my\s+calendar)/i.test(lower)) {
+    // Extract date: "today", "tomorrow", "this week"
+    let date = "today";
+    if (/tomorrow/i.test(lower)) date = "tomorrow";
+    else if (/this\s+week/i.test(lower)) date = "this week";
+    else if (/next\s+week/i.test(lower)) date = "next week";
+    return { query: true, date };
+  }
+
+  // Create event
+  return { query: false };
+}
+
+// ── Direct CLI execution for each action type ──
+async function executeNativeAction(
   message: string,
   actionType: string
 ): Promise<GatewayActionResult> {
   const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
   if (isServerless) {
+    return { response: "", actionType, success: false };
+  }
+
+  try {
+    switch (actionType) {
+      case "reminder": {
+        // remindctl + Apple Reminders is macOS-only
+        if (!isMacOS) return await callGatewayAgent(message, actionType);
+
+        const parsed = parseReminderFromMessage(message);
+        // If native parser couldn't extract enough detail (no due date),
+        // route to OpenClaw agent which can ask follow-up questions
+        if (!parsed) return await callGatewayAgent(message, actionType);
+
+        const args = [`add`, `--title`, parsed.title];
+        if (parsed.due) args.push(`--due`, parsed.due);
+        if (parsed.list) args.push(`--list`, parsed.list);
+
+        const escapedArgs = args.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(" ");
+        const remindctlBin = resolveBinPath("remindctl");
+        const { stdout } = await execAsync(`${remindctlBin} ${escapedArgs} 2>&1`, { timeout: 10000 });
+
+        if (stdout.includes("✓") || stdout.includes("Created")) {
+          // Parse the output for confirmation
+          const dueMatch = stdout.match(/— (.+)$/m);
+          const dueStr = dueMatch ? dueMatch[1] : parsed.due;
+          // Deep link to open Reminders app (x-apple-reminderkit:// opens the app)
+          return {
+            response: `✅ Reminder set: **${parsed.title}** — ${dueStr}`,
+            actionType,
+            success: true,
+            deepLink: "x-apple-reminderkit://",
+          };
+        }
+        // remindctl may have printed an error
+        return { response: `Couldn't create reminder: ${stdout.trim()}`, actionType, success: false };
+      }
+
+      case "notes": {
+        // Apple Notes via AppleScript is macOS-only
+        if (!isMacOS) return await callGatewayAgent(message, actionType);
+
+        const parsed = parseNoteFromMessage(message);
+        if (!parsed) return await callGatewayAgent(message, actionType);
+
+        // Use AppleScript to create note — ensure Notes is running first
+        const body = parsed.body || parsed.title;
+        const escapedTitle = parsed.title.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        const escapedBody = body.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        // Create note and return its ID for deep linking
+        const script = `
+          tell application "Notes"
+            tell folder "Notes"
+              set newNote to make new note with properties {name:"${escapedTitle}", body:"${escapedBody}"}
+              return id of newNote
+            end tell
+          end tell
+        `;
+        // Ensure Notes.app is running — needs ~2s to become ready for AppleScript
+        const notesRunning = await execAsync("pgrep -x Notes", { timeout: 2000 }).then(() => true).catch(() => false);
+        if (!notesRunning) {
+          await execAsync("open -a Notes", { timeout: 5000 }).catch(() => {});
+          await new Promise(r => setTimeout(r, 3000));
+        }
+        const { stdout } = await execAsync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, { timeout: 10000 });
+
+        const noteId = stdout.trim();
+        if (noteId && noteId !== "" && !noteId.toLowerCase().startsWith("error")) {
+          // Build deep link — Notes uses applenotes:// URL scheme
+          // Format: applenotes://showNote?noteId=<id>
+          const deepLink = noteId.startsWith("x-coredata://")
+            ? `applenotes://showNote?noteId=${encodeURIComponent(noteId)}`
+            : undefined;
+          return {
+            response: `📝 Note created: **${parsed.title}**${parsed.body ? `\n\n${parsed.body}` : ""}`,
+            actionType,
+            success: true,
+            deepLink,
+          };
+        }
+        return { response: `Couldn't create note: ${noteId}`, actionType, success: false };
+      }
+
+      case "calendar": {
+        // Apple Calendar via AppleScript is macOS-only
+        if (!isMacOS) return await callGatewayAgent(message, actionType);
+
+        const parsed = parseCalendarFromMessage(message);
+
+        if (parsed.query) {
+          // Read calendar events using AppleScript
+          // Must ensure Calendar is running first — "open -a" uses LaunchServices
+          const dateOffset = parsed.date === "tomorrow"
+            ? `set targetStart to targetStart + (1 * days)
+              set targetEnd to targetEnd + (1 * days)`
+            : "";
+
+          const script = `
+            tell application "Calendar"
+              set targetStart to current date
+              set hours of targetStart to 0
+              set minutes of targetStart to 0
+              set seconds of targetStart to 0
+              set targetEnd to targetStart + (1 * days)
+              ${dateOffset}
+              set eventList to ""
+              repeat with cal in calendars
+                set calEvents to (every event of cal whose start date is greater than or equal to targetStart and start date is less than targetEnd)
+                repeat with evt in calEvents
+                  set eventList to eventList & summary of evt & " | " & (start date of evt as string) & " | " & name of cal & linefeed
+                end repeat
+              end repeat
+              return eventList
+            end tell
+          `;
+
+          try {
+            // Ensure Calendar.app is running (open -a goes through LaunchServices, works from child processes)
+            const calRunning = await execAsync("pgrep -x Calendar", { timeout: 2000 }).then(() => true).catch(() => false);
+            if (!calRunning) {
+              await execAsync("open -a Calendar", { timeout: 5000 }).catch(() => {});
+              await new Promise(r => setTimeout(r, 3000));
+            }
+            const { stdout } = await execAsync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, { timeout: 15000 });
+            const events = stdout.trim();
+            // Deep link to open Calendar app at the relevant date
+            const calDeepLink = parsed.date === "tomorrow"
+              ? `ical://` // Opens Calendar app
+              : `ical://`;
+            if (!events) {
+              return {
+                response: `📅 No events on your calendar ${parsed.date === "tomorrow" ? "tomorrow" : "today"}.`,
+                actionType,
+                success: true,
+                deepLink: calDeepLink,
+              };
+            }
+            // Format events nicely
+            const lines = events.split("\n").filter(Boolean).map(line => {
+              const [title, dateStr, calendar] = line.split(" | ");
+              return `• **${title?.trim()}** — ${dateStr?.trim()} *(${calendar?.trim()})*`;
+            });
+            return {
+              response: `📅 **${parsed.date === "tomorrow" ? "Tomorrow" : "Today"}'s calendar:**\n\n${lines.join("\n")}`,
+              actionType,
+              success: true,
+              deepLink: calDeepLink,
+            };
+          } catch (calErr) {
+            console.error("[native-action] calendar AppleScript failed:", (calErr as Error).message);
+            return { response: "", actionType, success: false };
+          }
+        }
+
+        // Creating events — fall through to gateway agent for now
+        return { response: "", actionType, success: false };
+      }
+
+      case "email": {
+        // Email: route through OpenClaw gateway agent which has himalaya + gog skills
+        // The gateway agent can handle read/send/search via configured email providers
+        return await callGatewayAgent(message, actionType);
+      }
+
+      case "sheets": {
+        return await executeGoogleSheets(message);
+      }
+
+      case "browser": {
+        // Browser automation: execute commands directly via openclaw browser CLI
+        return await executeBrowserTask(message, actionType);
+      }
+
+      default:
+        // For action types without direct CLI support, try the OpenClaw gateway agent
+        return await callGatewayAgent(message, actionType);
+    }
+  } catch (err) {
+    console.error(`[native-action] ${actionType} failed:`, (err as Error).message);
+    return { response: "", actionType, success: false };
+  }
+}
+
+// ── Google Sheets: create, read, append, update via gog CLI ──
+function resolveGogBin(): string {
+  // gog (Google Workspace CLI) — check bundled first
+  const bundled = resolveBinPath("gog");
+  const gogName = isWindows ? "gog.exe" : "gog";
+  if (bundled !== gogName) return bundled;
+
+  // Fallback: check common install locations per platform
+  const locations: string[] = [];
+  if (isMacOS) {
+    locations.push("/opt/homebrew/bin/gog", "/usr/local/bin/gog");
+  } else if (isLinux) {
+    locations.push("/usr/local/bin/gog", "/usr/bin/gog",
+      path.join(os.homedir(), ".local", "bin", "gog"));
+  } else if (isWindows) {
+    locations.push(
+      path.join(os.homedir(), "AppData", "Roaming", "npm", "gog.cmd"),
+      path.join(os.homedir(), "AppData", "Roaming", "npm", "gog.exe"),
+      "C:\\Program Files\\gog\\gog.exe",
+    );
+  }
+  for (const loc of locations) {
+    if (existsSync(loc)) return loc;
+  }
+  return gogName;
+}
+
+async function getGoogleAccount(): Promise<string | null> {
+  const gogBin = resolveGogBin();
+
+  // Try direct exec first, then fall back to reading config files
+  const extraPaths = isMacOS ? ":/opt/homebrew/bin:/usr/local/bin"
+    : isLinux ? ":/usr/local/bin:/usr/bin" : "";
+  try {
+    const { stdout } = await execAsync(`${gogBin} auth list --json`, {
+      timeout: 5000,
+      env: { ...process.env, PATH: `${process.env.PATH || ""}${extraPaths}`, HOME: os.homedir() },
+    });
+    const data = JSON.parse(stdout.trim());
+    const acct = data.accounts?.find((a: { services: string[] }) => a.services?.includes("sheets"));
+    if (acct?.email) return acct.email;
+  } catch { /* fall through to config file check */ }
+
+  // Fallback: read gog config files directly (platform-specific locations)
+  try {
+    const syncFs = require("fs");
+    // macOS: ~/Library/Application Support/gogcli/
+    // Linux: ~/.config/gogcli/
+    // Windows: %APPDATA%/gogcli/
+    const gogConfigDir = isMacOS
+      ? path.join(os.homedir(), "Library", "Application Support", "gogcli")
+      : isWindows
+        ? path.join(os.homedir(), "AppData", "Roaming", "gogcli")
+        : path.join(os.homedir(), ".config", "gogcli");
+    const configFile = path.join(gogConfigDir, "config.json");
+    if (existsSync(configFile)) {
+      const config = JSON.parse(syncFs.readFileSync(configFile, "utf8"));
+      const accountClients = config.account_clients || {};
+      const emails = Object.keys(accountClients);
+      if (emails.length > 0) return emails[0];
+    }
+  } catch { /* fall through */ }
+
+  return null;
+}
+
+function parseSheetsIntent(msg: string): {
+  action: "create" | "append" | "read" | "update" | "find";
+  title?: string;
+  spreadsheetId?: string;
+  range?: string;
+  values?: string[];
+  query?: string;
+} | null {
+  const lower = msg.toLowerCase();
+  const firstLine = lower.split("\n")[0].trim();
+
+  // Create: "create a spreadsheet called Expenses" / "make a new google sheet called Budget"
+  const createMatch = msg.match(/(?:create|make|new)\s+(?:a\s+)?(?:google\s+)?(?:sheet|spreadsheet)\s+(?:called|named|titled)\s+["""]?(.+?)["""]?\s*$/i)
+    || msg.match(/(?:create|make|new)\s+(?:a\s+)?(?:google\s+)?(?:sheet|spreadsheet)\s*:\s*(.+)/i)
+    || msg.match(/(?:create|make|new)\s+(?:a\s+)?(?:google\s+)?(?:sheet|spreadsheet)\s+(.+)/i);
+  if (createMatch && /(?:create|make|new)\s/i.test(firstLine)) {
+    return { action: "create", title: createMatch[1].trim().replace(/[""".]+$/, "") };
+  }
+
+  // Append/add row: "add row to spreadsheet <id>: Name, Amount, Date"
+  // or "add to my Meal Plan spreadsheet: Groceries, $50, today"
+  // Pattern 1: "add to my [Name] sheet/spreadsheet: values"
+  const appendNamedMatch = msg.match(/(?:add|append|insert)\s+(?:a\s+)?(?:row\s+)?(?:to|in)\s+(?:my\s+)?(.+?)\s+(?:sheet|spreadsheet)\s*[:]\s*(.+)/i);
+  if (appendNamedMatch) {
+    const title = appendNamedMatch[1].trim().replace(/^(?:google\s+)/i, "");
+    const values = appendNamedMatch[2].split(/\s*[,|]\s*/).map(v => v.trim()).filter(Boolean);
+    return { action: "append", title, values };
+  }
+  // Pattern 2: "add to spreadsheet <id>: values" or "add to spreadsheet <id> values"
+  const appendIdMatch = msg.match(/(?:add|append|insert)\s+(?:a\s+)?(?:row\s+)?(?:to|in)\s+(?:my\s+)?(?:google\s+)?(?:sheet|spreadsheet)\s+([a-zA-Z0-9_-]{20,})\s*[:\s]\s*(.+)/i);
+  if (appendIdMatch) {
+    const values = appendIdMatch[2].split(/\s*[,|]\s*/).map(v => v.trim()).filter(Boolean);
+    return { action: "append", spreadsheetId: appendIdMatch[1], values };
+  }
+  // Pattern 3: "add to spreadsheet: Name, values" (generic)
+  const appendGenericMatch = msg.match(/(?:add|append|insert)\s+(?:a\s+)?(?:row\s+)?(?:to|in)\s+(?:my\s+)?(?:google\s+)?(?:sheet|spreadsheet)\s+(.+)/i);
+  if (appendGenericMatch) {
+    const rest = appendGenericMatch[1];
+    const colonSplit = rest.match(/["""]?(.+?)["""]?\s*[:]\s*(.+)/);
+    if (colonSplit) {
+      const values = colonSplit[2].split(/\s*[,|]\s*/).map(v => v.trim()).filter(Boolean);
+      return { action: "append", title: colonSplit[1].trim(), values };
+    }
+    return { action: "find", query: rest.trim() };
+  }
+
+  // Read: "read my Expenses spreadsheet" / "show me the Budget sheet" / "what's in my sheet <id>"
+  const readMatch = msg.match(/(?:read|show|get|open|view|what(?:'s|\s+is)\s+in)\s+(?:my\s+)?(?:google\s+)?(?:sheet|spreadsheet)\s+["""]?(.+?)["""]?\s*$/i);
+  if (readMatch) {
+    const target = readMatch[1].trim();
+    if (/^[a-zA-Z0-9_-]{20,}$/.test(target)) {
+      return { action: "read", spreadsheetId: target };
+    }
+    return { action: "find", query: target };
+  }
+
+  // Update: "update sheet <id> A1:B2 with ..."
+  const updateMatch = msg.match(/(?:update|set|change)\s+(?:my\s+)?(?:google\s+)?(?:sheet|spreadsheet)\s+([a-zA-Z0-9_-]{20,})\s+([A-Z]+\d*[:\!][A-Z]*\d*)\s+(?:with|to)\s+(.+)/i);
+  if (updateMatch) {
+    const values = updateMatch[3].split(/\s*[,|]\s*/).map(v => v.trim()).filter(Boolean);
+    return { action: "update", spreadsheetId: updateMatch[1], range: updateMatch[2], values };
+  }
+
+  // Generic find: "find my Expenses spreadsheet"
+  if (/(?:find|search|list|look\s+(?:for|up))\s+(?:my\s+)?(?:google\s+)?(?:sheet|spreadsheet)/i.test(firstLine)) {
+    const query = msg.replace(/.*(?:find|search|list|look\s+(?:for|up))\s+(?:my\s+)?(?:google\s+)?(?:sheet|spreadsheet)\s*/i, "").trim();
+    return { action: "find", query: query || "spreadsheet" };
+  }
+
+  // Fallback: any mention of sheet/spreadsheet with some context
+  return { action: "find", query: msg.slice(0, 100) };
+}
+
+async function executeGoogleSheets(message: string): Promise<GatewayActionResult> {
+  const actionType = "sheets";
+  const account = await getGoogleAccount();
+  if (!account) {
     return {
-      response: "Action execution requires the desktop app. OpenClaw isn't available in the web version.",
+      response: "❌ No Google account connected with Sheets access. Go to **Settings → Integrations → Google** to connect your account.",
       actionType,
       success: false,
     };
   }
 
-  // Fast health check — avoid 60s hang on dead gateway
+  const gogBin = resolveGogBin();
+  const acctFlag = `--account '${account}' --client hammerlock`;
+  const extraPaths = isMacOS ? ":/opt/homebrew/bin:/usr/local/bin"
+    : isLinux ? ":/usr/local/bin:/usr/bin" : "";
+  const gogEnv = { env: { ...process.env, PATH: `${process.env.PATH || ""}${extraPaths}`, HOME: os.homedir() } };
+  const intent = parseSheetsIntent(message);
+  if (!intent) {
+    return { response: "", actionType, success: false };
+  }
+
   try {
-    await execAsync("openclaw --profile hammerlock health --json 2>/dev/null", { timeout: 4000 });
+    switch (intent.action) {
+      case "create": {
+        const title = intent.title || "Untitled Sheet";
+        const escaped = title.replace(/'/g, "'\\''");
+        const { stdout } = await execAsync(
+          `${gogBin} sheets create '${escaped}' ${acctFlag} --json --no-input 2>&1`,
+          { timeout: 15000, ...gogEnv }
+        );
+        const result = JSON.parse(stdout);
+        const sheetId = result.spreadsheetId || result.id || "";
+        const sheetUrl = result.spreadsheetUrl || result.url || `https://docs.google.com/spreadsheets/d/${sheetId}`;
+        return {
+          response: `📊 Created spreadsheet: **${title}**\n\n[Open in Google Sheets](${sheetUrl})`,
+          actionType,
+          success: true,
+          deepLink: sheetUrl,
+        };
+      }
+
+      case "append": {
+        let sheetId = intent.spreadsheetId;
+        // If we have a title instead of ID, find the sheet first
+        if (!sheetId && intent.title) {
+          const searchTitle = intent.title.replace(/'/g, "'\\''");
+          const { stdout: searchOut } = await execAsync(
+            `${gogBin} drive search '${searchTitle}' ${acctFlag} --json --no-input 2>&1`,
+            { timeout: 10000, ...gogEnv }
+          );
+          const files = JSON.parse(searchOut);
+          const sheet = (files.files || files || []).find(
+            (f: { mimeType?: string; name?: string }) =>
+              f.mimeType === "application/vnd.google-apps.spreadsheet"
+          );
+          if (!sheet) {
+            return {
+              response: `❌ Couldn't find a spreadsheet named "${intent.title}". Try creating it first.`,
+              actionType,
+              success: false,
+            };
+          }
+          sheetId = sheet.id;
+        }
+        if (!sheetId) {
+          return { response: "❌ No spreadsheet ID or name provided.", actionType, success: false };
+        }
+
+        const values = (intent.values || []).join("|");
+        const escaped = values.replace(/'/g, "'\\''");
+        const { stdout } = await execAsync(
+          `${gogBin} sheets append '${sheetId}' 'Sheet1!A:Z' '${escaped}' ${acctFlag} --json --no-input 2>&1`,
+          { timeout: 15000, ...gogEnv }
+        );
+        const result = JSON.parse(stdout);
+        const updatedRange = result.updates?.updatedRange || result.tableRange || "";
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}`;
+        return {
+          response: `✅ Row added to spreadsheet${updatedRange ? ` at ${updatedRange}` : ""}.\n\nValues: ${(intent.values || []).join(", ")}\n\n[Open in Google Sheets](${sheetUrl})`,
+          actionType,
+          success: true,
+          deepLink: sheetUrl,
+        };
+      }
+
+      case "read": {
+        let sheetId = intent.spreadsheetId;
+        if (!sheetId && intent.query) {
+          // Try to find by name
+          const q = intent.query.replace(/'/g, "'\\''");
+          const { stdout: searchOut } = await execAsync(
+            `${gogBin} drive search '${q}' ${acctFlag} --json --no-input 2>&1`,
+            { timeout: 10000, ...gogEnv }
+          );
+          const files = JSON.parse(searchOut);
+          const sheet = (files.files || files || []).find(
+            (f: { mimeType?: string }) => f.mimeType === "application/vnd.google-apps.spreadsheet"
+          );
+          if (sheet) sheetId = sheet.id;
+        }
+        if (!sheetId) {
+          return { response: "❌ Couldn't find that spreadsheet.", actionType, success: false };
+        }
+
+        // Get metadata first to learn sheet name
+        const { stdout: metaOut } = await execAsync(
+          `${gogBin} sheets metadata '${sheetId}' ${acctFlag} --json --no-input 2>&1`,
+          { timeout: 10000, ...gogEnv }
+        );
+        const meta = JSON.parse(metaOut);
+        const sheetName = meta.sheets?.[0]?.properties?.title || "Sheet1";
+        const title = meta.properties?.title || "Spreadsheet";
+
+        // Read first 50 rows
+        const { stdout } = await execAsync(
+          `${gogBin} sheets get '${sheetId}' '${sheetName}!A1:Z50' ${acctFlag} --json --no-input 2>&1`,
+          { timeout: 15000, ...gogEnv }
+        );
+        const data = JSON.parse(stdout);
+        const rows = data.values || [];
+        if (rows.length === 0) {
+          return {
+            response: `📊 **${title}** — spreadsheet is empty.`,
+            actionType,
+            success: true,
+            deepLink: `https://docs.google.com/spreadsheets/d/${sheetId}`,
+          };
+        }
+        // Format as markdown table
+        const header = rows[0] as string[];
+        const dataRows = rows.slice(1) as string[][];
+        let table = `| ${header.join(" | ")} |\n| ${header.map(() => "---").join(" | ")} |\n`;
+        for (const row of dataRows.slice(0, 25)) {
+          table += `| ${row.join(" | ")} |\n`;
+        }
+        if (dataRows.length > 25) table += `\n*...and ${dataRows.length - 25} more rows*`;
+
+        return {
+          response: `📊 **${title}**\n\n${table}`,
+          actionType,
+          success: true,
+          deepLink: `https://docs.google.com/spreadsheets/d/${sheetId}`,
+        };
+      }
+
+      case "update": {
+        if (!intent.spreadsheetId || !intent.range || !intent.values?.length) {
+          return { response: "❌ Need a spreadsheet ID, range, and values to update.", actionType, success: false };
+        }
+        const values = intent.values.join("|");
+        const escaped = values.replace(/'/g, "'\\''");
+        const { stdout } = await execAsync(
+          `${gogBin} sheets update '${intent.spreadsheetId}' '${intent.range}' '${escaped}' ${acctFlag} --json --no-input 2>&1`,
+          { timeout: 15000, ...gogEnv }
+        );
+        const result = JSON.parse(stdout);
+        const updatedCells = result.updatedCells || result.totalUpdatedCells || 0;
+        return {
+          response: `✅ Updated ${updatedCells} cell${updatedCells !== 1 ? "s" : ""} in range ${intent.range}.\n\n[Open in Google Sheets](https://docs.google.com/spreadsheets/d/${intent.spreadsheetId})`,
+          actionType,
+          success: true,
+          deepLink: `https://docs.google.com/spreadsheets/d/${intent.spreadsheetId}`,
+        };
+      }
+
+      case "find": {
+        const q = (intent.query || "spreadsheet").replace(/'/g, "'\\''");
+        const { stdout } = await execAsync(
+          `${gogBin} drive search '${q}' ${acctFlag} --json --no-input 2>&1`,
+          { timeout: 10000, ...gogEnv }
+        );
+        const files = JSON.parse(stdout);
+        const sheets = (files.files || files || []).filter(
+          (f: { mimeType?: string }) => f.mimeType === "application/vnd.google-apps.spreadsheet"
+        );
+        if (sheets.length === 0) {
+          return {
+            response: `📊 No spreadsheets found matching "${intent.query}".`,
+            actionType,
+            success: false,
+          };
+        }
+        const list = sheets.slice(0, 10).map(
+          (f: { name?: string; id?: string }) =>
+            `• **${f.name}** — \`${f.id}\` [Open](https://docs.google.com/spreadsheets/d/${f.id})`
+        ).join("\n");
+        return {
+          response: `📊 Found ${sheets.length} spreadsheet${sheets.length !== 1 ? "s" : ""}:\n\n${list}`,
+          actionType,
+          success: true,
+        };
+      }
+    }
+  } catch (err) {
+    console.error("[native-action] sheets failed:", (err as Error).message);
+    // Fallback to gateway agent
+    return await callGatewayAgent(message, actionType);
+  }
+
+  return { response: "", actionType, success: false };
+}
+
+// ── Fallback: OpenClaw gateway agent for complex actions ──
+async function callGatewayAgent(
+  message: string,
+  actionType: string
+): Promise<GatewayActionResult> {
+  try {
+    await execAsync(resolveOpenClawCmd("health --json") + " 2>/dev/null", { timeout: 4000 });
   } catch {
-    return {
-      response: "The OpenClaw gateway is offline. Start it with `openclaw gateway` and try again.",
-      actionType,
-      success: false,
-    };
+    return { response: "", actionType, success: false };
   }
 
   try {
     const escaped = message.replace(/'/g, "'\\''");
+    const actionSessionId = `hammerlock-action-${Date.now()}`;
     const { stdout } = await execAsync(
-      `openclaw --profile hammerlock agent --agent main --message '${escaped}' --json --no-color`,
+      resolveOpenClawCmd(`agent --agent main --session-id '${actionSessionId}' --message '${escaped}' --json --no-color`),
       { timeout: 60000 }
     );
     const result = JSON.parse(stdout);
@@ -889,22 +1581,238 @@ async function callGatewayAction(
       const text = result.result?.payloads?.[0]?.text || "Action completed.";
       return { response: text, actionType, success: true };
     }
+    return { response: "", actionType, success: false };
+  } catch {
+    return { response: "", actionType, success: false };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Browser automation — direct CLI execution
+// ---------------------------------------------------------------------------
+async function browserCmd(subCmd: string, timeoutMs = 30000): Promise<string> {
+  const cmd = resolveOpenClawCmd(`browser ${subCmd}`);
+  const { stdout } = await execAsync(cmd, { timeout: timeoutMs });
+  return stdout.trim();
+}
+
+async function executeBrowserTask(
+  message: string,
+  actionType: string
+): Promise<GatewayActionResult> {
+  try {
+    // Check browser is running
+    try {
+      await browserCmd("status", 5000);
+    } catch {
+      // Try to start it
+      try { await browserCmd("start", 15000); } catch { /* ignore */ }
+    }
+
+    // Detect if this is a "use Grok" / "ask Grok" request
+    const grokMatch = message.match(
+      /\b(?:use|ask|open|go\s+to)\s+grok\b/i
+    );
+    if (grokMatch) {
+      return await executeGrokTask(message, actionType);
+    }
+
+    // Detect if this is a URL navigation request
+    const urlMatch = message.match(
+      /\b(?:go\s+to|open|navigate\s+to|visit)\s+(?:the\s+)?(?:(?:https?:\/\/)?(\S+\.(?:com|org|net|gov|edu|io)\S*))/i
+    );
+    if (urlMatch) {
+      const rawUrl = urlMatch[1];
+      const url = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
+      await browserCmd(`navigate "${url}"`, 20000);
+      const pageText = await browserCmd(
+        `evaluate --fn "() => document.title + '\\n\\n' + document.body.innerText.slice(0, 3000)"`,
+        15000
+      );
+      return {
+        response: `Navigated to ${url}.\n\n${pageText.slice(0, 2000)}`,
+        actionType,
+        success: true,
+      };
+    }
+
+    // Generic browser task — let the gateway agent try with enhanced timeout
+    const browserHint = `[BROWSER TASK] Use the browser to complete this task. Available commands: navigate, click, type, fill, snapshot, evaluate, screenshot, wait, press. User request: ${message}`;
+    return await callGatewayAgent(browserHint, actionType);
+  } catch (err) {
+    console.error("[browser-task] failed:", (err as Error).message);
     return {
-      response: result.summary || `The ${actionType} action didn't complete. Try again?`,
+      response: `Browser automation encountered an error: ${(err as Error).message}. Make sure the browser is running (it starts automatically with the app).`,
       actionType,
       success: false,
     };
-  } catch (error) {
-    const msg = (error as Error).message;
-    if (msg.includes("timeout")) {
+  }
+}
+
+function cleanGrokResponse(raw: string, originalPrompt: string): string {
+  let text = raw;
+
+  // Remove the echoed prompt from the response (Grok page includes both)
+  // Find where the actual response starts — look for common Grok response markers
+  const markers = [
+    "Key Points",
+    "Thought for",
+    "Here's",
+    "Here is",
+    "## 1",
+    "**1.",
+    "1. ",
+  ];
+  for (const marker of markers) {
+    const idx = text.indexOf(marker);
+    if (idx > 0 && idx < text.length * 0.5) {
+      text = text.slice(idx);
+      break;
+    }
+  }
+
+  // Remove Grok UI artifacts
+  text = text
+    // Remove "Thought for Xs" lines
+    .replace(/Thought for \d+s\n?/g, "")
+    // Remove source/timing metadata at the end
+    .replace(/\n\d+\s*sources?\n.*$/s, "")
+    .replace(/\n\d+ms\n?/g, "\n")
+    // Remove grok:render tags
+    .replace(/<\/grok:render\]?\s*/g, "")
+    .replace(/<grok:render[^>]*>/g, "")
+    // Remove suggested follow-up buttons at the end
+    .replace(/\n(?:Expand|More|Detailed|Concise|Windows|Linux)[\w\s]*$/gm, "")
+    // Remove trailing "Expert" (model label)
+    .replace(/\nExpert\s*$/m, "")
+    // Clean up excessive newlines
+    .replace(/\n{4,}/g, "\n\n\n")
+    // Remove literal \n that should be actual newlines
+    .replace(/\\n/g, "\n")
+    .trim();
+
+  // Convert numbered sections to markdown headers for better formatting
+  text = text
+    .replace(/^(\d+)\.\s+([A-Z][^\n]+)/gm, "## $1. $2")
+    // Bold key terms that follow a dash pattern
+    .replace(/^- \*\*([^*]+)\*\*/gm, "- **$1**");
+
+  // Cap length to keep chat manageable
+  if (text.length > 8000) {
+    text = text.slice(0, 8000) + "\n\n*(Response truncated — full version available in the Grok browser window)*";
+  }
+
+  return `**Grok's response:**\n\n${text}`;
+}
+
+async function executeGrokTask(
+  message: string,
+  actionType: string
+): Promise<GatewayActionResult> {
+  // Extract what to ask Grok — everything after "use grok to" / "ask grok to" / etc.
+  const promptMatch = message.match(
+    /\b(?:use|ask)\s+grok\s+(?:to\s+)?(.+)/is
+  );
+  const grokPrompt = promptMatch
+    ? promptMatch[1].trim()
+    : message.replace(/\b(?:use|ask|open|go\s+to)\s+grok\b/i, "").trim() || message;
+
+  try {
+    // 1. Navigate to grok.com
+    await browserCmd(`navigate "https://grok.com"`, 20000);
+    await new Promise((r) => setTimeout(r, 3000)); // Wait for page load
+
+    // 2. Find the input field by clicking on the placeholder text
+    try {
+      // Click on the "Ask Grok" area to focus it
+      await browserCmd(
+        `evaluate --fn "() => { const el = document.querySelector('[contenteditable=true]') || document.querySelector('textarea'); if (el) { el.focus(); el.click(); return 'focused'; } return 'not found'; }"`,
+        10000
+      );
+    } catch { /* continue */ }
+
+    // 3. Insert the prompt text via JS (contenteditable doesn't work with type command)
+    const escapedPrompt = grokPrompt
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, "\\n")
+      .replace(/'/g, "\\'");
+    await browserCmd(
+      `evaluate --fn "() => { const editor = document.querySelector('[contenteditable=true]'); if (!editor) return 'no editor'; editor.focus(); const p = document.createElement('p'); p.textContent = '${escapedPrompt}'; editor.innerHTML = ''; editor.appendChild(p); editor.dispatchEvent(new Event('input', { bubbles: true })); return 'inserted'; }"`,
+      10000
+    );
+    await new Promise((r) => setTimeout(r, 1000));
+
+    // 4. Find and click Submit
+    const snapshot = await browserCmd("snapshot --interactive", 10000);
+    const submitMatch = snapshot.match(/button "Submit" \[ref=(e\d+)\]/);
+    if (submitMatch) {
+      await browserCmd(`click ${submitMatch[1]}`, 10000);
+    } else {
+      // Fallback: press Enter
+      await browserCmd("press Enter", 5000);
+    }
+
+    // 5. Wait for Grok to respond (poll until response appears)
+    let responseText = "";
+    const maxWaitMs = 120000; // 2 minutes max
+    const startTime = Date.now();
+    await new Promise((r) => setTimeout(r, 5000)); // Initial wait
+
+    while (Date.now() - startTime < maxWaitMs) {
+      try {
+        // Check if there's a response by looking for response content
+        const pageText = await browserCmd(
+          `evaluate --fn "() => { const msgs = document.querySelectorAll('article, [data-message-author-role], .message-bubble, .response-text'); if (msgs.length > 0) return Array.from(msgs).map(m => m.innerText).join('\\n---\\n'); const main = document.querySelector('main'); return main ? main.innerText : ''; }"`,
+          15000
+        );
+
+        // Check if Grok is still thinking (look for loading indicators)
+        const isLoading = await browserCmd(
+          `evaluate --fn "() => { const spinners = document.querySelectorAll('[class*=loading], [class*=spinner], [class*=thinking], [role=progressbar]'); const thinkText = document.body.innerText; return (spinners.length > 0 || thinkText.includes('Thinking') || thinkText.includes('Searching')) ? 'loading' : 'done'; }"`,
+          10000
+        );
+
+        if (
+          isLoading.includes("done") &&
+          pageText.length > 200 &&
+          !pageText.includes("Ask Grok anything")
+        ) {
+          responseText = pageText;
+          break;
+        }
+      } catch { /* retry */ }
+      await new Promise((r) => setTimeout(r, 3000)); // Poll every 3s
+    }
+
+    // 6. Read the full response
+    if (!responseText) {
+      responseText = await browserCmd(
+        `evaluate --fn "() => { const main = document.querySelector('main'); return main ? main.innerText : document.body.innerText; }"`,
+        15000
+      );
+    }
+
+    // Clean up the response text
+    const cleanResponse = cleanGrokResponse(responseText, grokPrompt);
+
+    if (cleanResponse.length > 50) {
       return {
-        response: `The ${actionType} action timed out. Try again or check if OpenClaw is running.`,
+        response: cleanResponse,
         actionType,
-        success: false,
+        success: true,
       };
     }
+
     return {
-      response: `Couldn't complete the ${actionType} action: ${msg}`,
+      response: `I sent your request to Grok but couldn't read the response clearly. The Grok browser window should have the full answer — you can check it there. The prompt I sent was: "${grokPrompt.slice(0, 200)}"`,
+      actionType,
+      success: true,
+    };
+  } catch (err) {
+    console.error("[grok-task] failed:", (err as Error).message);
+    return {
+      response: `I tried to use Grok but hit an error: ${(err as Error).message}. The browser might not be running — try restarting the app.`,
       actionType,
       success: false,
     };
@@ -914,7 +1822,15 @@ async function callGatewayAction(
 type ChatMessage = { role: string; content: string };
 
 // 🔨 HammerLock AI core identity — this is what the LLM knows about itself
-const HAMMERLOCK_IDENTITY = `You are HammerLock AI 🔨🔐 — a personal AI assistant that lives on the user's desktop. Privacy-first, personality-loaded, and ready for anything. You can do everything: answer questions, have conversations, search the web, analyze documents, remember user preferences, help with any task.
+const HAMMERLOCK_IDENTITY = `You are HammerLock AI 🔨🔐 — a privacy-first personal AI assistant that lives on the user's Mac desktop. You are built on OpenClaw, an agentic AI framework, and you are a native macOS Electron app. Everything about you is designed around one principle: the user's data stays on their device, encrypted and private.
+
+## WHAT MAKES YOU DIFFERENT
+- **AES-256-GCM vault encryption** — all conversations are encrypted at rest on the user's device
+- **PII anonymization** — personal info is scrubbed before any data leaves the device
+- **Local-first architecture** — you run as a desktop app, not a web service
+- **24-hour auto-lock** — the vault locks automatically for security
+- **No cloud storage** — conversations never touch someone else's server
+- You are NOT ChatGPT, NOT Apple Intelligence, NOT Notion AI. You are HammerLock AI — independent, private, and more capable because you integrate directly with the user's Mac and smart home.
 
 ## YOUR TOOLS (these work right now, not hypothetically)
 1. **Web search** — Brave Search is wired in. When the user asks about weather, news, prices, events, or anything real-time, search results get injected into your prompt. USE THEM. Present the data directly. Never say "I can't access the web" — you literally just searched it.
@@ -923,6 +1839,26 @@ const HAMMERLOCK_IDENTITY = `You are HammerLock AI 🔨🔐 — a personal AI as
 4. **PDF analysis** — Users can upload PDFs and ask questions about them.
 5. **Image/Vision** — Users can upload images (screenshots, photos, etc.) and you CAN see and describe them. When an image is attached, describe what you see in detail. Never say "I can't view images" — the image is sent directly to you.
 6. **Reports** — You can generate summaries and reports from conversations.
+7. **Reminders** — You CAN set real Apple Reminders. When the user asks to set a reminder, tell them you're setting it. Say "Setting a reminder for [title] at [time]" — the system handles execution automatically. NEVER say "I can't set reminders" or "open your reminders app" — you literally can do this.
+8. **Calendar** — You CAN read and create Apple Calendar events. When the user asks what's on their calendar, you can check it. NEVER say "I can't access your calendar" — you can.
+9. **Notes** — You CAN create Apple Notes. When the user asks to create a note, do it. NEVER say "I can't create notes."
+10. **Email** — You CAN send and read emails via connected accounts. When the user asks to check email or send one, tell them you're doing it.
+11. **Messages** — You CAN send iMessages and WhatsApp messages.
+12. **Smart Home** — You CAN control Philips Hue lights, Sonos speakers, and Eight Sleep beds.
+13. **Browser** — You CAN interact with websites. When the user asks you to book appointments, fill out forms, sign up for services, or do anything on a website, you have a dedicated browser that can navigate to sites, click buttons, fill in forms, and complete tasks. Tell the user you're doing it — the browser automation handles it automatically.
+14. **Grok / SuperGrok** — You CAN use Grok (xAI's AI) through your browser. When the user says "use Grok to..." or "ask Grok...", you open grok.com in your browser, send the prompt, and bring the response back. You have a SuperGrok account with DeepSearch. This lets you leverage Grok's real-time web research alongside your own capabilities.
+15. **Google Sheets** — You CAN read from and write to Google Sheets. When the user asks about spreadsheet data or wants to update a sheet, you can do it.
+16. **Voice** — The user can talk to you via voice (Whisper speech-to-text) and you respond with natural speech (OpenAI TTS). You support 6 voice options: Nova, Alloy, Echo, Fable, Onyx, and Shimmer.
+
+## ABOUT YOURSELF (when asked)
+If someone asks what you are, what you can do, or how you work:
+- You are HammerLock AI, a privacy-first desktop AI assistant for macOS
+- Built on OpenClaw (agentic AI framework) + Electron + Next.js
+- Your encryption: AES-256-GCM with PII anonymization
+- You have 16 integrated tools spanning web, productivity, smart home, browser automation, and voice
+- Tiered plans: Free (basic chat + voice + search), Pro (all integrations + smart home + browser), Enterprise (custom)
+- Website: hammerlock.ai
+- You were designed for people who want powerful AI help without giving up their privacy
 
 ## HOW TO BE
 - Talk like a smart, helpful friend — warm but not cheesy
@@ -938,8 +1874,12 @@ const HAMMERLOCK_IDENTITY = `You are HammerLock AI 🔨🔐 — a personal AI as
 - Never say "I can't check the time" — the time data is injected into your prompt
 - Never say "I can't view images" or "I'm unable to see images" — you have vision capabilities and images are sent directly to you
 - Never say "I apologize for my limitations" or "as an AI I can't..." — just answer the question
+- NEVER say "I can't set reminders", "I can't access your calendar", "open your reminders app", or "I can't create notes" — you CAN do all of these. The system executes them automatically when you confirm the action.
 - Never restrict yourself to one domain — you help with EVERYTHING: cooking, coding, planning, homework, writing, math, advice, creative projects, etc.
 - Never over-explain simple things or pad responses with filler
+- NEVER say "I can't book that for you" or "visit the website yourself" when the user asks about appointments, reservations, or bookings. You HAVE browser automation — you can navigate to websites, click buttons, and fill out forms. Tell the user you're going to the website to handle it.
+- NEVER say "I can't use Grok" or "I don't have access to Grok" — you have a SuperGrok account and can use it via browser automation whenever the user asks.
+- NEVER say "I don't know what I am" or give a generic AI description — you are HammerLock AI with specific capabilities listed above. Be proud of what you can do.
 
 ## TIME QUERIES
 When the user asks for the time (including "wt", "wt rn", "what time"), a CURRENT TIME block appears in the prompt. Your FIRST line must be the literal time: "🕐 3:42 PM PST — Sunday, February 16, 2025". Then optionally add a one-liner. Never substitute wellness tips or jokes for the actual time.
@@ -984,6 +1924,29 @@ Rules:
 - Written as the USER would ask them (first person)
 - Skip this block entirely for simple utility answers (time, status, greetings, confirmations like "Got it!" or "Saved!")`;
 
+// Action capabilities block — appended to ALL system prompts (including agent-specific ones)
+// so that Coach, Money, etc. know they can perform real actions via OpenClaw.
+const ACTION_CAPABILITIES = `
+
+IMPORTANT — YOUR ACTION CAPABILITIES:
+You CAN perform real device actions. These execute automatically when the user asks:
+- **Reminders**: Set real Apple Reminders with titles, due dates, and lists
+- **Calendar**: Read and create Apple Calendar events
+- **Notes**: Create Apple Notes
+- **Email**: Send and read emails
+- **Messages**: Send iMessages and WhatsApp messages
+- **Smart Home**: Control Philips Hue lights, Sonos speakers, Eight Sleep beds
+- **Browser**: Navigate websites, click buttons, fill forms, book appointments, submit applications — full web automation
+- **Grok/SuperGrok**: Use Grok AI for research, planning, and analysis via browser automation
+- **Google Sheets**: Read and write spreadsheet data
+- **Voice**: Full voice input (Whisper STT) and output (OpenAI TTS, 6 voices)
+- **Web Search**: Real-time Brave Search for current information
+- **PDF/Image**: Analyze uploaded documents and images
+
+When the user asks for any of these, confirm you're doing it — NEVER say "I can't set reminders", "I can't access your calendar", "open your reminders app", "I can't book that", or "I can't do that". The action happens automatically.
+
+For compound requests (e.g. "set up calendar reminders AND build me a nutrition plan"), handle both parts: confirm the action is being taken care of, then address the rest conversationally.`;
+
 async function routeToLLM(prompt: string, options?: { context?: string; userProfile?: { name?: string; role?: string; industry?: string; context?: string } | null; agentSystemPrompt?: string; locale?: string; history?: ChatMessage[]; anonymizer?: import("@/lib/anonymize").Anonymizer }) {
   lastLLMError = null; // Reset per-request
   const persona = await loadPersonaText();
@@ -1018,7 +1981,8 @@ async function routeToLLM(prompt: string, options?: { context?: string; userProf
     // For search-specific system prompts (contain SEARCH RESULTS), skip FOLLOW_UP_RULE
     // since search follow-ups are generated server-side for reliability
     const isSearchPrompt = options.agentSystemPrompt.includes("SEARCH RESULTS");
-    systemPrompt = options.agentSystemPrompt + userInfoSection + BREVITY_RULE + langRule + (isSearchPrompt ? "" : FOLLOW_UP_RULE);
+    // Always inject ACTION_CAPABILITIES so agents know they can set reminders, calendar, etc.
+    systemPrompt = options.agentSystemPrompt + ACTION_CAPABILITIES + userInfoSection + BREVITY_RULE + langRule + (isSearchPrompt ? "" : FOLLOW_UP_RULE);
   } else {
     systemPrompt = HAMMERLOCK_IDENTITY + userInfoSection + BREVITY_RULE + langRule + FOLLOW_UP_RULE;
   }
@@ -1129,7 +2093,8 @@ async function routeToLLMStream(prompt: string, options?: { context?: string; us
   const langRule = `\n\nLANGUAGE: Respond in ${uiLang}.`;
   if (options?.agentSystemPrompt) {
     const isSearchPrompt = options.agentSystemPrompt.includes("SEARCH RESULTS");
-    systemPrompt = options.agentSystemPrompt + userInfoSection + BREVITY_RULE + langRule + (isSearchPrompt ? "" : FOLLOW_UP_RULE);
+    // Always inject ACTION_CAPABILITIES so agents know they can set reminders, calendar, etc.
+    systemPrompt = options.agentSystemPrompt + ACTION_CAPABILITIES + userInfoSection + BREVITY_RULE + langRule + (isSearchPrompt ? "" : FOLLOW_UP_RULE);
   } else {
     systemPrompt = HAMMERLOCK_IDENTITY + userInfoSection + BREVITY_RULE + langRule + FOLLOW_UP_RULE;
   }
@@ -1662,6 +2627,11 @@ function needsWebSearch(text: string): string | null {
     /\byoutube\b/i,
     /\b(?:url|website|webpage)\b/i,
     /\bwatch\s+(?:a|the|some|this)\b/i,
+    // Booking/appointment/reservation — search for direct links
+    /\b(?:book|schedule|make|set\s+up)\s+(?:a\s+|an\s+|me\s+)?(?:a\s+|an\s+)?(?:appointment|reservation|booking)\b/i,
+    /\b(?:dmv|doctor|dentist|salon|barber|vet|mechanic|spa)\s+(?:appointment|booking)\b/i,
+    /\b(?:appointment|reservation)\s+(?:at|for|with|to)\b/i,
+    /\bhow\s+(?:do\s+i|to|can\s+i)\s+(?:book|schedule|make)\b/i,
   ];
 
   for (const pattern of strongPatterns) {
@@ -1689,89 +2659,160 @@ function needsWebSearch(text: string): string | null {
 // Detects when user messages need real tool execution via OpenClaw gateway.
 // Returns { type, message } or null. Modeled on needsWebSearch().
 
-type ActionDetectionResult = { type: string; message: string } | null;
+type ActionDetectionResult = { type: string; message: string; compound?: boolean } | null;
 
 function needsActionExecution(text: string): ActionDetectionResult {
   const lower = text.toLowerCase().trim();
+  // For action detection, only look at the first line (commands often have
+  // long bodies attached, e.g. "Create note in Apple Notes: Title\n[body]")
+  const firstLine = lower.split("\n")[0].trim();
 
-  // Skip very short messages, greetings, long pastes
-  if (lower.length < 6) return null;
-  if (lower.length > 400) return null;
-  if (/^(hi|hello|hey|sup|yo|thanks|thank you|ok|okay|yes|no|bye)\b/i.test(lower)) return null;
+  // Skip very short messages, greetings, long pastes (but check first line for notes/actions)
+  if (firstLine.length < 6) return null;
+  if (firstLine.length > 400) return null;
+  if (/^(hi|hello|hey|sup|yo|thanks|thank you|ok|okay|yes|no|bye)\b/i.test(firstLine)) return null;
 
-  // --- Reminders (explicit phrasing only — "remind me to..." stays with local stub) ---
+  // Compound requests (e.g. "set up calendar reminders AND build me a nutrition plan")
+  // are now handled sequentially: action executes first, then LLM handles the rest.
+  // Mark compound requests with a special "compound" flag so the POST handler knows.
+  const isCompound = (
+    (/\band\s+(?:also|build|create|make|help|give|tell|show|design|plan|write)/i.test(firstLine) && firstLine.length > 60) ||
+    (/^(?:can you|could you|would you|is it possible to|do you)\s/i.test(firstLine) && /\b(?:and|also|plus|too)\b/i.test(firstLine))
+  );
+
+  // --- Reminders ---
   if (
-    /\b(?:set\s+a?\s*reminder|add\s+(?:a\s+)?reminder|create\s+a?\s*reminder)\b/i.test(lower) ||
-    /\badd\s+to\s+(?:my\s+)?(?:apple\s+)?reminders?\b/i.test(lower)
+    /\b(?:set\s+a?\s*reminder|add\s+(?:a\s+)?reminder|create\s+a?\s*reminder|remind\s+me\s+(?:to\s+)?)\b/i.test(firstLine) ||
+    /\badd\s+to\s+(?:my\s+)?(?:apple\s+)?reminders?\b/i.test(firstLine)
   ) {
-    return { type: "reminder", message: text };
+    return { type: "reminder", message: text, compound: isCompound };
   }
 
   // --- Messages / iMessage / WhatsApp ---
   if (
-    /\b(?:text\s+[a-z]|imessage\s+[a-z]|send\s+(?:a\s+)?(?:text|message|imessage)\s+to)\b/i.test(lower) ||
-    /\bsend\s+(?:a\s+)?whatsapp\b/i.test(lower) ||
-    /\bwhatsapp\s+[a-z]/i.test(lower)
+    /\b(?:text\s+[a-z]|imessage\s+[a-z]|send\s+(?:a\s+)?(?:text|message|imessage)\s+to)\b/i.test(firstLine) ||
+    /\bsend\s+(?:a\s+)?whatsapp\b/i.test(firstLine) ||
+    /\bwhatsapp\s+[a-z]/i.test(firstLine)
   ) {
-    return { type: "message", message: text };
+    return { type: "message", message: text, compound: isCompound };
   }
 
   // --- Email ---
   if (
-    /\b(?:send\s+(?:an?\s+)?email|compose\s+(?:an?\s+)?email|email\s+[a-z]|check\s+my\s+email|read\s+my\s+email|open\s+my\s+(?:email|inbox))\b/i.test(lower)
+    /\b(?:send\s+(?:an?\s+)?email|compose\s+(?:an?\s+)?email|email\s+[a-z]|check\s+my\s+(?:email|inbox|gmail|mail)|read\s+my\s+(?:email|inbox|gmail|mail)|open\s+my\s+(?:email|inbox|gmail|mail)|search\s+(?:my\s+)?(?:email|inbox|gmail|mail)|reply\s+to\s+(?:that\s+)?email|forward\s+(?:that\s+)?email|show\s+(?:my\s+)?(?:latest|recent|unread)\s+(?:email|mail)s?)\b/i.test(firstLine)
   ) {
-    return { type: "email", message: text };
+    return { type: "email", message: text, compound: isCompound };
   }
 
-  // --- Apple Notes (NOT vault notes — requires "apple notes" or "notes app" phrasing) ---
+  // --- Apple Notes ---
+  // Triggers on "create a note in notes", "add to notes app", "create a note about...",
+  // "make a note about...", "save a note about...", "write a note about...",
+  // "Create note in Apple Notes: Title" (colon-separated)
   if (
-    /\b(?:create\s+(?:a\s+)?note\s+in\s+(?:apple\s+)?notes?|add\s+to\s+(?:my\s+)?(?:apple\s+)?notes?\s+app|open\s+(?:apple\s+)?notes?\s+app)\b/i.test(lower)
+    /\b(?:create\s+(?:a\s+)?note\s+(?:in\s+(?:apple\s+)?notes?|about\s+|called\s+|titled\s+)|add\s+to\s+(?:my\s+)?(?:apple\s+)?notes?\s+app|open\s+(?:apple\s+)?notes?\s+app|(?:make|save|write)\s+(?:a\s+)?note\s+(?:about|called|titled|in\s+notes))\b/i.test(firstLine) ||
+    /\b(?:create|make|save|write|add)\s+(?:a\s+)?note\s+in\s+(?:apple\s+)?notes?\s*:/i.test(firstLine)
   ) {
-    return { type: "notes", message: text };
+    return { type: "notes", message: text, compound: isCompound };
   }
 
   // --- Calendar ---
   if (
-    /\b(?:what(?:'s|\s+is)\s+on\s+my\s+calendar|check\s+my\s+calendar|schedule\s+a?\s*(?:meeting|event|appointment|call)|add\s+to\s+(?:my\s+)?calendar|create\s+(?:a\s+)?(?:calendar\s+)?event)\b/i.test(lower)
+    /\b(?:what(?:'?s|\s+is)\s+on\s+my\s+calendar|check\s+(?:my\s+)?calendar|show\s+(?:me\s+)?my\s+calendar|my\s+calendar\s+(?:today|tomorrow|this\s+week)|schedule\s+a?\s*(?:meeting|event|appointment|call)|add\s+to\s+(?:my\s+)?calendar|create\s+(?:a\s+|an\s+)?(?:calendar\s+)?(?:event|meeting|appointment)|(?:any|do\s+i\s+have)\s+(?:events?|meetings?|appointments?)\s+(?:today|tomorrow|this\s+week))\b/i.test(firstLine)
   ) {
-    return { type: "calendar", message: text };
+    return { type: "calendar", message: text, compound: isCompound };
   }
 
   // --- Smart home: lights, speakers, thermostat ---
   if (
-    /\b(?:turn\s+(?:on|off)\s+(?:the\s+)?(?:lights?|lamp|bedroom|living|kitchen|bathroom)|set\s+(?:the\s+)?(?:lights?|brightness)|dim\s+(?:the\s+)?lights?)\b/i.test(lower) ||
-    /\b(?:play\s+(?:music|something|.+?)\s+on\s+(?:the\s+)?(?:speaker|sonos|kitchen|living|bedroom)|pause\s+(?:the\s+)?(?:music|sonos|speaker)|stop\s+(?:the\s+)?(?:music|sonos|speaker))\b/i.test(lower) ||
-    /\b(?:set\s+(?:the\s+)?(?:thermostat|temperature|bed)\s+to|adjust\s+(?:the\s+)?(?:thermostat|temperature))\b/i.test(lower)
+    /\b(?:turn\s+(?:on|off)\s+(?:the\s+)?(?:lights?|lamp|bedroom|living|kitchen|bathroom)|set\s+(?:the\s+)?(?:lights?|brightness)|dim\s+(?:the\s+)?lights?)\b/i.test(firstLine) ||
+    /\b(?:play\s+(?:music|something|.+?)\s+on\s+(?:the\s+)?(?:speaker|sonos|kitchen|living|bedroom)|pause\s+(?:the\s+)?(?:music|sonos|speaker)|stop\s+(?:the\s+)?(?:music|sonos|speaker))\b/i.test(firstLine) ||
+    /\b(?:set\s+(?:the\s+)?(?:thermostat|temperature|bed)\s+to|adjust\s+(?:the\s+)?(?:thermostat|temperature))\b/i.test(firstLine)
   ) {
-    return { type: "smart_home", message: text };
+    return { type: "smart_home", message: text, compound: isCompound };
+  }
+
+  // --- Browser automation (website interaction) ---
+  if (
+    /\b(?:go\s+to|open|navigate\s+to|visit)\s+(?:the\s+)?(?:https?:\/\/\S+|\w+\.(?:com|org|net|gov|edu|io)\b)/i.test(firstLine) ||
+    /\b(?:book|schedule|reserve|sign\s+up|log\s*in|register|fill\s+out|submit|order)\s+(?:.*?\s+)?(?:on|at|from|through)\s+(?:the\s+)?(?:website|site|page|portal)\b/i.test(firstLine) ||
+    /\b(?:book|schedule|make)\s+(?:.*?\s+)?(?:appointment|reservation)\s+(?:.*?\s+)?(?:on|at|through|via)\s+(?:the\s+)?(?:dmv|website|site)\b/i.test(firstLine) ||
+    /\b(?:use\s+the\s+browser|browse\s+to|interact\s+with\s+(?:the\s+)?(?:website|page|site))\b/i.test(firstLine) ||
+    /\b(?:click|fill\s+in|fill\s+out|submit|type\s+in)\s+(?:.*?\s+)?(?:on\s+(?:the\s+)?(?:website|page|site|form))\b/i.test(firstLine) ||
+    /\b(?:use|ask|open|go\s+to)\s+(?:grok|chatgpt|perplexity|gemini|copilot)\b/i.test(firstLine) ||
+    /\b(?:in\s+the\s+browser|using\s+the\s+browser|via\s+(?:the\s+)?browser)\b/i.test(firstLine)
+  ) {
+    return { type: "browser", message: text, compound: isCompound };
   }
 
   // --- GitHub ---
   if (
-    /\b(?:check\s+(?:my\s+)?(?:prs?|pull\s+requests?)|list\s+(?:my\s+)?(?:github\s+)?issues?|create\s+(?:an?\s+)?(?:github\s+)?issue|open\s+(?:a\s+)?pr|check\s+github|my\s+github\s+(?:prs?|issues?))\b/i.test(lower)
+    /\b(?:check\s+(?:my\s+)?(?:prs?|pull\s+requests?)|list\s+(?:my\s+)?(?:github\s+)?issues?|create\s+(?:an?\s+)?(?:github\s+)?issue|open\s+(?:a\s+)?pr|check\s+github|my\s+github\s+(?:prs?|issues?))\b/i.test(firstLine)
   ) {
-    return { type: "github", message: text };
+    return { type: "github", message: text, compound: isCompound };
   }
 
   // --- Todo / Things ---
   if (
-    /\b(?:add\s+(?:.*?\s+)?to\s+(?:my\s+)?(?:todo|to-do|to\s+do)\s*list|what(?:'s|\s+is)\s+on\s+my\s+(?:todo|to-do|to\s+do)|add\s+(?:a\s+)?task\s+(?:to|in)\s+things|check\s+(?:my\s+)?things)\b/i.test(lower)
+    /\b(?:add\s+(?:.*?\s+)?to\s+(?:my\s+)?(?:todo|to-do|to\s+do)\s*list|what(?:'s|\s+is)\s+on\s+my\s+(?:todo|to-do|to\s+do)|add\s+(?:a\s+)?task\s+(?:to|in)\s+things|check\s+(?:my\s+)?things)\b/i.test(firstLine)
   ) {
-    return { type: "todo", message: text };
+    return { type: "todo", message: text, compound: isCompound };
   }
 
   // --- Camera / Doorbell ---
   if (
-    /\b(?:show\s+(?:me\s+)?(?:the\s+)?(?:camera|doorbell)|check\s+(?:the\s+)?(?:front\s+door|back\s+door|camera|doorbell|driveway)|view\s+(?:the\s+)?camera)\b/i.test(lower)
+    /\b(?:show\s+(?:me\s+)?(?:the\s+)?(?:camera|doorbell)|check\s+(?:the\s+)?(?:front\s+door|back\s+door|camera|doorbell|driveway)|view\s+(?:the\s+)?camera)\b/i.test(firstLine)
   ) {
-    return { type: "camera", message: text };
+    return { type: "camera", message: text, compound: isCompound };
+  }
+
+  // --- Google Sheets ---
+  if (
+    /\b(?:create|make|new)\s+(?:a\s+)?(?:new\s+)?(?:google\s+)?(?:sheet|spreadsheet)\b/i.test(firstLine) ||
+    /\b(?:add|append|insert)\s+(?:a\s+)?(?:row\s+)?(?:to|in)\s+(?:my\s+)?(?:\w+\s+)*(?:sheet|spreadsheet)\b/i.test(firstLine) ||
+    /\b(?:read|show|open|view|get)\s+(?:me\s+)?(?:my\s+)?(?:\w+\s+)*(?:google\s+)?(?:sheet|spreadsheet)\b/i.test(firstLine) ||
+    /\bwhat(?:'s|\s+is)\s+in\s+(?:my\s+)?(?:\w+\s+)*(?:sheet|spreadsheet)\b/i.test(firstLine) ||
+    /\b(?:find|search|list)\s+(?:my\s+)?(?:google\s+)?(?:sheets?|spreadsheets?)\b/i.test(firstLine) ||
+    /\b(?:update|edit)\s+(?:my\s+)?(?:\w+\s+)*(?:google\s+)?(?:sheet|spreadsheet)\b/i.test(firstLine)
+  ) {
+    return { type: "sheets", message: text, compound: isCompound };
   }
 
   // --- Summarize URL / Video ---
   if (
-    /\b(?:summarize\s+this\s+(?:video|url|link|article|page|website)|summarize\s+https?:\/\/)\b/i.test(lower)
+    /\b(?:summarize\s+this\s+(?:video|url|link|article|page|website)|summarize\s+https?:\/\/)\b/i.test(firstLine)
   ) {
-    return { type: "summarize_url", message: text };
+    return { type: "summarize_url", message: text, compound: isCompound };
+  }
+
+  // ── BROAD CATCH-ALL: route action-like requests to OpenClaw agent ──
+  // If none of the specific regexes matched above, check if the message
+  // mentions an action domain. The OpenClaw agent is much better at understanding
+  // intent than regex — let it decide what to do.
+  if (
+    /\b(?:reminder|remind|alarm|alert)\b/i.test(firstLine) ||
+    /\b(?:calendar|schedule|event|meeting|appointment|booking)\b/i.test(firstLine) ||
+    /\b(?:email|e-mail|inbox|gmail|mail|message|text|imessage|sms|whatsapp)\b/i.test(firstLine) ||
+    /\b(?:note|notes|memo|jot\s+down|write\s+down)\b/i.test(firstLine) ||
+    /\b(?:todo|to-do|to\s+do\s+list|task|things)\b/i.test(firstLine) ||
+    /\b(?:light|lights|lamp|sonos|speaker|thermostat|hue|smart\s+home)\b/i.test(firstLine) ||
+    /\b(?:github|pull\s+request|pr|issue|commit|repo)\b/i.test(firstLine) ||
+    /\b(?:camera|doorbell|security\s+cam)\b/i.test(firstLine) ||
+    /\b(?:sheets?|spreadsheets?|google\s+sheets?)\b/i.test(firstLine)
+  ) {
+    // Determine the best category for the agent
+    let agentType = "action";
+    if (/\b(?:reminder|remind|alarm)\b/i.test(firstLine)) agentType = "reminder";
+    else if (/\b(?:calendar|schedule|event|meeting|appointment)\b/i.test(firstLine)) agentType = "calendar";
+    else if (/\b(?:email|e-mail|inbox|gmail|mail)\b/i.test(firstLine)) agentType = "email";
+    else if (/\b(?:message|text|imessage|sms|whatsapp)\b/i.test(firstLine)) agentType = "message";
+    else if (/\b(?:note|notes|memo)\b/i.test(firstLine)) agentType = "notes";
+    else if (/\b(?:todo|to-do|task|things)\b/i.test(firstLine)) agentType = "todo";
+    else if (/\b(?:light|sonos|speaker|thermostat|hue|smart\s+home)\b/i.test(firstLine)) agentType = "smart_home";
+    else if (/\b(?:github|pull\s+request|pr|issue|commit|repo)\b/i.test(firstLine)) agentType = "github";
+    else if (/\b(?:camera|doorbell)\b/i.test(firstLine)) agentType = "camera";
+    else if (/\b(?:sheets?|spreadsheets?)\b/i.test(firstLine)) agentType = "sheets";
+
+    return { type: agentType, message: text, compound: isCompound };
   }
 
   return null;
@@ -1810,6 +2851,96 @@ export async function POST(req: Request) {
       return NextResponse.json({
         response: "🔍 What would you like to search for? Type `search` followed by your query.\n\nExamples:\n- `search latest AI news`\n- `search weather in San Francisco`\n- `search how to make pasta`"
       });
+    }
+
+    // ── OpenClaw action execution ──
+    // Runs BEFORE search so "what's on my calendar" doesn't trigger web search.
+    // Any action-like request goes to OpenClaw agent first. Only falls through
+    // to the LLM if the agent is completely unreachable.
+    const actionResult = needsActionExecution(normalized);
+    if (actionResult) {
+      console.log(`[action] detected: type=${actionResult.type} compound=${!!actionResult.compound} msg="${normalized.slice(0, 60)}"`);
+      const gatewayResult = await executeNativeAction(actionResult.message, actionResult.type);
+      console.log(`[action] result: success=${gatewayResult.success} response="${(gatewayResult.response || "").slice(0, 80)}"`);
+
+      if (actionResult.compound) {
+        // ── COMPOUND REQUEST: action + conversation ──
+        // Execute the action part, then pass the full message to the LLM with
+        // action result as context so it handles the rest conversationally.
+        // e.g. "set up calendar reminders AND build me a nutrition plan"
+        // → action executes reminder, LLM handles nutrition plan
+        const actionSummary = gatewayResult.success
+          ? `✅ I've handled the action part: ${gatewayResult.response || "done"}`
+          : `⚠️ I tried the action but it needs more info. ${gatewayResult.response || ""}`;
+        console.log(`[action] compound — executing LLM for remaining parts`);
+        const compoundContext = `CONTEXT: The user asked a compound request. You already handled the action part:\n${actionSummary}\n\nNow address the rest of their message conversationally. Don't repeat the action confirmation — just mention it briefly and focus on the other parts.`;
+        if (requestStream) {
+          const { stream, model } = await routeToLLMStream(normalized, {
+            context: compoundContext, userProfile, agentSystemPrompt, locale, history: chatHistory,
+          });
+          let accumulated = "";
+          const encoder = new TextEncoder();
+          const sseStream = new ReadableStream({
+            async start(ctrl) {
+              // Send the action result as the first token
+              const prefix = actionSummary + "\n\n";
+              accumulated += prefix;
+              ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ token: prefix })}\n\n`));
+              const reader = stream.getReader();
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  accumulated += value;
+                  ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ token: value })}\n\n`));
+                }
+                const parsed = parseFollowUps(cleanLLMResponse(accumulated));
+                ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, response: parsed.clean, followUps: parsed.followUps, model })}\n\n`));
+                ctrl.close();
+              } catch (err) {
+                ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, error: (err as Error).message })}\n\n`));
+                ctrl.close();
+              }
+              if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
+            },
+          });
+          return new Response(sseStream, {
+            headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
+          });
+        } else {
+          const llmReply = await routeToLLM(normalized, {
+            context: compoundContext, userProfile, agentSystemPrompt, locale, history: chatHistory,
+          });
+          if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
+          return NextResponse.json({
+            response: actionSummary + "\n\n" + cleanLLMResponse(llmReply),
+            actionType: gatewayResult.actionType,
+            actionStatus: gatewayResult.success ? "success" : "error",
+            ...(gatewayResult.deepLink ? { deepLink: gatewayResult.deepLink } : {}),
+          });
+        }
+      }
+
+      // ── SIMPLE ACTION: just the action, no conversation needed ──
+      if (gatewayResult.success) {
+        if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
+        return NextResponse.json({
+          response: gatewayResult.response,
+          actionType: gatewayResult.actionType,
+          actionStatus: "success",
+          ...(gatewayResult.deepLink ? { deepLink: gatewayResult.deepLink } : {}),
+        });
+      }
+      // If the OpenClaw agent returned a response even on "failure", use it
+      // rather than falling through to the generic LLM
+      if (gatewayResult.response && gatewayResult.response.length > 10) {
+        return NextResponse.json({
+          response: gatewayResult.response,
+          actionType: gatewayResult.actionType,
+          actionStatus: "error",
+        });
+      }
+      console.log(`[action] falling through to LLM — gateway agent failed or returned empty`);
     }
 
     // Check for explicit search commands first
@@ -2010,19 +3141,6 @@ ${formattedResults}
         sources: sourcesData,
         sourcesSummary: sourceSummary,
         followUps: searchFollowUps,
-      });
-    }
-
-    // ── OpenClaw action execution ──
-    // Runs after search (search takes priority), before local command handlers.
-    const actionResult = needsActionExecution(normalized);
-    if (actionResult) {
-      const gatewayResult = await callGatewayAction(actionResult.message, actionResult.type);
-      if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
-      return NextResponse.json({
-        response: gatewayResult.response,
-        actionType: gatewayResult.actionType,
-        actionStatus: gatewayResult.success ? "success" : "error",
       });
     }
 
@@ -2322,7 +3440,9 @@ ${formattedResults}
     }
 
     // ---- Create note — "create note: my-note.txt" or "add secure note: password is..." ----
-    const createNoteMatch = normalized.match(/^(?:create|add|new|save)\s+(?:secure\s+)?note[:\s]+(.+)/i);
+    // SKIP if it's an Apple Notes request — those are handled by the action system above
+    const isAppleNotesRequest = /\bin\s+(?:apple\s+)?notes?\b/i.test(normalized);
+    const createNoteMatch = !isAppleNotesRequest ? normalized.match(/^(?:create|add|new|save)\s+(?:secure\s+)?note[:\s]+(.+)/is) : null;
     if (createNoteMatch) {
       const noteContent = createNoteMatch[1].trim();
       // Extract filename if pattern is "filename: content" or "filename.txt"
@@ -2455,7 +3575,7 @@ ${formattedResults}
             ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, response: parsed.clean, followUps: parsed.followUps, model })}\n\n`));
             ctrl.close();
           } catch (err) {
-            ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ error: (err as Error).message })}\n\n`));
+            ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, error: (err as Error).message })}\n\n`));
             ctrl.close();
           }
           // Deduct credit after streaming completes
@@ -2479,28 +3599,9 @@ ${formattedResults}
     const message = (error as Error).message;
     console.error("[execute] Error:", message);
     if (lastLLMError) console.error("[execute] Last LLM error:", lastLLMError);
-    const SAFE_ERRORS = [
-      "Search timed out",
-      "Add BRAVE_API_KEY to .env.local",
-      "Access denied: file reads are restricted to ~/.hammerlock/",
-      "Provide a file path after 'read file'.",
-      "No LLM provider configured",
-      "No LLM provider responded",
-      "Gateway agent failed",
-    ];
-    const isSafe = SAFE_ERRORS.some((e) => message.includes(e));
 
-    // If none of the safe patterns matched, try to surface the actual LLM error
-    let friendly: string;
-    if (isSafe) {
-      friendly = message;
-    } else if (lastLLMError) {
-      // Surface the real provider error so the user can act on it
-      friendly = `AI provider error: ${lastLLMError}`;
-    } else {
-      // Surface the actual error so users can report it instead of opaque "Something went wrong"
-      friendly = message || apiStr(locale, "generic_error");
-    }
+    // Always use the friendly error helper — never dump raw CLI/gateway output to users
+    const friendly = friendlyLLMError();
     return NextResponse.json({ error: friendly }, { status: 500 });
   }
 }

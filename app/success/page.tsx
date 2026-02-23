@@ -98,8 +98,16 @@ function SuccessContent() {
           </div>
         )}
         {sessionId && (
-          <p className="success-session">
-            {t.site_success_confirmation}: <code>{sessionId.slice(0, 16)}...</code>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginTop: 8 }}>
+            {t.site_success_confirmation}: <code style={{
+              background: "rgba(255,255,255,0.06)",
+              padding: "3px 8px",
+              borderRadius: 4,
+              fontSize: "0.78rem",
+              fontFamily: "var(--font-jetbrains), monospace",
+              color: "var(--text-secondary)",
+              letterSpacing: "0.02em",
+            }}>{sessionId.slice(0, 20)}...</code>
           </p>
         )}
       </div>
@@ -123,13 +131,17 @@ function SuccessContent() {
         </p>
         {licenseLoading ? (
           <div style={{
-            padding: "16px",
+            padding: "20px",
             background: "var(--bg-secondary)",
             borderRadius: "var(--radius-md)",
-            color: "var(--text-muted)",
-            fontFamily: "var(--font-jetbrains)",
+            color: "var(--text-secondary)",
             fontSize: "0.9rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
           }}>
+            <span style={{ display: "inline-block", width: 16, height: 16, border: "2px solid var(--accent)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
             Generating your license key...
           </div>
         ) : licenseKey ? (
@@ -179,13 +191,16 @@ function SuccessContent() {
           </>
         ) : (
           <div style={{
-            padding: "16px",
+            padding: "20px",
             background: "var(--bg-secondary)",
             borderRadius: "var(--radius-md)",
-            color: "var(--text-muted)",
+            color: "var(--text-secondary)",
             fontSize: "0.85rem",
           }}>
-            License key will appear here shortly.
+            <p style={{ margin: "0 0 8px" }}>Your license key is being generated...</p>
+            <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-muted)" }}>
+              If it doesn&apos;t appear within a minute, refresh the page or contact <strong>info@hammerlockai.com</strong> with your confirmation code.
+            </p>
           </div>
         )}
       </div>

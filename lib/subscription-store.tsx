@@ -38,7 +38,10 @@ const defaultSubscription = (): SubscriptionStatus => ({
 function isElectron(): boolean {
   if (typeof window === "undefined") return false;
   return !!(window as unknown as Record<string, unknown>).electron ||
-    typeof navigator !== "undefined" && navigator.userAgent.includes("Electron");
+    (typeof navigator !== "undefined" && (
+      navigator.userAgent.includes("Electron") ||
+      navigator.userAgent.includes("HammerLock")
+    ));
 }
 
 /** Check if subscription is genuinely active (not expired) */
@@ -61,6 +64,7 @@ type SubscriptionContextValue = {
   clearSubscription: () => void;
   licenseTier: SubscriptionTier;
   licenseLoading: boolean;
+  setUsingOwnKey: (v: boolean) => void;
 };
 
 export type PremiumFeature =
@@ -103,20 +107,22 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [messageCount, setMessageCount] = useState(0);
   const [licenseTier, setLicenseTier] = useState<SubscriptionTier>("free");
   const [licenseLoading, setLicenseLoading] = useState(false);
+  const [usingOwnKey, setUsingOwnKey] = useState(false);
 
-  // Fetch license tier from server on mount (Electron desktop only)
+  // Fetch license tier + own-key status from server on mount (Electron desktop only)
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!isElectron()) return;
 
     setLicenseLoading(true);
+
+    // Check license tier
     fetch("/api/license/check")
       .then((res) => res.json())
       .then((data) => {
         if (data.tier) {
           const tier = data.tier as SubscriptionTier;
           setLicenseTier(tier);
-          // Also sync to subscription state so the rest of the app sees it
           if (TIER_RANK[tier] > 0) {
             setSubscription((prev) => ({
               ...prev,
@@ -127,12 +133,19 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {
-        // Fail-open: leave as free tier
         console.warn("[subscription-store] Failed to check license, defaulting to free");
       })
       .finally(() => {
         setLicenseLoading(false);
       });
+
+    // Check if user has their own API keys configured → bypass message limit
+    fetch("/api/credits", { signal: AbortSignal.timeout(5000) })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.usingOwnKey) setUsingOwnKey(true);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -165,7 +178,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const next: SubscriptionStatus = {
         tier,
         active: true,
-        trialEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        trialEnd: null,  // No trial — paid plan
         customerId: null,
         sessionId,
         activatedAt: new Date().toISOString(),
@@ -194,6 +207,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const canSendMessage = useMemo(() => {
+    // Using own API key → unlimited messages (no credits consumed)
+    if (usingOwnKey) return true;
     // Desktop app: check license tier from server
     if (isElectron()) {
       // Core or higher → unlimited messages
@@ -204,7 +219,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     // Web: check subscription status
     if (isSubscriptionActive(subscription)) return true;
     return messageCount < FREE_MESSAGE_LIMIT;
-  }, [subscription, messageCount, licenseTier]);
+  }, [subscription, messageCount, licenseTier, usingOwnKey]);
 
   const isFeatureAvailable = useCallback(
     (feature: PremiumFeature) => {
@@ -241,6 +256,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       clearSubscription,
       licenseTier,
       licenseLoading,
+      setUsingOwnKey,
     }),
     [subscription, messageCount, canSendMessage, isFeatureAvailable, activateSubscription, incrementMessageCount, resetMessageCount, clearSubscription, licenseTier, licenseLoading]
   );

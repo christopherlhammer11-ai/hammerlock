@@ -18,7 +18,7 @@ import { readCachedLicense, writeCachedLicense } from "@/lib/license-guard";
 
 const VALIDATION_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 additional days
-const REMOTE_API = "https://hammerlockai.com";
+const REMOTE_API = "https://www.hammerlockai.com";
 
 export async function GET() {
   // Only runs on desktop (localhost)

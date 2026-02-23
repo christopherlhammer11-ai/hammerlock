@@ -1,34 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { prisma } from "@/lib/prisma";
-import { generateLicenseKey } from "@/lib/license-keys";
+import { deriveKeyFromSession } from "@/lib/license-keys";
 
 const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-
-/** Map a Stripe price ID to a tier name */
-function determineTierFromPrice(priceId: string | undefined): string {
-  if (!priceId) return "core";
-  if (priceId === process.env.STRIPE_PRICE_CORE_ONETIME) return "core";
-  if (priceId === process.env.STRIPE_PRICE_PRO_MONTHLY) return "pro";
-  if (priceId === process.env.STRIPE_PRICE_TEAMS_MONTHLY) return "teams";
-  return "core"; // fallback
-}
-
-/** Check if a price ID is a credit booster add-on (not a base plan) */
-function isBoosterPrice(priceId: string | undefined): false | { units: number; name: string } {
-  if (!priceId) return false;
-  if (priceId === process.env.STRIPE_PRICE_BOOSTER_MONTHLY) return { units: 1500, name: "booster" };
-  if (priceId === process.env.STRIPE_PRICE_POWER_MONTHLY) return { units: 5000, name: "power" };
-  return false;
-}
 
 export async function POST(req: NextRequest) {
   if (!STRIPE_SECRET) {
     return NextResponse.json({ error: "Not configured" }, { status: 500 });
   }
 
-  // Require webhook secret in production — reject unsigned payloads
   const signature = req.headers.get("stripe-signature");
   if (!WEBHOOK_SECRET) {
     console.error("STRIPE_WEBHOOK_SECRET not set — rejecting webhook");
@@ -52,7 +33,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  // Log all events for audit trail
   console.log(`[webhook] ${event.type}`, event.id);
 
   switch (event.type) {
@@ -66,74 +46,10 @@ export async function POST(req: NextRequest) {
       });
 
       try {
-        // Determine tier from line items
-        const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
-        const priceId = lineItems.data[0]?.price?.id;
+        // Derive the same deterministic key that /api/license/key returns
+        const licenseKey = deriveKeyFromSession(session.id);
 
-        // Check if this is a credit booster add-on (not a base plan)
-        const booster = isBoosterPrice(priceId);
-        if (booster) {
-          // Booster/Power add-on — attach to existing customer's license
-          const customerId = session.customer as string;
-          if (customerId) {
-            const existingLicense = await prisma.license.findFirst({
-              where: { stripeCustomerId: customerId, status: "active" },
-              orderBy: { createdAt: "desc" },
-            });
-            if (existingLicense) {
-              await prisma.license.update({
-                where: { id: existingLicense.id },
-                data: {
-                  boosterUnits: booster.units,
-                  boosterSubscriptionId: (session.subscription as string) ?? null,
-                },
-              });
-              console.log("[webhook] Booster attached:", { name: booster.name, units: booster.units, licenseId: existingLicense.id });
-            } else {
-              console.warn("[webhook] Booster purchased but no active license found for customer:", customerId);
-            }
-          }
-          break;
-        }
-
-        const tier = determineTierFromPrice(priceId);
-        const billingType = session.mode === "payment" ? "onetime" : "subscription";
-
-        // Generate unique license key
-        const licenseKey = generateLicenseKey();
-
-        // For subscriptions, get the current period end
-        let currentPeriodEnd: Date | null = null;
-        if (session.subscription) {
-          const sub = await stripe.subscriptions.retrieve(session.subscription as string) as Stripe.Subscription;
-          // In Stripe API v2 (npm v20+), current_period_end is on subscription items
-          const periodEnd = (sub as unknown as Record<string, unknown>).current_period_end
-            ?? sub.items?.data?.[0]?.current_period_end;
-          if (typeof periodEnd === "number") {
-            currentPeriodEnd = new Date(periodEnd * 1000);
-          }
-        }
-
-        // Create license record in database
-        await prisma.license.create({
-          data: {
-            key: licenseKey,
-            tier,
-            status: "active",
-            billingType,
-            stripeCustomerId: (session.customer as string) ?? null,
-            stripeSessionId: session.id,
-            stripeSubscriptionId: (session.subscription as string) ?? null,
-            customerEmail: session.customer_details?.email ?? null,
-            currentPeriodEnd,
-          },
-        });
-
-        console.log("[webhook] License created:", { licenseKey, tier, billingType });
-
-        // Store license key in Stripe session metadata so success page can retrieve it
-        // Note: checkout.sessions.update may not support metadata on all session types,
-        // but the license/key endpoint reads from our DB, so this is optional.
+        // Store license key in Stripe session metadata so it can be looked up later
         try {
           await stripe.checkout.sessions.update(session.id, {
             metadata: { license_key: licenseKey },
@@ -141,8 +57,26 @@ export async function POST(req: NextRequest) {
         } catch (metaErr) {
           console.warn("[webhook] Could not update session metadata:", (metaErr as Error).message);
         }
+
+        // Also store on the customer object for cross-session lookup
+        if (session.customer && typeof session.customer === "string") {
+          try {
+            const existingMeta = (await stripe.customers.retrieve(session.customer) as Stripe.Customer).metadata || {};
+            await stripe.customers.update(session.customer, {
+              metadata: {
+                ...existingMeta,
+                license_key: licenseKey,
+                license_session_id: session.id,
+              },
+            });
+          } catch (custErr) {
+            console.warn("[webhook] Could not update customer metadata:", (custErr as Error).message);
+          }
+        }
+
+        console.log("[webhook] License key derived:", { licenseKey, sessionId: session.id });
       } catch (err) {
-        console.error("[webhook] Failed to create license:", (err as Error).message);
+        console.error("[webhook] Failed to process checkout:", (err as Error).message);
       }
       break;
     }
@@ -154,31 +88,8 @@ export async function POST(req: NextRequest) {
         status: subscription.status,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
       });
-
-      try {
-        const license = await prisma.license.findFirst({
-          where: { stripeSubscriptionId: subscription.id },
-        });
-        if (license) {
-          await prisma.license.update({
-            where: { id: license.id },
-            data: {
-              currentPeriodEnd: (() => {
-                const periodEnd = (subscription as unknown as Record<string, unknown>).current_period_end
-                  ?? subscription.items?.data?.[0]?.current_period_end;
-                return typeof periodEnd === "number" ? new Date(periodEnd * 1000) : null;
-              })(),
-              cancelAtPeriodEnd: subscription.cancel_at_period_end,
-              status: subscription.status === "active" || subscription.status === "trialing"
-                ? "active"
-                : "expired",
-            },
-          });
-          console.log("[webhook] License updated for subscription:", subscription.id);
-        }
-      } catch (err) {
-        console.error("[webhook] Failed to update license:", (err as Error).message);
-      }
+      // No DB action needed — Stripe is source of truth.
+      // Desktop app re-validates by querying Stripe through /api/license/validate.
       break;
     }
 
@@ -188,30 +99,7 @@ export async function POST(req: NextRequest) {
         id: subscription.id,
         status: subscription.status,
       });
-
-      try {
-        // Check if this is a booster subscription being cancelled
-        const boosterLicense = await prisma.license.findFirst({
-          where: { boosterSubscriptionId: subscription.id },
-        });
-        if (boosterLicense) {
-          // Remove booster units but don't expire the base license
-          await prisma.license.update({
-            where: { id: boosterLicense.id },
-            data: { boosterUnits: 0, boosterSubscriptionId: null },
-          });
-          console.log("[webhook] Booster removed for license:", boosterLicense.id);
-        } else {
-          // Base subscription cancelled — expire the license
-          await prisma.license.updateMany({
-            where: { stripeSubscriptionId: subscription.id },
-            data: { status: "expired" },
-          });
-          console.log("[webhook] License expired for subscription:", subscription.id);
-        }
-      } catch (err) {
-        console.error("[webhook] Failed to handle subscription deletion:", (err as Error).message);
-      }
+      // No DB action needed — next desktop validation will see subscription is cancelled.
       break;
     }
 
@@ -222,8 +110,6 @@ export async function POST(req: NextRequest) {
         customerId: invoice.customer,
         amountDue: invoice.amount_due,
       });
-      // Don't immediately revoke — Stripe retries. After all retries fail,
-      // Stripe sends customer.subscription.deleted which will expire the license.
       break;
     }
 

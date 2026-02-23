@@ -1,14 +1,16 @@
 "use client";
 
-import { X, Settings, Bell, BellOff, RotateCcw } from "lucide-react";
+import { X, Settings, Bell, BellOff, RotateCcw, Zap, Shield } from "lucide-react";
 import { useNudges } from "@/lib/use-nudges";
 
 type SettingsPanelProps = {
   open: boolean;
   onClose: () => void;
+  onOpenIntegrations?: () => void;
+  onOpenPermissions?: () => void;
 };
 
-export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
+export default function SettingsPanel({ open, onClose, onOpenIntegrations, onOpenPermissions }: SettingsPanelProps) {
   const { isEnabled, setNudgesEnabled, resetNudges } = useNudges();
 
   if (!open) return null;
@@ -38,6 +40,60 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
         {/* Body */}
         <div className="settings-body">
+          {/* ── Integrations ── */}
+          {onOpenIntegrations && (
+            <div className="settings-section">
+              <div className="settings-section-title">Integrations</div>
+              <button
+                className="settings-integrations-btn"
+                onClick={() => {
+                  onClose();
+                  onOpenIntegrations();
+                }}
+              >
+                <div className="settings-integrations-btn-left">
+                  <Zap size={16} style={{ color: "var(--accent)" }} />
+                  <div>
+                    <div className="settings-row-label" style={{ display: "block" }}>
+                      Manage Integrations
+                    </div>
+                    <div className="settings-row-desc" style={{ padding: 0, marginTop: 2 }}>
+                      Calendar, Reminders, Email, Smart Home, GitHub, and more
+                    </div>
+                  </div>
+                </div>
+                <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>&rsaquo;</span>
+              </button>
+            </div>
+          )}
+
+          {/* ── Permissions & Accounts ── */}
+          {onOpenPermissions && (
+            <div className="settings-section">
+              <div className="settings-section-title">Permissions</div>
+              <button
+                className="settings-integrations-btn"
+                onClick={() => {
+                  onClose();
+                  onOpenPermissions();
+                }}
+              >
+                <div className="settings-integrations-btn-left">
+                  <Shield size={16} style={{ color: "var(--accent)" }} />
+                  <div>
+                    <div className="settings-row-label" style={{ display: "block" }}>
+                      Permissions & Accounts
+                    </div>
+                    <div className="settings-row-desc" style={{ padding: 0, marginTop: 2 }}>
+                      macOS access, Google account connection
+                    </div>
+                  </div>
+                </div>
+                <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>&rsaquo;</span>
+              </button>
+            </div>
+          )}
+
           {/* ── Tips & Nudges ── */}
           <div className="settings-section">
             <div className="settings-section-title">Tips & Nudges</div>

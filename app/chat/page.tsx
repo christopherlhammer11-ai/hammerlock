@@ -2,7 +2,7 @@
 // Where the magic happens. Privacy-first, personality-loaded.
 "use client";
 import {
-  Lock, Mic, MicOff, Paperclip, Send, Terminal, X, ChevronRight, Trash2,
+  Lock, Mic, MicOff, Paperclip, Send, Square, Terminal, X, ChevronRight, Trash2,
   FileText, Share2, User, Search, BarChart3, Bot, Zap, Globe, Settings, Key,
   Plus, FolderPlus, MessageSquare, ChevronDown, Edit3, Check, Download,
   Copy, Volume2, VolumeX, RefreshCw, Menu, PanelLeftClose, Archive,
@@ -26,6 +26,8 @@ import NudgeToast from "@/components/NudgeToast";
 import SettingsPanel from "@/components/SettingsPanel";
 import SourcesAccordion from "@/components/SourcesAccordion";
 import PersonalVaultPanel from "@/components/PersonalVaultPanel";
+import IntegrationSetup from "@/components/IntegrationSetup";
+import PermissionsSetup from "@/components/PermissionsSetup";
 import { usePersonalVault } from "@/lib/personal-vault-store";
 import { type ScheduledTask, formatSchedule, formatTime12h } from "@/lib/schedules";
 
@@ -472,7 +474,10 @@ function detectRelevantChains(agentId: string, responseText: string): WorkflowCh
 function isElectron(): boolean {
   if (typeof window === "undefined") return false;
   return !!(window as unknown as Record<string, unknown>).electron ||
-    (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
+    (typeof navigator !== "undefined" && (
+      navigator.userAgent.includes("Electron") ||
+      navigator.userAgent.includes("HammerLock")
+    ));
 }
 
 // ---- Multi-conversation types ----
@@ -499,7 +504,7 @@ export default function ChatPage() {
   const router = useRouter();
   const { lockVault, vaultData, updateVaultData, isUnlocked } = useVault();
   const { pvIsUnlocked, pvHasVault } = usePersonalVault();
-  const { subscription, messageCount, canSendMessage, incrementMessageCount, isFeatureAvailable } = useSubscription();
+  const { subscription, messageCount, canSendMessage, incrementMessageCount, isFeatureAvailable, setUsingOwnKey } = useSubscription();
   const { t, locale, setLocale } = useI18n();
 
   // ---- Multi-conversation state ----
@@ -516,11 +521,32 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<VaultMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallFeature, setPaywallFeature] = useState("");
   const [gatewayStatus, setGatewayStatus] = useState<GatewayStatus>("connecting");
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0); // 0-100 normalized audio level for visual feedback
+  const [recordingTime, setRecordingTime] = useState(0); // seconds elapsed
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Voice selector — persisted to localStorage
+  const VOICE_OPTIONS = [
+    { id: "nova", label: "Nova", desc: "Warm female" },
+    { id: "alloy", label: "Alloy", desc: "Neutral" },
+    { id: "echo", label: "Echo", desc: "Male" },
+    { id: "fable", label: "Fable", desc: "British" },
+    { id: "onyx", label: "Onyx", desc: "Deep male" },
+    { id: "shimmer", label: "Shimmer", desc: "Soft female" },
+  ] as const;
+  const [selectedVoice, setSelectedVoice] = useState<string>(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("hammerlock_voice") || "nova";
+    return "nova";
+  });
+  const [showVoiceMenu, setShowVoiceMenu] = useState(false);
+  const voiceMenuRef = useRef<HTMLDivElement>(null);
+  const selectedVoiceRef = useRef(selectedVoice);
+  selectedVoiceRef.current = selectedVoice;
   const [uploadedPdf, setUploadedPdf] = useState<{ name: string; text: string } | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const dragCounterRef = useRef(0);
@@ -554,6 +580,10 @@ export default function ChatPage() {
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const [copiedToast, setCopiedToast] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showIntegrationSetup, setShowIntegrationSetup] = useState(false);
+  const [integrationSetupMode, setIntegrationSetupMode] = useState<"onboarding" | "settings">("onboarding");
+  const [showPermissionsSetup, setShowPermissionsSetup] = useState(false);
+  const [permissionsSetupMode, setPermissionsSetupMode] = useState<"onboarding" | "settings">("onboarding");
   const [chainRunning, setChainRunning] = useState(false);
   const [chainStep, setChainStep] = useState(0);
   const [chainTotal, setChainTotal] = useState(0);
@@ -610,7 +640,33 @@ export default function ChatPage() {
   // Auto-focus input on mount
   useEffect(() => { inputRef.current?.focus(); }, []);
 
+  // ---- VAULT GATE: redirect to /vault if not unlocked ----
+  // This prevents the chat UI from being used in a broken state when
+  // accessed directly via URL without going through the vault unlock flow.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Small delay to allow session restore from storage to complete
+    const timer = setTimeout(() => {
+      if (!isUnlocked) {
+        router.replace("/vault");
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [isUnlocked, router]);
+
   useEffect(() => { if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight; }, [messages]);
+
+  // Close voice selector menu on click outside
+  useEffect(() => {
+    if (!showVoiceMenu) return;
+    const handleDown = (e: MouseEvent) => {
+      if (voiceMenuRef.current && !voiceMenuRef.current.contains(e.target as Node)) {
+        setShowVoiceMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleDown);
+    return () => document.removeEventListener("mousedown", handleDown);
+  }, [showVoiceMenu]);
 
   // ---- REMINDER SCHEDULER: check persona reminders against system clock ----
   const firedRemindersRef = useRef<Set<string>>(new Set());
@@ -668,7 +724,7 @@ export default function ChatPage() {
             fetch("/api/tts", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: alertText, voice: "nova" }),
+              body: JSON.stringify({ text: alertText, voice: selectedVoiceRef.current }),
             }).then(res => {
               if (res.ok && res.headers.get("content-type")?.includes("audio")) {
                 res.blob().then(blob => {
@@ -770,7 +826,7 @@ export default function ChatPage() {
               fetch("/api/tts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: ttsText, voice: "nova" }),
+                body: JSON.stringify({ text: ttsText, voice: selectedVoiceRef.current }),
               }).then(r => {
                 if (r.ok && r.headers.get("content-type")?.includes("audio")) {
                   r.blob().then(blob => {
@@ -840,7 +896,11 @@ export default function ChatPage() {
       // Activate most recently updated
       const sorted = [...savedConvos].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
       setActiveConvoId(sorted[0].id);
-      setMessages(sorted[0].messages);
+      // Clear any stale pending messages left from interrupted streaming
+      const cleanedMsgs = sorted[0].messages.map(m =>
+        m.pending ? { ...m, pending: false, content: m.content || "(interrupted)" } : m
+      );
+      setMessages(cleanedMsgs);
     } else if (vaultData?.chatHistory?.length) {
       // Migrate legacy single-chat to multi-conversation
       const legacy: Conversation = {
@@ -853,7 +913,10 @@ export default function ChatPage() {
       };
       setConversations([legacy]);
       setActiveConvoId(legacy.id);
-      setMessages(legacy.messages);
+      // Clear any stale pending messages left from interrupted streaming
+      setMessages(legacy.messages.map((m: VaultMessage) =>
+        m.pending ? { ...m, pending: false, content: m.content || "(interrupted)" } : m
+      ));
     } else {
       // Fresh vault — create first conversation
       const first: Conversation = {
@@ -883,6 +946,8 @@ export default function ChatPage() {
       };
       setApiKeys(keys);
       const hasAnyKey = Object.values(keys).some(k => !!k);
+      // Immediately tell subscription store this user has their own keys → bypass paywall
+      if (hasAnyKey) setUsingOwnKey(true);
       if (hasAnyKey) {
         fetch("/api/configure", {
           method: "POST",
@@ -913,6 +978,7 @@ export default function ChatPage() {
           if (data.remainingUnits !== undefined) {
             setComputeUnits({ remaining: data.remainingUnits, total: data.totalUnits, usingOwnKey: data.usingOwnKey, periodEnd: data.periodEnd, monthlyAllocation: data.monthlyAllocation, boosterUnits: data.boosterUnits });
           }
+          if (data.usingOwnKey) setUsingOwnKey(true);
         })
         .catch(() => {});
     }
@@ -1004,7 +1070,20 @@ export default function ChatPage() {
       // will show "Welcome back, <name>" with suggestion cards.
       setMessages([]);
 
-      setTimeout(() => inputRef.current?.focus(), 100);
+      // Show permissions setup first, then integration setup on desktop
+      if (isElectron() && !vaultData?.settings?.permissions_explored) {
+        setTimeout(() => {
+          setPermissionsSetupMode("onboarding");
+          setShowPermissionsSetup(true);
+        }, 600);
+      } else if (isElectron() && !vaultData?.settings?.integrations_explored) {
+        setTimeout(() => {
+          setIntegrationSetupMode("onboarding");
+          setShowIntegrationSetup(true);
+        }, 600);
+      } else {
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingStep, onboardingInput, onboardingAnswers, updateVaultData, activeConvoId]);
@@ -1073,8 +1152,11 @@ export default function ChatPage() {
     router.push("/vault");
   }, [lockVault, router]);
 
-  // ---- AUTO-LOCK ON INACTIVITY (5 minutes) ----
-  const AUTO_LOCK_MS = 5 * 60 * 1000;
+  // ---- AUTO-LOCK ON INACTIVITY ----
+  // Desktop (Electron): 2 hours — user locks manually when desired, vault session
+  // persists in localStorage across window close/reopen.
+  // Browser: 15 minutes — more aggressive since session is in sessionStorage.
+  const AUTO_LOCK_MS = isElectron() ? 24 * 60 * 60 * 1000 : 15 * 60 * 1000;
   const autoLockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetAutoLock = useCallback(() => {
@@ -1083,7 +1165,7 @@ export default function ChatPage() {
     autoLockTimerRef.current = setTimeout(() => {
       handleLock();
     }, AUTO_LOCK_MS);
-  }, [isUnlocked, handleLock]);
+  }, [isUnlocked, handleLock, AUTO_LOCK_MS]);
 
   useEffect(() => {
     if (!isUnlocked) return;
@@ -1106,7 +1188,11 @@ export default function ChatPage() {
     // Switch
     setActiveConvoId(id);
     const target = conversations.find(c => c.id === id);
-    setMessages(target?.messages || []);
+    // Clear any stale pending messages left from interrupted streaming
+    const targetMsgs = target?.messages || [];
+    setMessages(targetMsgs.map(m =>
+      m.pending ? { ...m, pending: false, content: m.content || "(interrupted)" } : m
+    ));
     setUploadedPdf(null);
     setTimeout(() => inputRef.current?.focus(), 50);
   }, [activeConvoId, messages, conversations]);
@@ -1154,7 +1240,9 @@ export default function ChatPage() {
       if (id === activeConvoId) {
         const next = filtered[0];
         setActiveConvoId(next.id);
-        setMessages(next.messages);
+        setMessages(next.messages.map(m =>
+          m.pending ? { ...m, pending: false, content: m.content || "(interrupted)" } : m
+        ));
       }
       return filtered;
     });
@@ -1205,22 +1293,26 @@ export default function ChatPage() {
 
   // ---- SAVE API KEYS ----
   const handleSaveApiKeys = useCallback(async () => {
-    await updateVaultData(prev => ({
-      ...prev,
-      settings: {
-        ...(prev.settings || {}),
-        openai_api_key: apiKeys.openai.trim(),
-        anthropic_api_key: apiKeys.anthropic.trim(),
-        gemini_api_key: apiKeys.gemini.trim(),
-        groq_api_key: apiKeys.groq.trim(),
-        mistral_api_key: apiKeys.mistral.trim(),
-        deepseek_api_key: apiKeys.deepseek.trim(),
-        brave_api_key: apiKeys.brave.trim(),
-      }
-    }));
-
+    // Persist to vault (may fail if vault is locked — non-fatal)
     try {
-      await fetch("/api/configure", {
+      await updateVaultData(prev => ({
+        ...prev,
+        settings: {
+          ...(prev.settings || {}),
+          openai_api_key: apiKeys.openai.trim(),
+          anthropic_api_key: apiKeys.anthropic.trim(),
+          gemini_api_key: apiKeys.gemini.trim(),
+          groq_api_key: apiKeys.groq.trim(),
+          mistral_api_key: apiKeys.mistral.trim(),
+          deepseek_api_key: apiKeys.deepseek.trim(),
+          brave_api_key: apiKeys.brave.trim(),
+        }
+      }));
+    } catch { /* vault may be locked — keys still sent to /api/configure below */ }
+
+    // Send keys to server (configures process.env for LLM providers)
+    try {
+      const cfgRes = await fetch("/api/configure", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1233,16 +1325,21 @@ export default function ChatPage() {
           brave_api_key: apiKeys.brave.trim(),
         }),
       });
+      const cfgData = await cfgRes.json().catch(() => ({}));
+      if (cfgData.usingOwnKey) setUsingOwnKey(true);
     } catch { /* ok */ }
 
+    // Always close modal and clear paywall state
     setShowApiKeyModal(false);
     setNeedsApiKeys(false);
+
+    // Check gateway health
     try {
       const res = await fetch("/api/health", { signal: AbortSignal.timeout(5000) });
       const data = await res.json();
       setGatewayStatus(data.status === "ready" ? "connected" : "offline");
     } catch { /* ignore */ }
-  }, [apiKeys, updateVaultData]);
+  }, [apiKeys, updateVaultData, setUsingOwnKey]);
 
   // ---- AUTO-TITLE GENERATOR (non-blocking) ----
   const generateConvoTitle = useCallback(async (userMsg: string, aiReply: string, convoId: string) => {
@@ -1278,7 +1375,24 @@ export default function ChatPage() {
   const sendCommand = useCallback(async (preset?: string) => {
     const text = (preset || input).trim();
     if (text === "" || sending) return;
-    if (!canSendMessage) { setPaywallFeature("messages"); setShowPaywall(true); return; }
+    if (!isUnlocked) {
+      showError("Vault is locked. Please unlock to continue.");
+      router.replace("/vault");
+      return;
+    }
+    if (!canSendMessage) {
+      // Desktop users who added API keys: check server before showing paywall
+      if (isElectron()) {
+        try {
+          const cr = await fetch("/api/credits", { signal: AbortSignal.timeout(3000) });
+          const cd = await cr.json();
+          if (cd.usingOwnKey) { setUsingOwnKey(true); /* fall through — allow send */ }
+          else { setPaywallFeature("messages"); setShowPaywall(true); return; }
+        } catch { setPaywallFeature("messages"); setShowPaywall(true); return; }
+      } else {
+        setPaywallFeature("messages"); setShowPaywall(true); return;
+      }
+    }
 
     let fullText = text;
     const currentPdf = uploadedPdf;
@@ -1300,6 +1414,8 @@ export default function ChatPage() {
     const pendingMsg: VaultMessage = {id:pid,role:"ai",content:getThinkingMessage(),timestamp:ts,pending:true};
     setMessages(prev => [...prev, userMsg, pendingMsg]);
     setInput(""); setSending(true);
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
     setTimeout(() => inputRef.current?.focus(), 0);
 
     try {
@@ -1335,7 +1451,12 @@ export default function ChatPage() {
         }
       });
       const userProfile = Object.keys(personaParts).length > 0 ? personaParts : undefined;
-      const res = await fetch("/api/execute", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({command:fullText,persona:"operator",userProfile,agentSystemPrompt:currentAgent?.systemPrompt,locale,history:recentHistory,stream:true})});
+      // In voice mode, inject concise-response prompt so AI gives spoken-friendly answers
+      const voiceModePrompt = voiceInputRef.current
+        ? "\n\n[VOICE MODE] The user is speaking to you via voice. Keep responses concise and conversational — 2-3 sentences unless they ask for detail. Avoid markdown, bullet points, code blocks, or visual formatting. Use natural speech patterns. Say \"first, second, third\" instead of bullet lists."
+        : "";
+      const agentPrompt = (currentAgent?.systemPrompt || "") + voiceModePrompt;
+      const res = await fetch("/api/execute", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({command:fullText,persona:"operator",userProfile,agentSystemPrompt:agentPrompt,locale,history:recentHistory,stream:true}),signal:abortController.signal});
 
       // ---- STREAMING PATH: read SSE tokens as they arrive ----
       const contentType = res.headers.get("content-type") || "";
@@ -1345,6 +1466,7 @@ export default function ChatPage() {
       let msgSourcesSummary: string | undefined;
       let msgActionType: string | undefined;
       let msgActionStatus: "success" | "error" | undefined;
+      let msgDeepLink: string | undefined;
 
       if (contentType.includes("text/event-stream") && res.body) {
         // Streaming response — display tokens progressively
@@ -1384,6 +1506,8 @@ export default function ChatPage() {
               }
               if (json.error) {
                 reply = `Error: ${json.error}`;
+                // Error is also a terminal event — ensure message finalizes
+                if (!json.done) json.done = true;
               }
             } catch { /* skip malformed SSE chunks */ }
           }
@@ -1412,11 +1536,12 @@ export default function ChatPage() {
         msgFollowUps = Array.isArray(data.followUps) ? data.followUps : undefined;
         msgActionType = typeof data.actionType === "string" ? data.actionType : undefined;
         msgActionStatus = (data.actionStatus === "success" || data.actionStatus === "error") ? data.actionStatus as "success" | "error" : undefined;
+        msgDeepLink = typeof data.deepLink === "string" ? data.deepLink : undefined;
       }
 
       // Finalize message with full response
       setMessages(prev => {
-        const updated = prev.map(m => m.id===pid ? {...m,content:reply,pending:false,timestamp:new Date().toISOString(),sources:msgSources,sourcesSummary:msgSourcesSummary,followUps:msgFollowUps,actionType:msgActionType,actionStatus:msgActionStatus} : m);
+        const updated = prev.map(m => m.id===pid ? {...m,content:reply,pending:false,timestamp:new Date().toISOString(),sources:msgSources,sourcesSummary:msgSourcesSummary,followUps:msgFollowUps,actionType:msgActionType,actionStatus:msgActionStatus,deepLink:msgDeepLink} : m);
         const isFirstExchange = prev.filter(m => m.role === "user").length <= 1;
         setConversations(cs => cs.map(c => {
           if (c.id !== activeConvoId) return c;
@@ -1475,86 +1600,159 @@ export default function ChatPage() {
             if (d.remainingUnits !== undefined) {
               setComputeUnits({ remaining: d.remainingUnits, total: d.totalUnits, usingOwnKey: d.usingOwnKey });
             }
+            if (d.usingOwnKey) setUsingOwnKey(true);
           })
           .catch(() => {});
       }
     } catch(e) {
-      const errMsg = String(e);
-      setMessages(prev => prev.map(m => m.id===pid ? {...m,role:"error",content:errMsg,pending:false} : m));
-      showError(errMsg);
+      if (abortController.signal.aborted) {
+        // User cancelled — keep whatever we streamed so far
+        setMessages(prev => prev.map(m => m.id === pid
+          ? { ...m, pending: false, content: m.content && m.content !== getThinkingMessage() ? m.content + "\n\n*(stopped)*" : "*(stopped by user)*", timestamp: new Date().toISOString() }
+          : m));
+      } else {
+        const errMsg = String(e);
+        setMessages(prev => prev.map(m => m.id===pid ? {...m,role:"error",content:errMsg,pending:false} : m));
+        showError(errMsg);
+      }
     } finally {
+      abortControllerRef.current = null;
       setSending(false);
+      // Safety net: force-clear any stuck pending messages (e.g. if catch block also failed)
+      setMessages(prev => {
+        const hasPending = prev.some(m => m.pending);
+        if (!hasPending) return prev;
+        return prev.map(m => m.pending ? { ...m, pending: false, content: m.content || "(interrupted)" } : m);
+      });
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [input, sending, canSendMessage, incrementMessageCount, showError, uploadedPdf, activeConvoId, t.chat_processing]);
+  }, [input, sending, isUnlocked, canSendMessage, incrementMessageCount, showError, uploadedPdf, activeConvoId, router, t.chat_processing]);
+
+  // ---- STOP / CANCEL ----
+  const stopResponse = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  }, []);
 
   // Keep sendCommand ref in sync so voice callbacks always use latest version
   sendCommandRef.current = sendCommand;
 
-  // ---- VOICE INPUT with silence detection ----
+  // ---- VOICE INPUT with silence detection + audio level visualization ----
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const silenceFrameRef = useRef(0);
 
+  // Cleanup helper — stops all recording resources
+  const cleanupRecording = useCallback(() => {
+    if (silenceTimerRef.current) { clearInterval(silenceTimerRef.current as unknown as number); silenceTimerRef.current = null; }
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+    if (audioContextRef.current) { audioContextRef.current.close().catch(() => {}); audioContextRef.current = null; }
+    analyserRef.current = null;
+    setAudioLevel(0);
+    setRecordingTime(0);
+  }, []);
+
   const handleVoice = useCallback(async () => {
     if (!isFeatureAvailable("voice_input")) {
       setPaywallFeature("Voice Input"); setShowPaywall(true); return;
     }
+    // Barge-in: if TTS is playing, stop it immediately and start listening
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+      ttsAudioRef.current = null;
+    }
+    window.speechSynthesis?.cancel();
+    if (speakingMsgId) setSpeakingMsgId(null);
+    // Cancel any pending TTS callbacks
+    ttsFinishedCallbackRef.current = null;
+
     if (isListening && mediaRecorderRef.current) {
       // Toggle off — stop recording
-      if (silenceTimerRef.current) { clearInterval(silenceTimerRef.current as unknown as number); silenceTimerRef.current = null; }
-      if (audioContextRef.current) { audioContextRef.current.close().catch(() => {}); audioContextRef.current = null; }
+      cleanupRecording();
       mediaRecorderRef.current.stop();
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request audio with quality hints for better transcription
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: { ideal: 16000 }, // Whisper optimal sample rate
+          channelCount: { ideal: 1 },   // Mono is better for speech
+        }
+      });
+
+      // Pick best available codec
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 64000 });
       audioChunksRef.current = [];
       mediaRecorderRef.current = recorder;
 
-      // Set up silence detection with Web Audio API
-      const audioCtx = new AudioContext();
+      // Set up Web Audio API for silence detection + level visualization
+      const audioCtx = new AudioContext({ sampleRate: 16000 });
       audioContextRef.current = audioCtx;
       const source = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.3;
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.4;
       source.connect(analyser);
       analyserRef.current = analyser;
       silenceFrameRef.current = 0;
       let hasSpeech = false;
+      let peakLevel = 0; // Track peak for auto-calibration
 
-      // Check audio levels every 100ms
-      const SILENCE_THRESHOLD = 15; // RMS level below which = silence
-      const SILENCE_FRAMES_TO_STOP = 20; // 20 * 100ms = 2 seconds of silence
+      const SILENCE_THRESHOLD = 12;       // RMS below this = silence
+      const SPEECH_THRESHOLD = 20;        // RMS above this = definitely speech
+      const SILENCE_FRAMES_TO_STOP = 25;  // 25 × 80ms = 2s of silence to auto-stop
+      const MAX_RECORDING_MS = 60000;     // 60s max recording (safety limit)
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
+      // Audio level check every 80ms (slightly faster for smoother visual)
       silenceTimerRef.current = setInterval(() => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteFrequencyData(dataArray);
-        const rms = Math.sqrt(dataArray.reduce((sum, v) => sum + v * v, 0) / dataArray.length);
+        // Calculate RMS
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i] * dataArray[i];
+        const rms = Math.sqrt(sum / dataArray.length);
 
-        if (rms > SILENCE_THRESHOLD) {
+        // Track peak for normalization
+        if (rms > peakLevel) peakLevel = rms;
+
+        // Normalize audio level to 0-100 for visualization
+        const normalizedLevel = peakLevel > 0 ? Math.min(100, Math.round((rms / Math.max(peakLevel, 40)) * 100)) : 0;
+        setAudioLevel(normalizedLevel);
+
+        if (rms > SPEECH_THRESHOLD) {
           hasSpeech = true;
           silenceFrameRef.current = 0;
+        } else if (rms > SILENCE_THRESHOLD) {
+          // Ambiguous zone — don't count as silence if user was speaking
+          if (hasSpeech) silenceFrameRef.current = Math.max(0, silenceFrameRef.current - 1);
         } else {
           silenceFrameRef.current++;
         }
 
-        // Auto-stop after 2s of silence (only if user has spoken)
+        // Auto-stop after sustained silence (only after user has spoken)
         if (hasSpeech && silenceFrameRef.current >= SILENCE_FRAMES_TO_STOP) {
           if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
             mediaRecorderRef.current.stop();
           }
-          if (silenceTimerRef.current) { clearInterval(silenceTimerRef.current as unknown as number); silenceTimerRef.current = null; }
-          if (audioContextRef.current) { audioContextRef.current.close().catch(() => {}); audioContextRef.current = null; }
+          cleanupRecording();
         }
-      }, 100) as unknown as ReturnType<typeof setTimeout>;
+      }, 80) as unknown as ReturnType<typeof setTimeout>;
+
+      // Recording time counter (updates every second)
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) audioChunksRef.current.push(event.data);
@@ -1562,21 +1760,31 @@ export default function ChatPage() {
 
       const recordingStartTime = Date.now();
 
+      // Safety: auto-stop at max duration
+      const maxRecordingTimer = setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+          mediaRecorderRef.current.stop();
+          cleanupRecording();
+        }
+      }, MAX_RECORDING_MS);
+
       recorder.onstop = async () => {
+        clearTimeout(maxRecordingTimer);
         stream.getTracks().forEach(track => track.stop());
-        if (silenceTimerRef.current) { clearInterval(silenceTimerRef.current as unknown as number); silenceTimerRef.current = null; }
-        if (audioContextRef.current) { audioContextRef.current.close().catch(() => {}); audioContextRef.current = null; }
+        cleanupRecording();
         setIsListening(false);
         mediaRecorderRef.current = null;
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         audioChunksRef.current = [];
         const recordingDuration = Date.now() - recordingStartTime;
-        // Lower threshold: 0.5s minimum (was 1s)
+
+        // Minimum duration check — 0.5s
         if (audioBlob.size < 1000 || recordingDuration < 500) {
           showError("Keep talking — I'm listening! Tap the mic and speak for at least a second.");
           return;
         }
-        setInput(t.chat_transcribing);
+
+        setInput("🎙️ Transcribing...");
         try {
           const formData = new FormData();
           const ext = mimeType.includes("mp4") ? "mp4" : "webm";
@@ -1600,14 +1808,15 @@ export default function ChatPage() {
       };
 
       recorder.onerror = () => {
+        clearTimeout(maxRecordingTimer);
         stream.getTracks().forEach(track => track.stop());
-        if (silenceTimerRef.current) { clearInterval(silenceTimerRef.current as unknown as number); silenceTimerRef.current = null; }
-        if (audioContextRef.current) { audioContextRef.current.close().catch(() => {}); audioContextRef.current = null; }
+        cleanupRecording();
         setIsListening(false); mediaRecorderRef.current = null;
         showError(t.error_voice_recording);
       };
 
-      recorder.start(250);
+      // Start recording — collect data in 200ms chunks for responsiveness
+      recorder.start(200);
       setIsListening(true);
     } catch (err) {
       const msg = (err as Error).message || String(err);
@@ -1617,7 +1826,7 @@ export default function ChatPage() {
         showError(t.error_voice_mic + ": " + msg);
       }
     }
-  }, [isFeatureAvailable, isListening, showError, t]);
+  }, [isFeatureAvailable, isListening, showError, t, cleanupRecording, speakingMsgId]);
 
   // Keep handleVoice ref in sync
   handleVoiceRef.current = handleVoice;
@@ -1846,7 +2055,7 @@ export default function ChatPage() {
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice: "nova" }),
+        body: JSON.stringify({ text, voice: selectedVoiceRef.current }),
       });
 
       if (res.ok) {
@@ -2958,7 +3167,7 @@ export default function ChatPage() {
           {messages.map((msg, idx) => (
             <div key={msg.id} className={"console-message " + msg.role + (msg.pending ? " pending" : "")}>
               <div className="message-meta">
-                <span className="message-sender">{msg.role==="user" ? t.chat_you : (getAgentById(activeAgentId, customAgents)?.name?.toLowerCase() || t.chat_ai)}</span>
+                <span className="message-sender">{msg.role==="user" ? t.chat_you : (getAgentById(activeAgentId, customAgents)?.name || t.chat_ai)}</span>
                 <span className="message-time">{new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}</span>
               </div>
               <div className="message-content"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />}}>{msg.content}</ReactMarkdown></div>
@@ -2966,10 +3175,19 @@ export default function ChatPage() {
                 <SourcesAccordion sources={msg.sources} summary={msg.sourcesSummary} />
               )}
               {msg.actionType && !msg.pending && (
-                <div className="action-badge" data-status={msg.actionStatus || "success"}>
-                  <span>{msg.actionStatus === "error" ? "⚠️" : ACTION_BADGE_ICONS[msg.actionType] || "⚡"}</span>
-                  <span>{ACTION_BADGE_LABELS[msg.actionType] || msg.actionType}{msg.actionStatus === "error" ? " Failed" : ""}</span>
-                </div>
+                msg.deepLink ? (
+                  <a href={msg.deepLink} target="_blank" rel="noopener noreferrer"
+                    className="action-badge action-badge-link" data-status={msg.actionStatus || "success"}>
+                    <span>{msg.actionStatus === "error" ? "⚠️" : ACTION_BADGE_ICONS[msg.actionType] || "⚡"}</span>
+                    <span>{ACTION_BADGE_LABELS[msg.actionType] || msg.actionType}{msg.actionStatus === "error" ? " Failed" : ""}</span>
+                    <span className="action-badge-open">Open ↗</span>
+                  </a>
+                ) : (
+                  <div className="action-badge" data-status={msg.actionStatus || "success"}>
+                    <span>{msg.actionStatus === "error" ? "⚠️" : ACTION_BADGE_ICONS[msg.actionType] || "⚡"}</span>
+                    <span>{ACTION_BADGE_LABELS[msg.actionType] || msg.actionType}{msg.actionStatus === "error" ? " Failed" : ""}</span>
+                  </div>
+                )
               )}
               {msg.followUps && msg.followUps.length > 0 && !msg.pending && msg.role === "ai"
                 && idx === messages.length - 1 && !sending && (
@@ -3097,7 +3315,18 @@ export default function ChatPage() {
         )}
 
         {/* Settings Panel */}
-        <SettingsPanel open={showSettings} onClose={() => setShowSettings(false)} />
+        <SettingsPanel
+          open={showSettings}
+          onClose={() => setShowSettings(false)}
+          onOpenIntegrations={() => {
+            setIntegrationSetupMode("settings");
+            setShowIntegrationSetup(true);
+          }}
+          onOpenPermissions={() => {
+            setPermissionsSetupMode("settings");
+            setShowPermissionsSetup(true);
+          }}
+        />
 
         {/* API Key Configuration Modal — premium welcome flow */}
         {showApiKeyModal && (
@@ -3401,10 +3630,23 @@ export default function ChatPage() {
             <button type="button" className="input-icon-btn" onClick={handleUpload} title={t.sidebar_upload_pdf}>
               <Plus size={18} />
             </button>
-            <button type="button" className={`input-icon-btn${isListening ? " listening" : ""}`}
-              onClick={handleVoice} title={isListening ? t.voice_stop : t.voice_start}>
-              {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+            <button type="button" className={`input-icon-btn voice-btn${isListening ? " listening" : ""}`}
+              onClick={handleVoice} title={isListening ? t.voice_stop : t.voice_start}
+              style={isListening ? { "--audio-level": `${audioLevel}%` } as React.CSSProperties : undefined}>
+              {isListening ? (
+                <>
+                  <span className="voice-rings">
+                    <span className="voice-ring ring-1" />
+                    <span className="voice-ring ring-2" />
+                    <span className="voice-ring ring-3" />
+                  </span>
+                  <MicOff size={18} className="voice-icon-active" />
+                </>
+              ) : <Mic size={18} />}
             </button>
+            {isListening && (
+              <span className="voice-timer">{recordingTime}s</span>
+            )}
             {/* Agent chip — shows current agent, click to switch back to general */}
             {(() => {
               const agent = getAgentById(activeAgentId, customAgents);
@@ -3427,7 +3669,7 @@ export default function ChatPage() {
             })()}
             <textarea
               ref={inputRef}
-              placeholder={isListening ? t.chat_placeholder_recording : (sending ? "🔨 Hammering out a response..." : t.chat_placeholder)}
+              placeholder={isListening ? "🎙️ Listening... speak now (auto-stops after silence)" : (sending ? "🔨 Hammering out a response..." : t.chat_placeholder)}
               value={input}
               onChange={e => {
                 const val = e.target.value;
@@ -3477,9 +3719,61 @@ export default function ChatPage() {
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendCommand(); }
               }}
             />
-            <button type="button" className="send-btn" onClick={() => sendCommand()} disabled={sending || !input.trim()}>
-              <Send size={16} />
+            {sending ? (
+              <button type="button" className="stop-btn" onClick={stopResponse} title="Stop generating">
+                <Square size={14} />
+              </button>
+            ) : (
+              <button type="button" className="send-btn" onClick={() => sendCommand()} disabled={!input.trim()}>
+                <Send size={16} />
+              </button>
+            )}
+          </div>
+          {/* Voice selector — below input bar */}
+          <div className="input-sub-row" ref={voiceMenuRef}>
+            <button
+              type="button"
+              className="voice-selector-pill"
+              onClick={() => setShowVoiceMenu(v => !v)}
+              title="Change voice"
+            >
+              <Volume2 size={11} />
+              <span>{VOICE_OPTIONS.find(v => v.id === selectedVoice)?.label || "Nova"}</span>
             </button>
+            {showVoiceMenu && (
+              <div className="voice-selector-menu">
+                {VOICE_OPTIONS.map(v => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    className={`voice-option${selectedVoice === v.id ? " active" : ""}`}
+                    onClick={() => {
+                      setSelectedVoice(v.id);
+                      localStorage.setItem("hammerlock_voice", v.id);
+                      setShowVoiceMenu(false);
+                      fetch("/api/tts", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: `Hi, I'm ${v.label}.`, voice: v.id }),
+                      }).then(r => {
+                        if (r.ok && r.headers.get("content-type")?.includes("audio")) {
+                          r.blob().then(blob => {
+                            const url = URL.createObjectURL(blob);
+                            const audio = new Audio(url);
+                            audio.onended = () => URL.revokeObjectURL(url);
+                            audio.play();
+                          });
+                        }
+                      }).catch(() => {});
+                    }}
+                  >
+                    <span className="voice-option-name">{v.label}</span>
+                    <span className="voice-option-desc">{v.desc}</span>
+                    {selectedVoice === v.id && <span className="voice-option-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="console-footer">
             <span className="dot" /> {t.chat_footer_encrypted}
@@ -3523,6 +3817,65 @@ export default function ChatPage() {
 
       {/* ---- PERSONAL VAULT PANEL ---- */}
       <PersonalVaultPanel open={showPersonalVaultPanel} onClose={() => setShowPersonalVaultPanel(false)} />
+
+      {/* ---- PERMISSIONS SETUP PANEL ---- */}
+      {showPermissionsSetup && (
+        <PermissionsSetup
+          mode={permissionsSetupMode}
+          onClose={() => {
+            setShowPermissionsSetup(false);
+            // Mark as explored
+            updateVaultData(prev => ({
+              ...prev,
+              settings: { ...(prev.settings || {}), permissions_explored: new Date().toISOString() }
+            })).catch(() => {});
+            setTimeout(() => inputRef.current?.focus(), 100);
+          }}
+          onComplete={() => {
+            setShowPermissionsSetup(false);
+            // Mark permissions as explored
+            updateVaultData(prev => ({
+              ...prev,
+              settings: { ...(prev.settings || {}), permissions_explored: new Date().toISOString() }
+            })).catch(() => {});
+            // Chain to Integration Setup if not yet explored
+            if (!vaultData?.settings?.integrations_explored) {
+              setTimeout(() => {
+                setIntegrationSetupMode("onboarding");
+                setShowIntegrationSetup(true);
+              }, 300);
+            } else {
+              setTimeout(() => inputRef.current?.focus(), 100);
+            }
+          }}
+        />
+      )}
+
+      {/* ---- INTEGRATION SETUP PANEL ---- */}
+      {showIntegrationSetup && (
+        <IntegrationSetup
+          mode={integrationSetupMode}
+          onClose={() => {
+            setShowIntegrationSetup(false);
+            // Mark as explored so we don't show again on next launch
+            updateVaultData(prev => ({
+              ...prev,
+              settings: { ...(prev.settings || {}), integrations_explored: new Date().toISOString() }
+            })).catch(() => {});
+            setTimeout(() => inputRef.current?.focus(), 100);
+          }}
+          onSetupSkill={(_skillName, message) => {
+            setShowIntegrationSetup(false);
+            // Mark as explored
+            updateVaultData(prev => ({
+              ...prev,
+              settings: { ...(prev.settings || {}), integrations_explored: new Date().toISOString() }
+            })).catch(() => {});
+            // Send the setup/test message directly into the chat
+            setTimeout(() => sendCommand(message), 300);
+          }}
+        />
+      )}
 
       {/* ---- FILE VAULT PANEL ---- */}
       {showVaultPanel && (

@@ -48,6 +48,8 @@ export type VaultMessage = {
   actionType?: string;
   /** Whether the OpenClaw action succeeded or failed */
   actionStatus?: "success" | "error";
+  /** Deep link URL to open the created resource in the native app (Notes, Calendar, Reminders) */
+  deepLink?: string;
 };
 
 export type VaultFile = {
@@ -112,21 +114,35 @@ const STORAGE_KEYS = {
   kdfVersion: "vault_kdf_version"
 };
 
-/* ── Session persistence (survives refresh, clears on tab close) ── */
+/* ── Session persistence ──
+ * In Electron: use localStorage so the vault stays unlocked across window
+ * close/reopen cycles (user explicitly locks via Lock button).
+ * In browser: use sessionStorage (clears on tab close for security).
+ */
 const SESSION_KEYS = {
   derivedKey: "hammerlock_session_key",
   salt: "hammerlock_session_salt",
   kdfVersion: "hammerlock_session_kdf",
 };
 
+function sessionStore(): Storage {
+  if (typeof window === "undefined") return sessionStorage;
+  // Electron: persist across window close/reopen
+  const isElectronEnv = typeof navigator !== "undefined" && (
+    navigator.userAgent.includes("Electron") || navigator.userAgent.includes("HammerLock")
+  );
+  return isElectronEnv ? localStorage : sessionStorage;
+}
+
 async function persistSession(key: CryptoKey, salt: Uint8Array, version: KdfVersion) {
   if (typeof window === "undefined") return;
   try {
+    const store = sessionStore();
     const exported = await crypto.subtle.exportKey("raw", key);
     const keyB64 = bytesToBase64(new Uint8Array(exported));
-    sessionStorage.setItem(SESSION_KEYS.derivedKey, keyB64);
-    sessionStorage.setItem(SESSION_KEYS.salt, bytesToBase64(salt));
-    sessionStorage.setItem(SESSION_KEYS.kdfVersion, version);
+    store.setItem(SESSION_KEYS.derivedKey, keyB64);
+    store.setItem(SESSION_KEYS.salt, bytesToBase64(salt));
+    store.setItem(SESSION_KEYS.kdfVersion, version);
   } catch (err) {
     console.warn("[vault] Failed to persist session:", err);
   }
@@ -139,8 +155,9 @@ async function restoreSession(): Promise<{
 } | null> {
   if (typeof window === "undefined") return null;
 
-  const keyB64 = sessionStorage.getItem(SESSION_KEYS.derivedKey);
-  const saltB64 = sessionStorage.getItem(SESSION_KEYS.salt);
+  const store = sessionStore();
+  const keyB64 = store.getItem(SESSION_KEYS.derivedKey);
+  const saltB64 = store.getItem(SESSION_KEYS.salt);
   const encryptedPayload = localStorage.getItem(STORAGE_KEYS.encrypted);
 
   if (!keyB64 || !saltB64 || !encryptedPayload) return null;
@@ -172,9 +189,16 @@ async function restoreSession(): Promise<{
 
 function clearSession() {
   if (typeof window === "undefined") return;
-  sessionStorage.removeItem(SESSION_KEYS.derivedKey);
-  sessionStorage.removeItem(SESSION_KEYS.salt);
-  sessionStorage.removeItem(SESSION_KEYS.kdfVersion);
+  const store = sessionStore();
+  store.removeItem(SESSION_KEYS.derivedKey);
+  store.removeItem(SESSION_KEYS.salt);
+  store.removeItem(SESSION_KEYS.kdfVersion);
+  // Also clear from sessionStorage in case of migration
+  if (store !== sessionStorage) {
+    sessionStorage.removeItem(SESSION_KEYS.derivedKey);
+    sessionStorage.removeItem(SESSION_KEYS.salt);
+    sessionStorage.removeItem(SESSION_KEYS.kdfVersion);
+  }
 }
 /* ── end session persistence ── */
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { openclawCommand } from "@/lib/openclaw-paths";
 
 export async function GET() {
   // Check if at least one cloud LLM provider is configured (env vars)
@@ -25,9 +26,8 @@ export async function GET() {
     const { promisify } = await import("util");
     const execAsync = promisify(exec);
     try {
-      await execAsync("openclaw --profile hammerlock health --json 2>/dev/null", {
-        timeout: 5000,
-      });
+      // Uses shared path resolver: bundled (node_modules/openclaw) > system
+      await execAsync(openclawCommand("health --json") + " 2>/dev/null", { timeout: 5000 });
       gatewayUp = true;
     } catch {
       // Gateway not available
