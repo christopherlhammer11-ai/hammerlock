@@ -713,10 +713,6 @@ export default function LandingPage() {
         <p className="section-subtitle">
           {t.site_sub_openclaw}
         </p>
-        <div className="visual-break" style={{ paddingTop: 0, paddingBottom: 12 }}>
-          <img src="/media/openclaw-superagent.png" alt="The OpenClaw Superagent — 27 native skills, local runtime" className="visual-break-img" loading="lazy" />
-        </div>
-
         {/* Core pillars */}
         <div className="openclaw-pills">
           {[
