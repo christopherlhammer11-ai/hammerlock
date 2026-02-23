@@ -9,8 +9,6 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useI18n, LOCALE_LABELS, type Locale } from "@/lib/i18n";
 
-// Terminal lines are built inside the component to access i18n
-
 // Features array is built inside the component to access i18n
 
 // Steps array is built inside the component to access i18n
@@ -36,14 +34,6 @@ export default function LandingPage() {
   const [expandedUseCase, setExpandedUseCase] = useState<string | null>(null);
   const langRef = useRef<HTMLDivElement>(null);
   const { t, locale, setLocale } = useI18n();
-
-  const terminalLines = [
-    { text: <><span className="prompt">hammerlock &gt;</span> <span className="command">{t.site_term_who}</span></>, delay: 0 },
-    { text: <>{t.site_term_loading} <span className="success">{t.site_term_persona_file}</span></>, delay: 0.3 },
-    { text: <>{t.site_term_persona_desc}</>, delay: 0.6 },
-    { text: <><span className="prompt">hammerlock &gt;</span> <span className="command">{t.site_term_search_cmd}</span></>, delay: 0.9 },
-    { text: <>{t.site_term_search_result} <span className="success">{t.site_term_search_done}</span></>, delay: 1.2 },
-  ];
 
   const features = [
     { icon: '🔐', title: t.site_feat_encrypt_title, body: t.site_feat_encrypt_body,
@@ -316,28 +306,6 @@ export default function LandingPage() {
           <a href="#how" className="btn-secondary">{t.site_cta_how}</a>
         </div>
       </main>
-
-      <section className="terminal-section">
-        <div className="terminal-window">
-          <div className="terminal-bar">
-            <span className="window-dot red" />
-            <span className="window-dot yellow" />
-            <span className="window-dot green" />
-            <span style={{ marginLeft: 12 }}>{t.site_term_session}</span>
-          </div>
-          <div className="terminal-body">
-            {terminalLines.map((line, idx) => (
-              <div
-                key={idx}
-                className="terminal-line"
-                style={{ animationDelay: `${line.delay}s` }}
-              >
-                {line.text}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       <section className="hero-video-section fade-in-section">
         <div className="hero-video-wrapper">
