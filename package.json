@@ -3,7 +3,10 @@
   "version": "0.2.0",
   "description": "🔨🔐 HammerLock AI — your AI, your data, your rules. Privacy-first intelligence with local encryption and zero cloud dependency.",
   "type": "module",
-  "author": { "name": "HammerLock AI", "email": "support@hammerlockai.com" },
+  "author": {
+    "name": "HammerLock AI",
+    "email": "support@hammerlockai.com"
+  },
   "license": "MIT",
   "main": "electron/main.js",
   "bin": {
@@ -29,12 +32,15 @@
     "@anthropic-ai/sdk": "^0.74.0",
     "@noble/hashes": "^1.8.0",
     "@prisma/client": "^5.15.0",
+    "@vercel/analytics": "^1.6.1",
+    "@vercel/speed-insights": "^1.3.1",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
     "lucide-react": "^0.400.0",
     "next": "^14.1.0",
     "openai": "^6.19.0",
+    "openclaw": "^2026.2.9",
     "pdf-parse": "^2.4.5",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
@@ -105,7 +111,16 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "notarize": true,
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "HammerLock AI uses your microphone for voice input and live conversation mode."
+        "NSMicrophoneUsageDescription": "HammerLock AI uses your microphone for voice input and live conversation mode.",
+        "NSCalendarsUsageDescription": "HammerLock AI reads and creates calendar events so your AI assistant can manage your schedule.",
+        "NSCalendarsFullAccessUsageDescription": "HammerLock AI reads and creates calendar events so your AI assistant can manage your schedule.",
+        "NSRemindersUsageDescription": "HammerLock AI creates and manages reminders so your AI assistant can help you stay on track.",
+        "NSRemindersFullAccessUsageDescription": "HammerLock AI creates and manages reminders so your AI assistant can help you stay on track.",
+        "NSContactsUsageDescription": "HammerLock AI accesses your contacts to help send messages, emails, and personalize your experience.",
+        "NSAppleEventsUsageDescription": "HammerLock AI uses Apple Events to interact with Calendar, Notes, Reminders, and other apps on your behalf.",
+        "NSDesktopFolderUsageDescription": "HammerLock AI may access files on your Desktop when you ask it to read or analyze documents.",
+        "NSDocumentsFolderUsageDescription": "HammerLock AI may access files in your Documents folder when you ask it to read or analyze documents.",
+        "NSDownloadsFolderUsageDescription": "HammerLock AI may access your Downloads folder when you ask it to process downloaded files."
       }
     },
     "dmg": {
@@ -140,7 +155,10 @@
       "artifactName": "HammerLock-AI-Setup.${ext}"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "public/hammerlock-logo.png",
       "category": "Office",
       "artifactName": "HammerLock-AI.${ext}",

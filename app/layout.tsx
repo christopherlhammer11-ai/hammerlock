@@ -8,6 +8,8 @@ import { PersonalVaultProvider } from "@/lib/personal-vault-store";
 import { SubscriptionProvider } from "@/lib/subscription-store";
 import { I18nProvider } from "@/lib/i18n";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
@@ -90,6 +92,8 @@ export default function RootLayout({
             `,
           }}
         />
+        <Analytics />
+        <SpeedInsights />
         <Script
           id="sw-register"
           strategy="afterInteractive"
