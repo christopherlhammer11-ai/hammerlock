@@ -503,13 +503,13 @@ main.hero {
 .visual-break {
   display: flex;
   justify-content: center;
-  padding: 20px 8vw 60px;
+  padding: 12px 8vw 12px;
 }
 
 .visual-break-img {
   width: min(680px, 100%);
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: none;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
   transition: transform var(--transition-slow), box-shadow var(--transition-slow);
 }
@@ -521,7 +521,7 @@ main.hero {
 
 @media (max-width: 768px) {
   .visual-break {
-    padding: 16px 4vw 40px;
+    padding: 8px 4vw 8px;
   }
 }
 
