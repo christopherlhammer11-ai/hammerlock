@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        console.log("[webhook] License key derived:", { licenseKey, sessionId: session.id });
+        console.log("[webhook] License key derived for session:", session.id);
       } catch (err) {
         console.error("[webhook] Failed to process checkout:", (err as Error).message);
       }
