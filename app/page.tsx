@@ -339,6 +339,25 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="hero-video-section fade-in-section">
+        <div className="hero-video-wrapper">
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            poster="/brand/hammerlock-og-banner.jpg"
+            className="hero-video"
+          >
+            <source src="/videos/hammerlock-hero-final.mp4" type="video/mp4" />
+          </video>
+          <div className="hero-video-overlay">
+            <span className="hero-video-badge">See it in action</span>
+          </div>
+        </div>
+      </section>
+
       <section className="usecases fade-in-section">
         <div className="section-label">{t.site_section_usecases}</div>
         <h2>{t.site_usecases_h2}</h2>

@@ -428,6 +428,84 @@ main.hero {
   justify-content: center;
 }
 
+/* ── Hero Video Section ── */
+.hero-video-section {
+  padding: 0 8vw 100px;
+  display: flex;
+  justify-content: center;
+}
+
+.hero-video-wrapper {
+  position: relative;
+  width: min(900px, 100%);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-glow), 0 20px 80px rgba(0, 0, 0, 0.6);
+  transition: box-shadow var(--transition-slow), transform var(--transition-slow);
+}
+
+.hero-video-wrapper:hover {
+  box-shadow: 0 0 80px rgba(0, 255, 136, 0.25), 0 20px 80px rgba(0, 0, 0, 0.6);
+  transform: translateY(-2px);
+}
+
+.hero-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+}
+
+.hero-video-overlay {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  pointer-events: none;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.hero-video-wrapper:hover .hero-video-overlay {
+  opacity: 0;
+}
+
+.hero-video-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hero-video-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@media (max-width: 768px) {
+  .hero-video-section {
+    padding: 0 4vw 60px;
+  }
+}
+
 .terminal-window {
   width: min(720px, 100%);
   background: var(--bg-card);
