@@ -8,6 +8,12 @@ import { useI18n } from "@/lib/i18n";
 
 const DMG_URL =
   "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest/download/HammerLock-AI.dmg";
+const EXE_URL =
+  "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest/download/HammerLock-AI-Setup.exe";
+const APPIMAGE_URL =
+  "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest/download/HammerLock-AI.AppImage";
+const DEB_URL =
+  "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest/download/HammerLock-AI.deb";
 
 export default function GetAppPage() {
   const { t } = useI18n();
@@ -55,55 +61,95 @@ export default function GetAppPage() {
       <div className="success-downloads">
         <h2>{t.site_getapp_heading}</h2>
         <p className="success-hint">{t.site_getapp_choose}</p>
+        {!unlocked ? (
+          <form className="download-email-gate" onSubmit={handleUnlock} style={{ marginBottom: 28 }}>
+            <p className="email-gate-label">
+              <Mail size={14} /> Enter your email to unlock downloads
+            </p>
+            <div className="email-gate-row">
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="email-gate-input"
+                required
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="btn-primary download-btn"
+                disabled={loading}
+              >
+                {loading ? "..." : <><Download size={16} /> Unlock</>}
+              </button>
+            </div>
+            {error && <p className="email-gate-error">{error}</p>}
+            <p className="email-gate-fine">
+              We&apos;ll only email you about major updates. No spam, ever.
+            </p>
+          </form>
+        ) : null}
+
         <div className="download-grid">
+          {/* macOS */}
           <div className="download-card">
             <div className="download-card-icon"><Monitor size={28} /></div>
-            <h3>{t.site_getapp_desktop}</h3>
-            <p>{t.site_getapp_desktop_desc}</p>
-
-            {!unlocked ? (
-              <form className="download-email-gate" onSubmit={handleUnlock}>
-                <p className="email-gate-label">
-                  <Mail size={14} /> Enter your email to download
-                </p>
-                <div className="email-gate-row">
-                  <input
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="email-gate-input"
-                    required
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    className="btn-primary download-btn"
-                    disabled={loading}
-                  >
-                    {loading ? "..." : <><Download size={16} /> Get DMG</>}
-                  </button>
-                </div>
-                {error && <p className="email-gate-error">{error}</p>}
-                <p className="email-gate-fine">
-                  We&apos;ll only email you about major updates. No spam, ever.
-                </p>
-              </form>
-            ) : (
+            <h3>macOS</h3>
+            <p>Native desktop app for Mac. Drag to Applications and launch.</p>
+            {unlocked ? (
               <>
-                <a
-                  href={DMG_URL}
-                  className="btn-primary download-btn"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Download size={16} /> {t.site_getapp_download_mac}
+                <a href={DMG_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer">
+                  <Download size={16} /> Download DMG
                 </a>
-                <span className="download-meta">{t.site_getapp_mac_meta} &middot; Apple Silicon &amp; Intel</span>
+                <span className="download-meta">macOS 12+ &middot; Apple Silicon &amp; Intel</span>
               </>
+            ) : (
+              <span className="download-meta" style={{ opacity: 0.5 }}>Enter email above to unlock</span>
             )}
           </div>
 
+          {/* Windows */}
+          <div className="download-card">
+            <div className="download-card-icon"><Monitor size={28} /></div>
+            <h3>Windows</h3>
+            <p>Full desktop installer for Windows. Run the setup wizard and launch.</p>
+            {unlocked ? (
+              <>
+                <a href={EXE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer">
+                  <Download size={16} /> Download EXE
+                </a>
+                <span className="download-meta">Windows 10+ &middot; 64-bit</span>
+              </>
+            ) : (
+              <span className="download-meta" style={{ opacity: 0.5 }}>Enter email above to unlock</span>
+            )}
+          </div>
+
+          {/* Linux */}
+          <div className="download-card">
+            <div className="download-card-icon"><Terminal size={28} /></div>
+            <h3>Linux</h3>
+            <p>Available as AppImage (universal) or .deb package for Debian/Ubuntu.</p>
+            {unlocked ? (
+              <>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <a href={APPIMAGE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }}>
+                    <Download size={14} /> AppImage
+                  </a>
+                  <a href={DEB_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }}>
+                    <Download size={14} /> .deb
+                  </a>
+                </div>
+                <span className="download-meta">Ubuntu 20.04+ &middot; 64-bit</span>
+              </>
+            ) : (
+              <span className="download-meta" style={{ opacity: 0.5 }}>Enter email above to unlock</span>
+            )}
+          </div>
+        </div>
+
+        <div className="download-grid" style={{ marginTop: 16 }}>
           <div className="download-card">
             <div className="download-card-icon"><Globe size={28} /></div>
             <h3>{t.site_getapp_web}</h3>
