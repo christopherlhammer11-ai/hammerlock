@@ -64,11 +64,22 @@ export async function POST(req: NextRequest) {
     const origin = req.headers.get("origin") || "https://hammerlockai.com";
     const quantity = config.perSeat ? Math.max(1, seats || 5) : 1;
 
+    // Read UTM cookie for conversion attribution
+    const utmCookie = req.cookies.get("hlk_utm");
+    let utmMeta: Record<string, string> = {};
+    if (utmCookie?.value) {
+      try { utmMeta = JSON.parse(utmCookie.value); } catch { /* ignore */ }
+    }
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: config.mode,
       line_items: [{ price: priceId, quantity }],
       success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}&plan=${encodeURIComponent(plan)}`,
       cancel_url: `${origin}/#pricing`,
+      metadata: {
+        plan,
+        ...utmMeta,
+      },
     };
 
     // Add trial for subscriptions

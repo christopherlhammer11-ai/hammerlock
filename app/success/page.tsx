@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSubscription, SubscriptionTier } from "@/lib/subscription-store";
 import { useI18n } from "@/lib/i18n";
+import { track } from "@vercel/analytics";
 
 function SuccessContent() {
   const params = useSearchParams();
@@ -33,6 +34,7 @@ function SuccessContent() {
     }
     activateSubscription(tier, sessionId);
     setActivated(true);
+    track("purchase_complete", { plan: planParam || "unknown", tier });
   }, [sessionId, planParam, activated, subscription.sessionId, activateSubscription]);
 
   // Fetch license key from server (with retry for webhook timing)

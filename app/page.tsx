@@ -8,6 +8,7 @@ import { QRCodeSVG } from "qrcode.react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useI18n, LOCALE_LABELS, type Locale } from "@/lib/i18n";
+import { track } from "@vercel/analytics";
 
 // Features array is built inside the component to access i18n
 
@@ -32,6 +33,8 @@ export default function LandingPage() {
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
   const [expandedUseCase, setExpandedUseCase] = useState<string | null>(null);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const langRef = useRef<HTMLDivElement>(null);
   const { t, locale, setLocale } = useI18n();
 
@@ -190,6 +193,7 @@ export default function LandingPage() {
 
   const handleCheckout = async (plan: string) => {
     setCheckoutLoading(plan);
+    track("checkout_initiated", { plan });
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
@@ -268,7 +272,7 @@ export default function LandingPage() {
         <button className="nav-hamburger" onClick={() => setMobileNavOpen(true)} aria-label="Open menu">
           <Menu size={20} />
         </button>
-        <a href="#pricing" className="btn-primary">{t.site_cta}</a>
+        <a href="#pricing" className="btn-primary" onClick={() => track("cta_click", { location: "nav", label: "get_started" })}>{t.site_cta}</a>
       </nav>
 
       {mobileNavOpen && (
@@ -302,8 +306,8 @@ export default function LandingPage() {
           {t.site_hero_sub}
         </p>
         <div className="hero-cta">
-          <a href="#pricing" className="btn-primary">{t.site_cta_trial}</a>
-          <a href="#how" className="btn-secondary">{t.site_cta_how}</a>
+          <a href="#pricing" className="btn-primary" onClick={() => track("cta_click", { location: "hero", label: "get_started" })}>{t.site_cta_trial}</a>
+          <a href="#how" className="btn-secondary" onClick={() => track("cta_click", { location: "hero", label: "how_it_works" })}>{t.site_cta_how}</a>
         </div>
       </main>
 
@@ -858,6 +862,77 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* NEWSLETTER SIGNUP */}
+      <section className="newsletter-section fade-in-section" style={{
+        padding: '60px 24px', borderTop: '1px solid rgba(255,255,255,0.04)',
+        textAlign: 'center',
+      }}>
+        <div style={{ maxWidth: 560, margin: '0 auto' }}>
+          <div className="section-label">Stay Updated</div>
+          <h2 style={{ fontSize: '1.6rem', marginBottom: 8 }}>Privacy-first AI news, direct to you</h2>
+          <p className="section-subtitle" style={{ marginBottom: 24 }}>
+            Product updates, local AI tips, and privacy research. No spam — just signal. Unsubscribe anytime.
+          </p>
+          {newsletterStatus === "success" ? (
+            <div style={{
+              padding: '16px 24px', background: 'rgba(0,255,136,0.08)',
+              border: '1px solid rgba(0,255,136,0.25)', borderRadius: 10,
+              color: 'var(--accent)', fontSize: '0.95rem', fontWeight: 600,
+            }}>
+              You&apos;re in! Watch your inbox for updates.
+            </div>
+          ) : (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const trimmed = newsletterEmail.trim();
+                if (!trimmed || !trimmed.includes("@")) return;
+                setNewsletterStatus("loading");
+                try {
+                  await fetch("/api/newsletter", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: trimmed }),
+                  });
+                  setNewsletterStatus("success");
+                  track("newsletter_signup", { location: "landing_page" });
+                } catch {
+                  setNewsletterStatus("error");
+                }
+              }}
+              style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}
+            >
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
+                required
+                style={{
+                  flex: '1 1 260px', maxWidth: 340, padding: '12px 16px',
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 8, color: 'var(--text-primary)', fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={newsletterStatus === "loading"}
+                style={{ padding: '12px 28px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+              >
+                {newsletterStatus === "loading" ? "..." : "Subscribe"}
+              </button>
+            </form>
+          )}
+          {newsletterStatus === "error" && (
+            <p style={{ color: '#ff6b6b', fontSize: '0.85rem', marginTop: 8 }}>
+              Something went wrong. Please try again.
+            </p>
+          )}
+        </div>
+      </section>
+
       <section id="cta" className="final-cta fade-in-section">
         <div className="final-cta-card">
           <h2>{t.site_cta_final}</h2>
@@ -865,8 +940,8 @@ export default function LandingPage() {
             {t.site_cta_final_sub}
           </p>
           <div className="cta-buttons">
-            <a href="#pricing" className="btn-primary">{t.site_cta}</a>
-            <a href="https://github.com/christopherlhammer11-ai/hammerlock" target="_blank" rel="noreferrer" className="btn-secondary">{t.site_github}</a>
+            <a href="#pricing" className="btn-primary" onClick={() => track("cta_click", { location: "footer_cta", label: "get_started" })}>{t.site_cta}</a>
+            <a href="https://github.com/christopherlhammer11-ai/hammerlock" target="_blank" rel="noreferrer" className="btn-secondary" onClick={() => track("cta_click", { location: "footer_cta", label: "github" })}>{t.site_github}</a>
           </div>
           <p className="contact-line">{t.site_footer_contact} <a href="mailto:info@hammerlockai.com">info@hammerlockai.com</a></p>
         </div>

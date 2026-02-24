@@ -5,6 +5,7 @@ import { Download, ExternalLink, Globe, Lock, Mail, Monitor, Shield, Smartphone,
 import Image from "next/image";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
+import { track } from "@vercel/analytics";
 
 const DMG_URL =
   "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest/download/HammerLock-AI.dmg";
@@ -38,6 +39,7 @@ export default function GetAppPage() {
         body: JSON.stringify({ email: trimmed, source: "get-app", platform: "mac" }),
       });
       setUnlocked(true);
+      track("download_email_submitted", { source: "get-app" });
     } catch {
       // Still unlock even if API fails — don't block the download
       setUnlocked(true);
@@ -99,7 +101,7 @@ export default function GetAppPage() {
             <p>Native desktop app for Mac. Drag to Applications and launch.</p>
             {unlocked ? (
               <>
-                <a href={DMG_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer">
+                <a href={DMG_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("download_clicked", { platform: "macos", format: "dmg" })}>
                   <Download size={16} /> Download DMG
                 </a>
                 <span className="download-meta">macOS 12+ &middot; Apple Silicon &amp; Intel</span>
@@ -116,7 +118,7 @@ export default function GetAppPage() {
             <p>Full desktop installer for Windows. Run the setup wizard and launch.</p>
             {unlocked ? (
               <>
-                <a href={EXE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer">
+                <a href={EXE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("download_clicked", { platform: "windows", format: "exe" })}>
                   <Download size={16} /> Download EXE
                 </a>
                 <span className="download-meta">Windows 10+ &middot; 64-bit</span>
@@ -134,10 +136,10 @@ export default function GetAppPage() {
             {unlocked ? (
               <>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <a href={APPIMAGE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }}>
+                  <a href={APPIMAGE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }} onClick={() => track("download_clicked", { platform: "linux", format: "appimage" })}>
                     <Download size={14} /> AppImage
                   </a>
-                  <a href={DEB_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }}>
+                  <a href={DEB_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }} onClick={() => track("download_clicked", { platform: "linux", format: "deb" })}>
                     <Download size={14} /> .deb
                   </a>
                 </div>
