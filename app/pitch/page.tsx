@@ -445,7 +445,7 @@ export default function PitchDeck() {
               color: "var(--accent)",
               letterSpacing: "0.02em",
             }}>
-              Seed Round &mdash; $6M
+              Pre-Seed &mdash; $250K
             </div>
           </div>
           <div className="pitch-scroll-hint" style={{
@@ -1224,7 +1224,7 @@ export default function PitchDeck() {
           <div style={innerStyle}>
             <SectionTag text="The Ask" />
             <h2 style={h2}>
-              <span style={{ color: "var(--accent)" }}>$6M</span> Seed Round — 18-24 Month Runway
+              <span style={{ color: "var(--accent)" }}>$250K</span> Pre-Seed — 12 Month Runway
             </h2>
             <div style={{
               marginTop: 28,
@@ -1234,10 +1234,10 @@ export default function PitchDeck() {
               background: "var(--bg-card)",
             }}>
               <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 20 }}>Use of Funds</h4>
-              <FundBar label="Engineering" pct={40} amount="$2.4M (40%)" />
-              <FundBar label="Go-to-Market" pct={30} amount="$1.8M (30%)" />
-              <FundBar label="Security & Compliance" pct={20} amount="$1.2M (20%)" />
-              <FundBar label="Buffer" pct={10} amount="$600K (10%)" />
+              <FundBar label="Engineering" pct={40} amount="$100K (40%)" />
+              <FundBar label="Go-to-Market" pct={30} amount="$75K (30%)" />
+              <FundBar label="Security & Compliance" pct={20} amount="$50K (20%)" />
+              <FundBar label="Buffer" pct={10} amount="$25K (10%)" />
             </div>
             <div style={{ marginTop: 24 }}>
               <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Milestones This Round Funds</h4>
@@ -1247,10 +1247,10 @@ export default function PitchDeck() {
                 gap: 12,
               }}>
                 {[
-                  { value: "$5M", label: "ARR from Pro, Teams, Enterprise" },
-                  { value: "25", label: "Enterprise contracts signed" },
+                  { value: "$500K", label: "ARR from Pro, Teams, Enterprise" },
+                  { value: "1,000", label: "Paid seats across all tiers" },
                   { value: "Mobile", label: "GA on iOS + Android with encrypted sync" },
-                  { value: "SOC2", label: "Type II certification completed" },
+                  { value: "Seed", label: "Readiness with metrics to raise $3-5M" },
                 ].map((m, i) => (
                   <div key={i} style={{
                     textAlign: "center",

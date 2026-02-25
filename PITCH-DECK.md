@@ -10,7 +10,7 @@
 
 Private, encrypted AI for professionals who can't afford to leak.
 
-**Seed Round — $6M**
+**Pre-Seed — $250K**
 
 ---
 
@@ -258,24 +258,23 @@ Private, encrypted AI for professionals who can't afford to leak.
 
 ## Slide 13: The Ask
 
-### $6M Seed Round — 18-24 Month Runway
+### $250K Pre-Seed — 12 Month Runway
 
 **Use of Funds:**
 
 | Category | Allocation | Purpose |
 |----------|-----------|---------|
-| **Engineering** | 40% ($2.4M) | Mobile GA, enterprise control plane, encrypted sync, Windows hardening |
-| **Go-to-Market** | 30% ($1.8M) | Creator partnerships, enterprise sales, conference presence, content |
-| **Security & Compliance** | 20% ($1.2M) | SOC2 Type II, HIPAA BAA, penetration testing, FedRAMP prep |
-| **Buffer** | 10% ($600K) | Operational flexibility |
+| **Engineering** | 40% ($100K) | Mobile GA, encrypted sync, Windows hardening |
+| **Go-to-Market** | 30% ($75K) | Creator partnerships, content, conference presence |
+| **Security & Compliance** | 20% ($50K) | Penetration testing, SOC2 prep |
+| **Buffer** | 10% ($25K) | Operational flexibility |
 
 **Milestones this round funds:**
 
-- **$5M ARR** from Pro, Teams, and Enterprise
-- **25 enterprise contracts** signed
+- **$500K ARR** from Pro, Teams, and Enterprise
+- **1,000 paid seats** across all tiers
 - **Mobile GA** on iOS and Android with encrypted sync
-- **SOC2 Type II** certification completed
-- **Series A readiness** with clear path to $20M+ ARR
+- **Seed readiness** with metrics to raise $3-5M
 
 ---
 
