@@ -7882,3 +7882,40 @@ footer .trust-badge {
   font-size: 0.7rem;
   color: var(--text-muted);
 }
+
+/* ============================================================
+   Pitch Deck
+   ============================================================ */
+
+@media print {
+  body::before { display: none !important; }
+  .pitch-nav, .pitch-dots, .pitch-scroll-hint { display: none !important; }
+  .pitch-container {
+    overflow: visible !important;
+    scroll-snap-type: none !important;
+    height: auto !important;
+  }
+  .pitch-slide {
+    min-height: auto !important;
+    scroll-snap-align: unset !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    padding: 40px 32px !important;
+  }
+  .pitch-slide:last-child {
+    page-break-after: avoid !important;
+  }
+  * {
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .pitch-slide { padding: 80px 20px 48px !important; }
+  .pitch-table-scroll { font-size: 13px; }
+  .pitch-grid-2 { grid-template-columns: 1fr !important; }
+  .pitch-metrics-row { flex-wrap: wrap; }
+  .pitch-dots { display: none !important; }
+}
