@@ -312,7 +312,7 @@ const PublicPage = ({ onLogin }: { onLogin: () => void }) => {
   const [submitted, setSubmitted] = useState(false);
   const [referralCode, setReferralCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const formRef = useRef(null) as React.RefObject<HTMLDivElement>;
+  const formRef = useRef<HTMLDivElement>(null);
 
   const tiers = [
     { name: "Nano", range: "1K\u201310K", rate: "30\u201340%", type: "Rev-share", color: COLORS.blue },
