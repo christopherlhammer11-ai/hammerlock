@@ -310,6 +310,9 @@ const Ring = ({ pct, size = 80, stroke = 6, color = COLORS.accent }: RingProps) 
 const PublicPage = ({ onLogin }: { onLogin: () => void }) => {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const formRef = useRef(null) as React.RefObject<HTMLDivElement>;
 
   const tiers = [
     { name: "Nano", range: "1K\u201310K", rate: "30\u201340%", type: "Rev-share", color: COLORS.blue },
@@ -640,16 +643,23 @@ const PublicPage = ({ onLogin }: { onLogin: () => void }) => {
               >
                 <Icon type="check" size={32} />
               </div>
-              <p style={{ color: COLORS.textDim, fontSize: 16 }}>
+              <p style={{ color: COLORS.textDim, fontSize: 16, marginBottom: 16 }}>
                 We&apos;ll review your application and get back to you within 24 hours with your affiliate link and
                 dashboard access.
               </p>
+              {referralCode && (
+                <div style={{ background: "rgba(0,229,160,0.1)", border: `1px solid ${COLORS.accent}40`, borderRadius: 8, padding: "12px 16px", marginTop: 12 }}>
+                  <p style={{ fontSize: 12, color: COLORS.textDim, margin: "0 0 4px" }}>Your referral code:</p>
+                  <p style={{ fontSize: 20, fontFamily: "monospace", color: COLORS.accent, margin: 0, fontWeight: 700 }}>{referralCode}</p>
+                </div>
+              )}
             </div>
           ) : (
             <>
               <p style={{ textAlign: "center", color: COLORS.textDim, marginBottom: 28, fontSize: 14 }}>
                 Takes 60 seconds. We review every application within 24 hours.
               </p>
+              <div ref={formRef}>
               {[
                 { label: "Your Name", placeholder: "Full name", type: "text" },
                 { label: "Email", placeholder: "you@example.com", type: "email" },
@@ -701,8 +711,31 @@ const PublicPage = ({ onLogin }: { onLogin: () => void }) => {
                   )}
                 </div>
               ))}
-              <Btn size="lg" style={{ width: "100%", justifyContent: "center", marginTop: 8 }} onClick={() => setSubmitted(true)}>
-                Submit Application <Icon type="arrow" size={18} />
+              </div>
+              <Btn size="lg" style={{ width: "100%", justifyContent: "center", marginTop: 8 }} onClick={async () => {
+                if (submitting) return;
+                setSubmitting(true);
+                try {
+                  const inputs = formRef.current?.querySelectorAll("input, textarea") as NodeListOf<HTMLInputElement | HTMLTextAreaElement>;
+                  const fields = Array.from(inputs).map((el) => el.value.trim());
+                  const [name, emailVal, platform, handle, audienceSize, reason] = fields;
+                  if (!name || !emailVal) { alert("Name and email are required."); setSubmitting(false); return; }
+                  const res = await fetch("/api/partner-apply", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, email: emailVal, platform, handle, audienceSize, reason }),
+                  });
+                  const data = await res.json();
+                  if (data.ok) {
+                    setReferralCode(data.referralCode || "");
+                    setSubmitted(true);
+                  } else {
+                    alert(data.error || "Something went wrong.");
+                  }
+                } catch (err) { alert("Network error. Please try again."); }
+                setSubmitting(false);
+              }}>
+                {submitting ? "Submitting..." : "Submit Application"} <Icon type="arrow" size={18} />
               </Btn>
             </>
           )}
