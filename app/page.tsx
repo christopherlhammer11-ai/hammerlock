@@ -995,7 +995,7 @@ export default function LandingPage() {
               <a href="mailto:info@hammerlockai.com" style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600 }}>info@hammerlockai.com</a>
               <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Customer Service &amp; Sales</span>
               <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Enterprise Inquiries</span>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Partnership Opportunities</span>
+              <a href="/alliance" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.82rem' }}>Partnership Opportunities</a>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: 4 }}>We typically respond within 24 hours.</span>
             </div>
 

@@ -1,5 +1,5 @@
 "use client";
-
+// HammerLock Alliance Portal v2
 import { useState, useEffect, useRef } from "react";
 
 // ===================================================================
@@ -368,7 +368,7 @@ const PublicPage = ({ onLogin }: { onLogin: () => void }) => {
             <Icon type="shield" size={20} />
           </div>
           <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.5 }}>
-            HammerLock <span style={{ color: COLORS.accent }}>Partners</span>
+            HammerLock <span style={{ color: COLORS.accent }}>Alliance</span>
           </span>
         </div>
         <Btn variant="ghost" size="sm" onClick={onLogin}>
@@ -407,7 +407,7 @@ const PublicPage = ({ onLogin }: { onLogin: () => void }) => {
               marginBottom: 24,
             }}
           >
-            <Icon type="lock" size={14} /> &nbsp;Privacy-First AI &middot; Affiliate Program
+            <Icon type="lock" size={14} /> &nbsp;Privacy-First AI &middot; Alliance Program
           </div>
           <h1
             style={{
