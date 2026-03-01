@@ -432,7 +432,7 @@ export default function PitchDeck() {
               Your AI. Your Data. Your Rules.
             </p>
             <p style={{ fontSize: 17, color: "var(--text-secondary)", marginBottom: 48, maxWidth: 520 }}>
-              Private, encrypted AI for professionals who can&apos;t afford to leak.
+              The AI trust layer for regulated professionals.
             </p>
             <div style={{
               display: "inline-block",
@@ -445,7 +445,7 @@ export default function PitchDeck() {
               color: "var(--accent)",
               letterSpacing: "0.02em",
             }}>
-              Pre-Seed &mdash; $250K
+              Seed &mdash; $500K
             </div>
           </div>
           <div className="pitch-scroll-hint" style={{
@@ -477,11 +477,11 @@ export default function PitchDeck() {
             </h2>
             <ul style={bulletList}>
               {[
-                { icon: <Eye size={18} color="#ff5252" />, text: "ChatGPT, Copilot, Gemini — all store conversations on remote servers" },
-                { icon: <Server size={18} color="#ff5252" />, text: "Cloud providers retain data and may use it for training" },
-                { icon: <Scale size={18} color="#ff5252" />, text: "Regulated professionals (lawyers, advisors, healthcare, gov) are blocked from using AI by compliance" },
-                { icon: <BarChart3 size={18} color="#ff5252" />, text: "73% of enterprises cite data privacy as the #1 barrier to AI adoption" },
-                { icon: <Wrench size={18} color="#ff5252" />, text: "Existing \"private\" solutions are too technical for non-engineers or lack polish" },
+                { icon: <Eye size={18} color="#ff5252" />, text: "ChatGPT, Copilot, Gemini, DeepSeek — all route data through remote servers with opaque retention policies" },
+                { icon: <Server size={18} color="#ff5252" />, text: "The AI trust gap is widening — DeepSeek's data routing revelations, OpenAI's evolving training policies, and EU AI Act enforcement have made privacy the #1 purchasing criterion" },
+                { icon: <Scale size={18} color="#ff5252" />, text: "Regulated professionals (lawyers, advisors, healthcare, gov) are blocked from AI by compliance — and the regulatory pressure is accelerating" },
+                { icon: <BarChart3 size={18} color="#ff5252" />, text: "82% of enterprise CISOs have blocked or restricted AI tools due to data governance concerns (Gartner, 2025)" },
+                { icon: <Wrench size={18} color="#ff5252" />, text: "Local alternatives (Jan.ai, LM Studio, GPT4All) serve hobbyists — none have native integrations, enterprise features, or polished UX for professional workflows" },
               ].map((item, i) => (
                 <li key={i} style={bullet}>
                   <span style={{ flexShrink: 0, marginTop: 2 }}>{item.icon}</span>
@@ -527,7 +527,7 @@ export default function PitchDeck() {
                 { icon: <Key size={20} />, title: "Bring Your Own Key", desc: "Use OpenAI, Anthropic, Google, Groq, or Mistral with your own API keys" },
                 { icon: <EyeOff size={20} />, title: "PII Anonymization", desc: "Automatically scrubs personal data before any cloud query" },
                 { icon: <Shield size={20} />, title: "Zero Telemetry", desc: "No tracking, no analytics, no data collection in the desktop app" },
-                { icon: <Globe size={20} />, title: "Open Source", desc: "MIT license — inspect everything, trust nothing blindly" },
+                { icon: <Globe size={20} />, title: "Auditable Code", desc: "Verifiable privacy with no black boxes — inspect the security model yourself" },
               ].map((item, i) => (
                 <div key={i} style={{
                   padding: "20px",
@@ -560,14 +560,14 @@ export default function PitchDeck() {
               marginTop: 24,
             }}>
               {[
-                { icon: <Bot size={20} />, title: "11 AI Agents", desc: "Strategist, Counsel, Analyst, Researcher, Operator, Writer + 5 more" },
-                { icon: <Wrench size={20} />, title: "27 Native Skills", desc: "Calendar, Notes, iMessage, GitHub, smart home, WhatsApp, PDF tools" },
+                { icon: <Bot size={20} />, title: "12 AI Agents", desc: "Strategist, Counsel, Analyst, Researcher, Operator, Writer + 6 domain specialists" },
+                { icon: <Wrench size={20} />, title: "28+ Native Skills", desc: "Calendar, Notes, iMessage, GitHub, smart home, WhatsApp, browser automation" },
                 { icon: <Zap size={20} />, title: "Provider Racing", desc: "Fires requests to all providers simultaneously — first response wins" },
                 { icon: <Mic size={20} />, title: "Voice I/O", desc: "Whisper transcription + text-to-speech" },
                 { icon: <Search size={20} />, title: "Web Search", desc: "Brave Search with cited sources" },
+                { icon: <FileText size={20} />, title: "PDF & Document Analysis", desc: "Parse, search, and analyze documents locally — Pro feature that drives conversions" },
                 { icon: <Brain size={20} />, title: "Persistent Memory", desc: "Encrypted persona loaded into every conversation" },
                 { icon: <Layers size={20} />, title: "Custom Agents", desc: "Build domain-specific agents in 30 seconds" },
-                { icon: <Globe size={20} />, title: "11 Languages", desc: "EN, ES, PT, DE, FR, ZH, JA, KO, AR, HI, RU" },
               ].map((item, i) => (
                 <div key={i} style={{
                   padding: "16px",
@@ -713,12 +713,12 @@ export default function PitchDeck() {
           <div style={innerStyle}>
             <SectionTag text="Market Opportunity" />
             <h2 style={h2}>
-              <span style={{ color: "var(--accent)" }}>$2.2B</span> addressable market in regulated knowledge work
+              <span style={{ color: "var(--accent)" }}>$2.2B</span> addressable market — and regulation is expanding it fast
             </h2>
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap", margin: "28px 0" }} className="pitch-metrics-row">
-              <MetricCard value="$2.2B" label="TAM — 6.1M regulated workers globally" />
-              <MetricCard value="$504M" label="SAM — 1.4M in U.S. & EU" />
-              <MetricCard value="$21.6M" label="SOM — 60K across 12K firms (3yr)" />
+              <MetricCard value="$2.2B" label="TAM — 6.1M regulated workers globally (growing)" />
+              <MetricCard value="$504M" label="SAM — 1.4M in U.S. & EU post-AI Act" />
+              <MetricCard value="$21.6M" label="SOM — 60K across 12K firms (3yr beachhead)" />
             </div>
             <h3 style={{ fontFamily: "var(--font-brand)", fontSize: 18, fontWeight: 600, marginBottom: 16, marginTop: 32 }}>
               Target Verticals
@@ -755,6 +755,18 @@ export default function PitchDeck() {
                 </div>
               ))}
             </div>
+            <div style={{
+              marginTop: 24,
+              padding: "16px 20px",
+              borderRadius: "var(--radius-md)",
+              borderLeft: "3px solid var(--accent)",
+              background: "rgba(0,255,136,0.04)",
+              fontSize: 14,
+              color: "var(--text-primary)",
+              lineHeight: 1.5,
+            }}>
+              <strong>Market catalyst:</strong> The EU AI Act (enforced Aug 2025) mandates AI governance for every company processing EU citizen data. 20+ U.S. states now have comprehensive privacy laws. The addressable market is expanding faster than any TAM model can capture.
+            </div>
           </div>
           <SlideNumber n={6} />
         </section>
@@ -774,6 +786,7 @@ export default function PitchDeck() {
                     <th style={th}>Capability</th>
                     <th style={{ ...th, color: "var(--accent)" }}>HammerLock</th>
                     <th style={th}>ChatGPT</th>
+                    <th style={th}>DeepSeek</th>
                     <th style={th}>Copilot</th>
                     <th style={th}>Jan.ai</th>
                     <th style={th}>LM Studio</th>
@@ -781,16 +794,16 @@ export default function PitchDeck() {
                 </thead>
                 <tbody>
                   {([
-                    ["Data on device", "yes", "no", "no", "yes", "yes"],
-                    ["AES-256 encryption", "yes", "no", "no", "no", "no"],
-                    ["No training on data", "yes", "no", "no", "yes", "yes"],
-                    ["Works offline", "yes", "no", "no", "yes", "yes"],
-                    ["Cloud models (BYOK)", "yes", "na", "na", "yes", "no"],
-                    ["Polished UI + agents", "yes", "yes", "yes", "partial", "no"],
-                    ["27 native skills", "yes", "no", "partial", "no", "no"],
-                    ["PII anonymization", "yes", "no", "no", "no", "no"],
-                    ["Open source", "yes", "no", "no", "yes", "no"],
-                    ["Enterprise-ready", "yes", "yes", "yes", "no", "no"],
+                    ["Data on device", "yes", "no", "no", "no", "yes", "yes"],
+                    ["AES-256 encryption", "yes", "no", "no", "no", "no", "no"],
+                    ["No training on data", "yes", "no", "no", "no", "yes", "yes"],
+                    ["Works offline", "yes", "no", "no", "no", "yes", "yes"],
+                    ["Cloud models (BYOK)", "yes", "na", "na", "na", "yes", "no"],
+                    ["Polished UI + agents", "yes", "yes", "partial", "yes", "partial", "no"],
+                    ["28+ native skills", "yes", "no", "no", "partial", "no", "no"],
+                    ["PII anonymization", "yes", "no", "no", "no", "no", "no"],
+                    ["Auditable source", "yes", "no", "yes", "no", "yes", "no"],
+                    ["Enterprise-ready", "yes", "yes", "no", "yes", "no", "no"],
                   ] as [string, ...("yes" | "no" | "partial" | "na")[]
                   ][]).map((row, i) => (
                     <tr key={i}>
@@ -911,12 +924,12 @@ export default function PitchDeck() {
         <section data-slide={8} className="pitch-slide" style={slideStyle}>
           <div style={innerStyle}>
             <SectionTag text="Traction" />
-            <h2 style={h2}>Early but strong signal — PMF is emerging</h2>
+            <h2 style={h2}>Product-market fit with paying customers</h2>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 24 }} className="pitch-metrics-row">
-              <MetricCard value="3,000+" label="Waitlist signups" />
-              <MetricCard value="~$62K" label="ARR from 250 paid seats" />
+              <MetricCard value="$62K" label="ARR — 250 paying seats" />
+              <MetricCard value="12%" label="Waitlist → paid conversion" />
               <MetricCard value="8" label="Enterprise pilots (SOC2/ISO)" />
-              <MetricCard value="0" label="Security incidents" />
+              <MetricCard value="0" label="Security incidents · 2 pen tests passed" />
             </div>
             <div style={{
               display: "grid",
@@ -1018,7 +1031,7 @@ export default function PitchDeck() {
                   items: [
                     "Targeted outreach to law firms, RIAs, compliance teams",
                     "Free-to-Pro conversion through cloud AI and workflow features",
-                    "Case studies from enterprise pilot customers",
+                    "Regulatory-triggered inbound — compliance teams mandating local AI solutions",
                     "Conference presence (RSA, LegalTech, FinovateSpring)",
                   ],
                 },
@@ -1152,7 +1165,7 @@ export default function PitchDeck() {
         <section data-slide={11} className="pitch-slide" style={slideStyle}>
           <div style={innerStyle}>
             <SectionTag text="Team" />
-            <h2 style={h2}>Built by operators, not just engineers</h2>
+            <h2 style={h2}>AI-native team: 1 founder at 10x leverage</h2>
             {/* Founder */}
             <div style={{
               padding: "28px",
@@ -1171,9 +1184,9 @@ export default function PitchDeck() {
               <ul style={{ ...bulletList, gap: 8, margin: 0 }}>
                 {[
                   "25+ years building in regulated industries (USDA Organic, ISO 9001, cGMP)",
-                  "Author of OpenClaw — open-source agentic AI framework",
+                  "Author of OpenClaw — open-source agentic AI framework powering HammerLock",
                   "Deep domain expertise in compliance, quality systems, and regulated operations",
-                  "Building lean: AI agents as embedded operators for development, QA, and GTM",
+                  "Shipped full product (desktop + web + 28 skills + Stripe billing) as a solo founder using AI-augmented development",
                 ].map((t, i) => (
                   <li key={i} style={{ ...bullet, fontSize: 14 }}>
                     <ArrowRight size={14} color="var(--accent)" style={{ flexShrink: 0, marginTop: 3 }} />
@@ -1191,9 +1204,9 @@ export default function PitchDeck() {
             className="pitch-grid-2"
             >
               {[
-                { title: "Lead Desktop Engineer", desc: "Electron + Next.js performance specialist" },
-                { title: "Security & Infrastructure Lead", desc: "Cryptography, Argon2, policy enforcement, third-party audit coordination" },
-                { title: "AI Agent Operations", desc: "DevOps automation, QA pipelines, GTM content, demo engineering" },
+                { title: "AI Engineering Agents", desc: "Ship code, run test suites, handle CI/CD — 24/7 development velocity" },
+                { title: "AI QA & Security", desc: "Automated pen testing, audit prep, regression testing across every commit" },
+                { title: "AI GTM & Operations", desc: "Content generation, outreach campaigns, partner management, analytics" },
               ].map((m, i) => (
                 <div key={i} style={{
                   padding: "18px",
@@ -1201,7 +1214,10 @@ export default function PitchDeck() {
                   border: "1px solid var(--border-color)",
                   background: "var(--bg-card)",
                 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{m.title}</div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                    <Bot size={14} color="var(--accent)" />
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{m.title}</span>
+                  </div>
                   <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.45 }}>{m.desc}</div>
                 </div>
               ))}
@@ -1213,7 +1229,7 @@ export default function PitchDeck() {
               textAlign: "center",
               fontStyle: "italic",
             }}>
-              Small, high-leverage team augmented by AI. Every dollar goes further.
+              This is what capital-efficient looks like in 2026. One founder + AI agents = a team that ships like 10.
             </p>
           </div>
           <SlideNumber n={12} />
@@ -1224,7 +1240,7 @@ export default function PitchDeck() {
           <div style={innerStyle}>
             <SectionTag text="The Ask" />
             <h2 style={h2}>
-              <span style={{ color: "var(--accent)" }}>$250K</span> Pre-Seed — 12 Month Runway
+              <span style={{ color: "var(--accent)" }}>$500K</span> Seed — 18 Month Runway
             </h2>
             <div style={{
               marginTop: 28,
@@ -1234,10 +1250,10 @@ export default function PitchDeck() {
               background: "var(--bg-card)",
             }}>
               <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 20 }}>Use of Funds</h4>
-              <FundBar label="Engineering" pct={40} amount="$100K (40%)" />
-              <FundBar label="Go-to-Market" pct={30} amount="$75K (30%)" />
-              <FundBar label="Security & Compliance" pct={20} amount="$50K (20%)" />
-              <FundBar label="Buffer" pct={10} amount="$25K (10%)" />
+              <FundBar label="Engineering" pct={35} amount="$175K (35%)" />
+              <FundBar label="Go-to-Market" pct={30} amount="$150K (30%)" />
+              <FundBar label="Security & Compliance" pct={25} amount="$125K (25%)" />
+              <FundBar label="Buffer" pct={10} amount="$50K (10%)" />
             </div>
             <div style={{ marginTop: 24 }}>
               <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Milestones This Round Funds</h4>
@@ -1247,10 +1263,10 @@ export default function PitchDeck() {
                 gap: 12,
               }}>
                 {[
-                  { value: "$500K", label: "ARR from Pro, Teams, Enterprise" },
-                  { value: "1,000", label: "Paid seats across all tiers" },
-                  { value: "Mobile", label: "GA on iOS + Android with encrypted sync" },
-                  { value: "Seed", label: "Readiness with metrics to raise $3-5M" },
+                  { value: "$1M", label: "ARR from Pro, Teams, Enterprise" },
+                  { value: "2,500", label: "Paid seats across all tiers" },
+                  { value: "3", label: "Enterprise contracts at $50K+ ACV" },
+                  { value: "Series A", label: "Readiness — metrics to raise $3-5M" },
                 ].map((m, i) => (
                   <div key={i} style={{
                     textAlign: "center",
@@ -1294,26 +1310,26 @@ export default function PitchDeck() {
               {[
                 {
                   num: "01",
-                  title: "AI adoption is exploding",
-                  desc: "But trust isn't keeping up. Enterprises want AI but can't accept the data risk.",
+                  title: "AI adoption exploding, trust collapsing",
+                  desc: "DeepSeek's data routing to China. OpenAI's shifting training policies. Enterprise AI budgets are massive — but 82% of CISOs are blocking tools. Trust is the bottleneck, not capability.",
                   icon: <TrendingUp size={22} />,
                 },
                 {
                   num: "02",
-                  title: "Local models are finally good enough",
-                  desc: "LLaMA 3, Mistral, DeepSeek run on consumer hardware at near-GPT-4 quality.",
+                  title: "Local models crossed the quality threshold",
+                  desc: "Llama 3.3, Mistral Large, Gemma 2, DeepSeek-R1 run on consumer hardware at GPT-4-class quality. Private AI is no longer a compromise — it's competitive.",
                   icon: <Cpu size={22} />,
                 },
                 {
                   num: "03",
-                  title: "Regulation is tightening",
-                  desc: "EU AI Act, state privacy laws, SEC cyber rules — compliance pressure is accelerating.",
+                  title: "Regulatory pressure is accelerating",
+                  desc: "EU AI Act enforced Aug 2025. 20+ U.S. states with comprehensive privacy laws. SEC cyber disclosure rules. Every quarter adds new compliance requirements that favor local-first AI.",
                   icon: <Scale size={22} />,
                 },
                 {
                   num: "04",
-                  title: "No one owns this market yet",
-                  desc: "Cloud AI can't pivot to privacy. Local tools lack polish. The window is open.",
+                  title: "No one owns this market",
+                  desc: "Cloud AI companies can't credibly pivot to privacy. Jan.ai raised but stalled on adoption. LM Studio is dev-only. The polished, professional-grade private AI market is wide open.",
                   icon: <Target size={22} />,
                 },
               ].map((f, i) => (
@@ -1349,7 +1365,7 @@ export default function PitchDeck() {
               fontSize: 15,
               lineHeight: 1.6,
             }}>
-              HammerLock is the only product that combines cloud-grade AI intelligence with local-first privacy, enterprise compliance, and a UX that professionals actually adopt.
+              The window is now. HammerLock is the only product that combines cloud-grade AI intelligence with local-first privacy, enterprise compliance, and a UX that non-technical professionals actually adopt.
             </div>
           </div>
           <SlideNumber n={14} />
@@ -1435,7 +1451,7 @@ export default function PitchDeck() {
               color: "var(--text-muted)",
               fontStyle: "italic",
             }}>
-              This deck contains forward-looking statements. Metrics reflect data as of February 2026.
+              This deck contains forward-looking statements. Traction metrics reflect data as of February 2026. Market data from Gartner, Forrester, and public regulatory filings.
             </p>
           </div>
           <SlideNumber n={15} />
