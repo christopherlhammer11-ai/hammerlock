@@ -15,7 +15,11 @@ const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
 
 const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 20 });
 
-/** CORS headers — allow desktop app (localhost) to call this endpoint */
+/**
+ * CORS headers — wildcard is intentional here.
+ * Desktop Electron app calls from unpredictable localhost ports / file:// origins.
+ * Security is enforced via rate limiting + license key validation, not origin restriction.
+ */
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",

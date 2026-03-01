@@ -269,9 +269,9 @@ export async function POST(req: Request) {
       messageCount: messages.length,
     });
   } catch (error) {
-    console.error("Report generation error:", (error as Error).message);
+    console.error("[report] Generation error:", (error as Error).message);
     return NextResponse.json(
-      { error: "Failed to generate report: " + (error as Error).message },
+      { error: "Report generation failed. Please try again." },
       { status: 500 }
     );
   }

@@ -128,6 +128,33 @@ export default function LandingPage() {
     },
   ];
 
+  const testimonials = [
+    {
+      emoji: "🚀", name: "Sarah M.", role: "CEO, Early-Stage Startup", category: "Startup",
+      quote: "I replaced three separate SaaS subscriptions with HammerLock. Email drafting, scheduling, and market research — all from one encrypted chat that never touches the cloud.",
+    },
+    {
+      emoji: "⚖️", name: "David R.", role: "Immigration Attorney", category: "Legal",
+      quote: "Client confidentiality isn't optional. I parse case documents and research precedents without any data leaving my laptop. My clients' information stays exactly where it should.",
+    },
+    {
+      emoji: "📊", name: "Priya K.", role: "CPA, Self-Employed", category: "Finance",
+      quote: "I analyze sensitive financial documents locally — no cloud uploads, no compliance headaches. My clients trust me because I can prove their data never left my machine.",
+    },
+    {
+      emoji: "🎙️", name: "Marcus T.", role: "Head of Ops, Remote Team", category: "Operations",
+      quote: "Voice commands, smart home control, and calendar management — I run my entire morning routine hands-free. It's like having a chief of staff that respects my privacy.",
+    },
+    {
+      emoji: "🔒", name: "Elena W.", role: "Senior Software Engineer", category: "Privacy",
+      quote: "Finally an AI assistant that doesn't train on my conversations. I use it daily for code review and documentation — knowing my proprietary code stays private.",
+    },
+    {
+      emoji: "🏪", name: "James L.", role: "Small Business Owner", category: "Small Biz",
+      quote: "Customer emails, inventory reminders, daily task lists — all managed from one place. The encryption means I don't worry about my business data ending up in someone's training set.",
+    },
+  ];
+
   // Close language picker on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -610,6 +637,31 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Testimonials ── */}
+      <section className="testimonials fade-in-section">
+        <div className="section-label">REAL STORIES</div>
+        <h2>Trusted by people who take privacy seriously</h2>
+        <p className="section-subtitle">
+          From solo founders to law firms, people are switching to HammerLock AI
+          because their data deserves better than the cloud.
+        </p>
+        <div className="testimonials-grid">
+          {testimonials.map((item) => (
+            <div key={item.name} className="testimonial-card">
+              <div className="testimonial-category">{item.category}</div>
+              <p className="testimonial-quote">&ldquo;{item.quote}&rdquo;</p>
+              <div className="testimonial-author">
+                <span className="testimonial-avatar">{item.emoji}</span>
+                <div>
+                  <div className="testimonial-name">{item.name}</div>
+                  <div className="testimonial-role">{item.role}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <section id="how" className="timeline-section fade-in-section">
         <div className="timeline-header">
           <div className="section-label">{t.site_section_how}</div>
@@ -749,8 +801,8 @@ export default function LandingPage() {
               { icon: '🌊', title: 'Real-Time Streaming', desc: 'Tokens stream to your screen as they generate. No more staring at loading spinners — see the AI think in real time.', blogLabel: 'Speed benchmarks →', blogHref: '/blog/token-streaming.html' },
               { icon: '🔑', title: 'Bring Your Own Keys', desc: 'Use your own API keys from any provider. Pay the providers directly at their rates. No markup, no middleman, no data routing through us.', blogLabel: 'API key guide →', blogHref: '/blog/byok-guide.html' },
               { icon: '🛡️', title: 'PII Anonymization', desc: 'Built-in anonymizer strips personal data before it reaches any cloud API. Names, emails, phone numbers — automatically redacted and restored.', blogLabel: 'Privacy architecture →', blogHref: '/blog/privacy-architecture.html' },
-              { icon: '🌐', title: 'Browser Automation & Grok', desc: 'Dedicated browser instance controlled from chat. Navigate websites, automate tasks, and use SuperGrok/ChatGPT/Perplexity directly through HammerLock.', blogLabel: 'Browser guide →', blogHref: '/blog/browser-automation.html' },
-              { icon: '📱', title: '27 Native Skills', desc: 'Apple Calendar, Reminders, Notes, iMessage, email, GitHub, smart home (Hue, Sonos), WhatsApp, weather, PDF tools — all running through the local OpenClaw gateway.', blogLabel: 'Skills list →', blogHref: '/blog/skills-guide.html' },
+              { icon: '🌐', title: 'Browser Automation & Grok', desc: 'Dedicated browser instance controlled from chat. Navigate websites, automate tasks, and use SuperGrok/ChatGPT/Perplexity directly through HammerLock.' },
+              { icon: '📱', title: '28 Native Skills', desc: 'Apple Calendar, Reminders, Notes, iMessage, email, GitHub, smart home (Hue, Sonos), WhatsApp, weather, PDF tools — all running through the local OpenClaw gateway.' },
             ].map((item) => (
               <div key={item.title} style={{
                 padding: '20px 24px', background: 'rgba(17,17,17,0.6)',
@@ -760,7 +812,7 @@ export default function LandingPage() {
                 <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>{item.icon}</div>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 6, color: 'var(--text-primary)' }}>{item.title}</h4>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>{item.desc}</p>
-                <a href={item.blogHref} style={{ display: 'inline-block', marginTop: 10, fontSize: '0.78rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>{item.blogLabel}</a>
+                {item.blogHref && <a href={item.blogHref} style={{ display: 'inline-block', marginTop: 10, fontSize: '0.78rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>{item.blogLabel}</a>}
               </div>
             ))}
           </div>

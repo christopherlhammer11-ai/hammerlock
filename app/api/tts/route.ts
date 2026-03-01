@@ -92,7 +92,7 @@ export async function POST(req: Request) {
       console.error("[tts] OpenAI TTS error:", response.status, errBody.slice(0, 300));
 
       // If rate limited or error, signal fallback
-      return NextResponse.json({ fallback: true, error: errBody.slice(0, 200) }, { status: 200 });
+      return NextResponse.json({ fallback: true, error: "Text-to-speech failed. Using browser fallback." }, { status: 200 });
     }
 
     // Stream the audio response back
@@ -114,6 +114,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ fallback: true, error: "TTS timed out" }, { status: 200 });
     }
 
-    return NextResponse.json({ fallback: true, error: msg }, { status: 200 });
+    return NextResponse.json({ fallback: true, error: "Text-to-speech failed. Using browser fallback." }, { status: 200 });
   }
 }

@@ -7,12 +7,20 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { createRateLimiter } from "@/lib/rate-limit";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_AUDIENCE_ID = process.env.RESEND_AUDIENCE_ID;
+const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 5 });
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const limited = limiter.check(ip);
+    if (limited) {
+      return NextResponse.json({ error: "Too many requests." }, { status: 429 });
+    }
+
     const { email } = await req.json();
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
@@ -24,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     const normalized = email.trim().toLowerCase();
 
-    console.log(
+    console.warn(
       `[newsletter] ${normalized} | ${new Date().toISOString()}`
     );
 
@@ -38,7 +46,7 @@ export async function POST(req: NextRequest) {
           firstName: "",
           unsubscribed: false,
         });
-        console.log(`[newsletter] Added to Resend audience: ${normalized}`);
+        console.warn(`[newsletter] Added to Resend audience: ${normalized}`);
       } catch (resendError) {
         // Contact may already exist — that's fine
         console.error("[newsletter] Resend error:", (resendError as Error).message);

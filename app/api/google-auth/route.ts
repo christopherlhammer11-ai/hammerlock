@@ -202,9 +202,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
   } catch (err) {
-    const message = (err as Error).message || "Unknown error";
-    console.error("[google-auth]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[google-auth] Error:", (err as Error).message);
+    return NextResponse.json({ error: "Authentication failed. Please try again." }, { status: 500 });
   }
 }
 

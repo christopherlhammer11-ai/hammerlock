@@ -7,15 +7,18 @@
     "name": "HammerLock AI",
     "email": "support@hammerlockai.com"
   },
-  "license": "MIT",
+  "license": "UNLICENSED",
+  "private": true,
   "main": "electron/main.js",
   "bin": {
     "hammerlock": "bin/hammerlock.js"
   },
   "scripts": {
     "setup": "./scripts/install.sh",
-    "lint": "echo 'Add linting later'",
-    "test": "echo 'No tests yet' && exit 0",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -40,7 +43,7 @@
     "lucide-react": "^0.400.0",
     "next": "^14.1.0",
     "openai": "^6.19.0",
-    "openclaw": "^2026.2.9",
+    "openclaw": "^2026.2.23",
     "pdf-parse": "^2.4.5",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
@@ -53,22 +56,25 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@types/node": "25.2.2",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.2.2",
     "@types/react": "19.2.13",
     "electron": "^40.4.0",
     "electron-builder": "^26.7.0",
+    "eslint": "^10.0.2",
     "prisma": "^5.15.0",
-    "typescript": "^5.4.2"
+    "typescript": "^5.4.2",
+    "typescript-eslint": "^8.56.1",
+    "vitest": "^4.0.18"
   },
   "build": {
     "appId": "com.hammerlock.app",
     "productName": "HammerLock AI",
-    "asar": false,
+    "asar": true,
     "directories": {
       "output": "dist-electron"
     },
     "files": [
-      ".env.local",
       "electron/**/*",
       "app/**/*",
       "lib/**/*",

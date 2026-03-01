@@ -38,7 +38,8 @@ export async function GET() {
     const due = tasks.filter(t => shouldFireNow(t, now));
     return NextResponse.json({ due, total: tasks.length });
   } catch (err) {
-    return NextResponse.json({ due: [], total: 0, error: (err as Error).message });
+    console.error("[schedules] GET error:", (err as Error).message);
+    return NextResponse.json({ due: [], total: 0, error: "Schedule check failed. Please try again." });
   }
 }
 
@@ -73,6 +74,7 @@ export async function POST(req: Request) {
     await writeSchedules(updated);
     return NextResponse.json({ success: true, task: firedTask });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    console.error("[schedules] POST error:", (err as Error).message);
+    return NextResponse.json({ error: "Schedule update failed. Please try again." }, { status: 500 });
   }
 }

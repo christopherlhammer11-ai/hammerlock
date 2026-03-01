@@ -1,6 +1,6 @@
-// 🔨🔐 HammerLock AI — API Engine
-// The brain behind the operation. Routes queries, scrubs PII, fetches weather,
-// searches the web, and talks to LLMs — all while keeping your data locked down.
+// HammerLock AI — API Engine
+// Routes queries, scrubs PII, fetches weather, searches the web, and talks to
+// LLMs — all while keeping user data encrypted locally.
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -26,6 +26,13 @@ import {
   DAY_NAMES,
   SCHEDULES_VAULT_KEY,
 } from "@/lib/schedules";
+import {
+  loadCredentials,
+  searchCredentials,
+  addCredential,
+  findCredentialForSite,
+  listCredentials,
+} from "@/lib/credential-store";
 
 // Load user env from ~/.hammerlock/.env (for Electron packaged builds)
 // Note: If .env is encrypted, keys are loaded on vault unlock via /api/vault-session
@@ -164,7 +171,8 @@ async function loadPersonaText() {
     }
     cachedPersona = raw;
     return cachedPersona;
-  } catch {
+  } catch (err) {
+    console.warn("[persona] primary load failed, trying vault fallback:", (err as Error).message);
     try {
       const raw = await fs.readFile(vaultJsonPath, "utf8");
       const parsed = JSON.parse(raw);
@@ -174,7 +182,7 @@ async function loadPersonaText() {
         return cachedPersona;
       }
     } catch {
-      /* ignore */
+      /* vault.json also missing — fresh install */
     }
   }
   return "";
@@ -191,7 +199,38 @@ async function appendToPersona(line: string): Promise<string> {
       existing = raw;
     }
   } catch { /* new file */ }
-  const updated = existing ? `${existing}\n${line}` : line;
+
+  // --- Deduplication ---
+  const trimmed = line.trim();
+  const lines = existing.split("\n");
+
+  // 1. Exact duplicate check (case-insensitive) — skip if already present
+  if (lines.some(l => l.trim().toLowerCase() === trimmed.toLowerCase())) {
+    cachedPersona = existing;
+    return existing;
+  }
+
+  // 2. Key-based replacement: if the new line starts with a known key like
+  //    "Location:", "Name:", "Role:", "Timezone:", etc., replace the old line
+  //    with the same key rather than creating a duplicate.
+  const REPLACEABLE_KEYS = /^(location|name|role|timezone|city|email|phone|company|job|title|age|birthday|wife|husband|spouse|partner|dog|cat|pet)[\s:]/i;
+  const keyMatch = trimmed.match(REPLACEABLE_KEYS);
+  let updated: string;
+
+  if (keyMatch) {
+    const keyPrefix = keyMatch[1].toLowerCase();
+    const keyPattern = new RegExp(`^${keyPrefix}[\\s:]`, "i");
+    const replaced = lines.map(l => keyPattern.test(l.trim()) ? trimmed : l);
+    // If no existing line was replaced, append the new line
+    if (replaced.every((l, i) => l === lines[i])) {
+      updated = existing ? `${existing}\n${trimmed}` : trimmed;
+    } else {
+      updated = replaced.join("\n");
+    }
+  } else {
+    updated = existing ? `${existing}\n${trimmed}` : trimmed;
+  }
+
   await fs.mkdir(path.dirname(personaPath), { recursive: true });
   const toWrite = hasServerSessionKey() ? encryptForFile(updated) : updated;
   await fs.writeFile(personaPath, toWrite, "utf8");
@@ -212,39 +251,66 @@ const WMO_CODES: Record<number, string> = {
   95: "Thunderstorm", 96: "Thunderstorm with light hail", 99: "Thunderstorm with heavy hail",
 };
 
-// Simple city → lat/lon lookup for common US cities (extend as needed)
-const CITY_COORDS: Record<string, [number, number]> = {
-  "san ramon": [37.7799, -121.978],
-  "san francisco": [37.7749, -122.4194],
-  "los angeles": [34.0522, -118.2437],
-  "new york": [40.7128, -74.0060],
-  "seattle": [47.6062, -122.3321],
-  "austin": [30.2672, -97.7431],
-  "chicago": [41.8781, -87.6298],
-  "denver": [39.7392, -104.9903],
-  "miami": [25.7617, -80.1918],
-  "portland": [45.5152, -122.6784],
-  "san jose": [37.3382, -121.8863],
-  "oakland": [37.8044, -122.2712],
-  "sacramento": [38.5816, -121.4944],
-  "san diego": [32.7157, -117.1611],
-  "dublin": [37.7159, -121.9358],
-  "pleasanton": [37.6604, -121.8758],
-  "walnut creek": [37.9101, -122.0652],
-  "danville": [37.8216, -121.9999],
+// Unified city database — lat/lon for weather, state/zip for search enrichment
+const CITY_DB: Record<string, { lat?: number; lon?: number; st: string; zip: string }> = {
+  // California — Bay Area
+  "san ramon": { lat: 37.7799, lon: -121.978, st: "CA", zip: "94583" },
+  "san francisco": { lat: 37.7749, lon: -122.4194, st: "CA", zip: "94102" },
+  "san jose": { lat: 37.3382, lon: -121.8863, st: "CA", zip: "95112" },
+  "oakland": { lat: 37.8044, lon: -122.2712, st: "CA", zip: "94607" },
+  "dublin": { lat: 37.7159, lon: -121.9358, st: "CA", zip: "94568" },
+  "pleasanton": { lat: 37.6604, lon: -121.8758, st: "CA", zip: "94566" },
+  "walnut creek": { lat: 37.9101, lon: -122.0652, st: "CA", zip: "94596" },
+  "danville": { lat: 37.8216, lon: -121.9999, st: "CA", zip: "94526" },
+  "sacramento": { lat: 38.5816, lon: -121.4944, st: "CA", zip: "95814" },
+  // California — Other
+  "los angeles": { lat: 34.0522, lon: -118.2437, st: "CA", zip: "90001" },
+  "san diego": { lat: 32.7157, lon: -117.1611, st: "CA", zip: "92101" },
+  "palo alto": { st: "CA", zip: "94301" }, "fremont": { st: "CA", zip: "94536" },
+  "livermore": { st: "CA", zip: "94550" }, "hayward": { st: "CA", zip: "94541" },
+  "berkeley": { st: "CA", zip: "94704" }, "cupertino": { st: "CA", zip: "95014" },
+  "sunnyvale": { st: "CA", zip: "94086" }, "mountain view": { st: "CA", zip: "94040" },
+  "santa clara": { st: "CA", zip: "95050" }, "redwood city": { st: "CA", zip: "94061" },
+  "menlo park": { st: "CA", zip: "94025" }, "concord": { st: "CA", zip: "94520" },
+  "antioch": { st: "CA", zip: "94509" },
+  // Major US cities
+  "new york": { lat: 40.7128, lon: -74.0060, st: "NY", zip: "10001" },
+  "brooklyn": { st: "NY", zip: "11201" }, "manhattan": { st: "NY", zip: "10001" },
+  "queens": { st: "NY", zip: "11101" },
+  "chicago": { lat: 41.8781, lon: -87.6298, st: "IL", zip: "60601" },
+  "houston": { st: "TX", zip: "77001" }, "dallas": { st: "TX", zip: "75201" },
+  "austin": { lat: 30.2672, lon: -97.7431, st: "TX", zip: "78701" },
+  "san antonio": { st: "TX", zip: "78201" },
+  "phoenix": { st: "AZ", zip: "85001" },
+  "seattle": { lat: 47.6062, lon: -122.3321, st: "WA", zip: "98101" },
+  "portland": { lat: 45.5152, lon: -122.6784, st: "OR", zip: "97201" },
+  "denver": { lat: 39.7392, lon: -104.9903, st: "CO", zip: "80201" },
+  "miami": { lat: 25.7617, lon: -80.1918, st: "FL", zip: "33101" },
+  "tampa": { st: "FL", zip: "33601" }, "orlando": { st: "FL", zip: "32801" },
+  "atlanta": { st: "GA", zip: "30301" }, "boston": { st: "MA", zip: "02101" },
+  "detroit": { st: "MI", zip: "48201" }, "minneapolis": { st: "MN", zip: "55401" },
+  "nashville": { st: "TN", zip: "37201" }, "las vegas": { st: "NV", zip: "89101" },
+  "charlotte": { st: "NC", zip: "28201" }, "raleigh": { st: "NC", zip: "27601" },
+  "columbus": { st: "OH", zip: "43201" }, "cleveland": { st: "OH", zip: "44101" },
+  "pittsburgh": { st: "PA", zip: "15201" }, "philadelphia": { st: "PA", zip: "19101" },
+  "baltimore": { st: "MD", zip: "21201" }, "washington": { st: "DC", zip: "20001" },
+  "st louis": { st: "MO", zip: "63101" }, "kansas city": { st: "MO", zip: "64101" },
+  "indianapolis": { st: "IN", zip: "46201" }, "milwaukee": { st: "WI", zip: "53201" },
+  "salt lake city": { st: "UT", zip: "84101" },
 };
 
 function getCoordsForLocation(location: string | null): [number, number] | null {
   if (!location) return null;
   const lower = location.toLowerCase().replace(/,?\s*(ca|tx|ny|fl|wa|il|az|or|co|ga|ma)\b.*$/i, "").trim();
-  return CITY_COORDS[lower] || null;
+  const entry = CITY_DB[lower];
+  return entry?.lat && entry?.lon ? [entry.lat, entry.lon] : null;
 }
 
 async function fetchWeatherData(lat: number, lon: number): Promise<string | null> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,rain,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=7&timezone=America/Los_Angeles`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,rain,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=7&timezone=auto`;
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
     if (!res.ok) return null;
@@ -271,7 +337,8 @@ async function fetchWeatherData(lat: number, lon: number): Promise<string | null
     }
 
     return forecast;
-  } catch {
+  } catch (err) {
+    console.warn("[weather] fetch failed:", (err as Error).message);
     return null;
   }
 }
@@ -461,12 +528,12 @@ interface ProviderConfig {
 }
 
 const PROVIDERS: ProviderConfig[] = [
-  { name: "OpenAI",   endpoint: "https://api.openai.com/v1/chat/completions",    keyEnv: "OPENAI_API_KEY",    modelEnv: "OPENAI_MODEL",    defaultModel: "gpt-4o-mini",                format: "openai",    timeout: 15000, staggerMs: 0   },
-  { name: "Groq",     endpoint: "https://api.groq.com/openai/v1/chat/completions", keyEnv: "GROQ_API_KEY",    modelEnv: "GROQ_MODEL",      defaultModel: "llama-3.3-70b-versatile",    format: "openai",    timeout: 15000, staggerMs: 100 },
-  { name: "Anthropic", endpoint: "https://api.anthropic.com/v1/messages",         keyEnv: "ANTHROPIC_API_KEY", modelEnv: "ANTHROPIC_MODEL", defaultModel: "claude-sonnet-4-5-20250929", format: "anthropic", timeout: 15000, staggerMs: 200 },
-  { name: "Gemini",   endpoint: (model: string, key: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, keyEnv: "GEMINI_API_KEY", modelEnv: "GEMINI_MODEL", defaultModel: "gemini-2.0-flash", format: "gemini", timeout: 15000, staggerMs: 400 },
-  { name: "Mistral",  endpoint: "https://api.mistral.ai/v1/chat/completions",    keyEnv: "MISTRAL_API_KEY",   modelEnv: "MISTRAL_MODEL",   defaultModel: "mistral-small-latest",       format: "openai",    timeout: 15000, staggerMs: 500 },
-  { name: "DeepSeek", endpoint: "https://api.deepseek.com/chat/completions",      keyEnv: "DEEPSEEK_API_KEY",  modelEnv: "DEEPSEEK_MODEL",  defaultModel: "deepseek-chat",              format: "openai",    timeout: 15000, staggerMs: 600 },
+  { name: "Gemini",   endpoint: (model: string, key: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, keyEnv: "GEMINI_API_KEY", modelEnv: "GEMINI_MODEL", defaultModel: "gemini-2.5-flash", format: "gemini", timeout: 15000, staggerMs: 0   },
+  { name: "OpenAI",   endpoint: "https://api.openai.com/v1/chat/completions",    keyEnv: "OPENAI_API_KEY",    modelEnv: "OPENAI_MODEL",    defaultModel: "gpt-4o-mini",                format: "openai",    timeout: 15000, staggerMs: 3000 },
+  { name: "Groq",     endpoint: "https://api.groq.com/openai/v1/chat/completions", keyEnv: "GROQ_API_KEY",    modelEnv: "GROQ_MODEL",      defaultModel: "llama-3.3-70b-versatile",    format: "openai",    timeout: 15000, staggerMs: 3500 },
+  { name: "Anthropic", endpoint: "https://api.anthropic.com/v1/messages",         keyEnv: "ANTHROPIC_API_KEY", modelEnv: "ANTHROPIC_MODEL", defaultModel: "claude-sonnet-4-5-20250929", format: "anthropic", timeout: 15000, staggerMs: 4000 },
+  { name: "Mistral",  endpoint: "https://api.mistral.ai/v1/chat/completions",    keyEnv: "MISTRAL_API_KEY",   modelEnv: "MISTRAL_MODEL",   defaultModel: "mistral-small-latest",       format: "openai",    timeout: 15000, staggerMs: 4500 },
+  { name: "DeepSeek", endpoint: "https://api.deepseek.com/chat/completions",      keyEnv: "DEEPSEEK_API_KEY",  modelEnv: "DEEPSEEK_MODEL",  defaultModel: "deepseek-chat",              format: "openai",    timeout: 15000, staggerMs: 5000 },
 ];
 
 function buildProviderRequest(
@@ -498,13 +565,23 @@ function buildProviderRequest(
       { role: "user", parts: [{ text: userMsg }] },
     ];
     const url = typeof config.endpoint === "function" ? config.endpoint(model, apiKey) : config.endpoint;
-    const streamUrl = stream ? url.replace(":generateContent", ":streamGenerateContent?alt=sse&") : url;
+    const streamUrl = stream ? url.replace(":generateContent?", ":streamGenerateContent?alt=sse&") : url;
+    // Gemini 2.5 Flash is a "thinking" model — its default unlimited thinking
+    // causes 6-10s delays before the first token. Setting thinkingBudget: 0
+    // disables thinking and cuts time-to-first-token to ~2s (3x faster).
+    // Quality remains excellent for chat — thinking is mainly needed for
+    // complex reasoning tasks.
+    const isThinkingModel = model.includes("2.5");
     return {
       url: streamUrl,
       init: {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: systemPrompt }] }, contents }),
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          ...(isThinkingModel ? { generationConfig: { thinkingConfig: { thinkingBudget: 0 } } } : {}),
+        }),
       },
     };
   }
@@ -648,38 +725,79 @@ async function callProviderStream(
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+
+    // Helper: parse buffered lines and extract text deltas
+    function parseLines(lines: string[]): string[] {
+      const deltas: string[] = [];
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith(":")) continue;
+        if (trimmed === "data: [DONE]") return deltas; // end marker
+        if (trimmed.startsWith("data: ")) {
+          try {
+            const json = JSON.parse(trimmed.slice(6));
+            if (config.format === "ollama" && json.done) return deltas;
+            const delta = extractStreamDelta(config, json);
+            if (delta) deltas.push(delta);
+          } catch { /* skip malformed JSON chunks */ }
+        } else if (config.format === "ollama") {
+          try {
+            const json = JSON.parse(trimmed);
+            if (json.done) return deltas;
+            const delta = extractStreamDelta(config, json);
+            if (delta) deltas.push(delta);
+          } catch { /* skip */ }
+        }
+      }
+      return deltas;
+    }
+
+    // ── Validate first chunk: read from the raw stream until we get at least
+    // one non-empty text delta. This prevents empty/erroring streams from
+    // "winning" the provider race. If the stream ends without producing any
+    // text, return null so the race continues with other providers.
+    const prefetchedDeltas: string[] = [];
+    let streamDone = false;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const { done, value } = await reader.read();
+      if (done) { streamDone = true; break; }
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      const newDeltas = parseLines(lines);
+      prefetchedDeltas.push(...newDeltas);
+      if (prefetchedDeltas.length > 0) break; // got real text — this provider works
+    }
+    if (prefetchedDeltas.length === 0) {
+      // Stream ended or produced no text — don't let this win the race
+      reader.cancel();
+      return null;
+    }
+
+    // Build a simple ReadableStream that emits prefetched deltas first,
+    // then continues reading from the provider stream until done.
     const textStream = new ReadableStream<string>({
-      async pull(ctrl) {
+      async start(ctrl) {
+        // Emit prefetched deltas
+        for (const d of prefetchedDeltas) ctrl.enqueue(d);
+        if (streamDone) { ctrl.close(); return; }
+        // Continue reading the raw provider stream
         try {
-          const { done, value } = await reader.read();
-          if (done) { ctrl.close(); return; }
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith(":")) continue;
-            if (trimmed === "data: [DONE]") { ctrl.close(); return; }
-            if (trimmed.startsWith("data: ")) {
-              try {
-                const json = JSON.parse(trimmed.slice(6));
-                if (config.format === "ollama" && json.done) { ctrl.close(); return; }
-                const delta = extractStreamDelta(config, json);
-                if (delta) ctrl.enqueue(delta);
-              } catch { /* skip malformed JSON chunks */ }
-            } else if (config.format === "ollama") {
-              try {
-                const json = JSON.parse(trimmed);
-                if (json.done) { ctrl.close(); return; }
-                const delta = extractStreamDelta(config, json);
-                if (delta) ctrl.enqueue(delta);
-              } catch { /* skip */ }
-            }
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            const deltas = parseLines(lines);
+            for (const d of deltas) ctrl.enqueue(d);
           }
         } catch (err) {
-          if ((err as Error).name !== "AbortError") ctrl.error(err);
-          else ctrl.close();
+          if ((err as Error).name !== "AbortError") {
+            console.warn(`[stream] read error: ${(err as Error).message}`);
+          }
         }
+        ctrl.close();
       },
       cancel() { reader.cancel(); },
     });
@@ -716,14 +834,6 @@ async function callOllama(systemPrompt: string, prompt: string) {
   }
 }
 
-async function callOpenAI(systemPrompt: string, prompt: string) {
-  return callProvider(PROVIDERS[0], systemPrompt, [], prompt);
-}
-
-async function callAnthropic(systemPrompt: string, prompt: string) {
-  return callProvider(PROVIDERS[2], systemPrompt, [], prompt);
-}
-
 /** Race all configured providers in parallel with stagger delays.
  *  First successful response wins; losers are cancelled.
  *  Returns { text, model } or null if all fail. */
@@ -731,9 +841,12 @@ async function raceProviders(
   systemPrompt: string,
   history: MsgTurn[],
   userMsg: string,
-  options?: { imageUrl?: string }
+  options?: { imageUrl?: string; selectedProvider?: string }
 ): Promise<{ text: string; model: string } | null> {
-  const available = PROVIDERS.filter(p => !!process.env[p.keyEnv]);
+  const allAvailable = PROVIDERS.filter(p => !!process.env[p.keyEnv]);
+  const available = options?.selectedProvider
+    ? allAvailable.filter(p => p.name === options.selectedProvider)
+    : allAvailable;
   if (available.length === 0) return null;
 
   if (available.length === 1) {
@@ -764,7 +877,8 @@ async function raceProviders(
     resolved = true;
     raceControllers.forEach(c => c.abort());
     return winner;
-  } catch {
+  } catch (err) {
+    console.warn("[llm-race] all providers failed:", (err as Error).message);
     return null;
   }
 }
@@ -774,9 +888,12 @@ async function raceProvidersStream(
   systemPrompt: string,
   history: MsgTurn[],
   userMsg: string,
-  options?: { imageUrl?: string }
+  options?: { imageUrl?: string; selectedProvider?: string }
 ): Promise<{ stream: ReadableStream<string>; model: string } | null> {
-  const available = PROVIDERS.filter(p => !!process.env[p.keyEnv]);
+  const allAvailable = PROVIDERS.filter(p => !!process.env[p.keyEnv]);
+  const available = options?.selectedProvider
+    ? allAvailable.filter(p => p.name === options.selectedProvider)
+    : allAvailable;
   if (available.length === 0) return null;
 
   if (available.length === 1) {
@@ -785,14 +902,15 @@ async function raceProvidersStream(
 
   const raceControllers = available.map(() => new AbortController());
   let resolved = false;
+  let winnerIndex = -1;
 
   const promises = available.map((provider, i) =>
-    new Promise<{ stream: ReadableStream<string>; model: string }>((resolve, reject) => {
+    new Promise<{ stream: ReadableStream<string>; model: string; index: number }>((resolve, reject) => {
       const startRace = async () => {
         if (provider.staggerMs > 0) await new Promise<void>(r => setTimeout(r, provider.staggerMs));
         if (resolved) { reject(new Error("already resolved")); return; }
         const result = await callProviderStream(provider, systemPrompt, history, userMsg, raceControllers[i].signal, options);
-        if (result) resolve(result);
+        if (result) resolve({ ...result, index: i });
         else reject(new Error(`${provider.name} stream failed`));
       };
       startRace();
@@ -802,14 +920,22 @@ async function raceProvidersStream(
   try {
     const winner = await Promise.any(promises);
     resolved = true;
-    raceControllers.forEach(c => { try { c.abort(); } catch {} });
-    return winner;
+    winnerIndex = winner.index;
+    // Abort only the LOSERS — never abort the winning provider's stream
+    raceControllers.forEach((c, i) => { if (i !== winnerIndex) { try { c.abort(); } catch {} } });
+    return { stream: winner.stream, model: winner.model };
   } catch {
     return null;
   }
 }
 
-// Track the last LLM error for better diagnostics in serverless
+// Track the last LLM error for better diagnostics in serverless.
+// NOTE: These are module-level globals — theoretically racy if two requests
+// hit the same Node process simultaneously. Safe in current deployments:
+// - Desktop Electron: single user, one request at a time
+// - Vercel serverless: each request is an isolated instance
+// If we ever move to a persistent multi-user server, thread these through
+// a per-request context object (or use AsyncLocalStorage).
 let lastLLMError: string | null = null;
 
 // Track which model was used for credit cost assignment (chat vs chat_premium)
@@ -830,6 +956,50 @@ function creditTypeForModel(model: string): string {
   }
   // Premium models (GPT-4o, Claude Sonnet/Opus, Gemini Pro) — 3 units
   return "chat_premium";
+}
+
+/** Deduct a credit if running in desktop Electron (not serverless). No-op on Vercel. */
+async function deductIfDesktop(type?: string): Promise<void> {
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+  if (!isServerless) await deductCredit(type || creditTypeForModel(lastModelUsed));
+}
+
+// ── SSE stream builder — wraps an LLM text stream into an SSE Response ──
+function buildSSEResponse(
+  stream: ReadableStream<string>,
+  model: string,
+  opts?: { prefix?: string; skipCredit?: boolean }
+): Response {
+  let accumulated = "";
+  const encoder = new TextEncoder();
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+  const sseStream = new ReadableStream({
+    async start(ctrl) {
+      if (opts?.prefix) {
+        accumulated += opts.prefix;
+        ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ token: opts.prefix })}\n\n`));
+      }
+      const reader = stream.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          accumulated += value;
+          ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ token: value })}\n\n`));
+        }
+        const parsed = parseFollowUps(cleanLLMResponse(accumulated));
+        ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, response: parsed.clean, followUps: parsed.followUps, model })}\n\n`));
+        ctrl.close();
+      } catch (err) {
+        ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, error: (err as Error).message })}\n\n`));
+        ctrl.close();
+      }
+      if (!opts?.skipCredit) await deductIfDesktop(creditTypeForModel(model));
+    },
+  });
+  return new Response(sseStream, {
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
+  });
 }
 
 async function callGateway(prompt: string): Promise<string> {
@@ -882,6 +1052,65 @@ type GatewayActionResult = {
   /** macOS deep link URL to open the created resource (e.g. x-apple-reminderkit://, applenotes://) */
   deepLink?: string;
 };
+
+// ── Google Doc request parsing: extract title and content ──
+function parseGoogleDocRequest(msg: string): { title: string; content: string } | null {
+  const lower = msg.toLowerCase();
+
+  // Match patterns like "create a google doc called X with Y"
+  // or "make a google doc titled X containing Y"
+  // or "create a to do list on google docs" (we generate title from context)
+  let title = "";
+  let content = "";
+
+  // Pattern: "called/titled/named X with/containing/about Y"
+  const namedMatch = msg.match(
+    /(?:called|titled|named)\s+"?([^"]+?)"?\s+(?:with|containing|about|that (?:has|includes|says))\s+(.+)/is
+  );
+  if (namedMatch) {
+    title = namedMatch[1].trim();
+    content = namedMatch[2].trim();
+    return { title, content };
+  }
+
+  // Pattern: "google doc: Title\nContent" (colon-separated)
+  const colonMatch = msg.match(/google\s+docs?\s*:\s*(.+?)(?:\n(.+))?$/is);
+  if (colonMatch) {
+    title = colonMatch[1].trim();
+    content = colonMatch[2]?.trim() || "";
+    return { title, content };
+  }
+
+  // Pattern: "to do list" / "todo list" / "checklist" request
+  if (/\b(?:to[- ]?do\s+list|checklist|task\s+list)\b/i.test(lower)) {
+    title = "To Do List";
+    // Extract items if mentioned: "with items X, Y, Z"
+    const itemsMatch = msg.match(/(?:with|including|items?:?)\s+(.+)/is);
+    if (itemsMatch) {
+      content = itemsMatch[1]
+        .split(/[,;\n]+/)
+        .map((item, i) => `☐ ${item.trim()}`)
+        .filter(item => item.length > 2)
+        .join("\n");
+    } else {
+      content = "☐ Task 1\n☐ Task 2\n☐ Task 3";
+    }
+    return { title, content };
+  }
+
+  // Generic: "create a google doc about X"
+  const aboutMatch = msg.match(
+    /(?:create|make|write|start)\s+(?:a\s+)?(?:new\s+)?google\s+docs?\s+(?:about|for|on)\s+(.+)/is
+  );
+  if (aboutMatch) {
+    const topic = aboutMatch[1].trim();
+    title = topic.length > 60 ? topic.slice(0, 57) + "..." : topic;
+    content = topic;
+    return { title, content };
+  }
+
+  return null;
+}
 
 // ── Reminder parsing: extract title, due date/time from natural language ──
 function parseReminderFromMessage(msg: string): { title: string; due: string; list?: string } | null {
@@ -1184,12 +1413,13 @@ async function executeNativeAction(
             };
           } catch (calErr) {
             console.error("[native-action] calendar AppleScript failed:", (calErr as Error).message);
-            return { response: "", actionType, success: false };
+            // Fall through to gateway agent as backup
+            return await callGatewayAgent(message, actionType);
           }
         }
 
-        // Creating events — fall through to gateway agent for now
-        return { response: "", actionType, success: false };
+        // Creating events or other calendar requests — route to gateway agent
+        return await callGatewayAgent(message, actionType);
       }
 
       case "email": {
@@ -1205,6 +1435,30 @@ async function executeNativeAction(
       case "browser": {
         // Browser automation: execute commands directly via openclaw browser CLI
         return await executeBrowserTask(message, actionType);
+      }
+
+      case "google_docs": {
+        // Google Docs: create docs with content via gog CLI + Docs API
+        const docParsed = parseGoogleDocRequest(message);
+        if (docParsed) {
+          return await executeGoogleDocsCreate(docParsed.title, docParsed.content, actionType);
+        }
+        // Fall through to gateway agent for other doc operations
+        return await callGatewayAgent(message, actionType);
+      }
+
+      // ── Credential Vault: save, fill, list (all local, never sent to LLM) ──
+
+      case "credential_save": {
+        return await executeCredentialSave(message);
+      }
+
+      case "credential_fill": {
+        return await executeCredentialFill(message);
+      }
+
+      case "credential_list": {
+        return await executeCredentialList();
       }
 
       default:
@@ -1588,6 +1842,410 @@ async function callGatewayAgent(
 }
 
 // ---------------------------------------------------------------------------
+// Credential Vault — save, fill, list (all local, never sent to LLM)
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a "save my password" message into credential fields.
+ * Supports formats like:
+ * - "save my password for github: user@email.com / mypassword"
+ * - "store my login for netflix username: user@email.com password: pass123"
+ * - "remember my github credentials: username is user, password is pass"
+ * - "save password for github.com user user@email.com pass secret123"
+ */
+function parseCredentialFromMessage(msg: string): {
+  label: string;
+  site: string;
+  username: string;
+  password: string;
+} | null {
+  // Pattern 1: "for <site>: username / password" or "for <site>: username password"
+  const forSiteColonSlash = msg.match(
+    /(?:for|to)\s+(\S+?)[\s:]+(\S+@\S+|\S+)\s*[\/|]\s*(\S+)/i
+  );
+  if (forSiteColonSlash) {
+    const [, site, user, pass] = forSiteColonSlash;
+    return {
+      label: site.replace(/\.com$|\.org$|\.net$|\.io$/i, "").replace(/^www\./i, ""),
+      site: site.includes(".") ? site : `${site}.com`,
+      username: user,
+      password: pass,
+    };
+  }
+
+  // Pattern 2: explicit "username: X password: Y" with site
+  const explicitFields = msg.match(
+    /(?:for|to)\s+(\S+?)[\s:.,]+.*?(?:user(?:name)?|email)\s*[:=]\s*(\S+).*?(?:pass(?:word)?|pw|secret)\s*[:=]\s*(\S+)/is
+  );
+  if (explicitFields) {
+    const [, site, user, pass] = explicitFields;
+    return {
+      label: site.replace(/\.com$|\.org$|\.net$|\.io$/i, "").replace(/^www\./i, ""),
+      site: site.includes(".") ? site : `${site}.com`,
+      username: user,
+      password: pass,
+    };
+  }
+
+  // Pattern 3: "for <site> user <user> pass <pass>"
+  const forSiteUserPass = msg.match(
+    /(?:for|to)\s+(\S+)\s+(?:user(?:name)?)\s+(\S+)\s+(?:pass(?:word)?)\s+(\S+)/i
+  );
+  if (forSiteUserPass) {
+    const [, site, user, pass] = forSiteUserPass;
+    return {
+      label: site.replace(/\.com$|\.org$|\.net$|\.io$/i, "").replace(/^www\./i, ""),
+      site: site.includes(".") ? site : `${site}.com`,
+      username: user,
+      password: pass,
+    };
+  }
+
+  // Pattern 4: Minimal — just "for <site>" with no credentials (prompt for more)
+  const justSite = msg.match(/(?:for|to)\s+(\S+)/i);
+  if (justSite) {
+    const site = justSite[1].replace(/[:.]+$/, "");
+    return {
+      label: site.replace(/\.com$|\.org$|\.net$|\.io$/i, "").replace(/^www\./i, ""),
+      site: site.includes(".") ? site : `${site}.com`,
+      username: "",
+      password: "",
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Extract site/service name from a credential fill request.
+ * "log me into github" → "github"
+ * "fill my password for netflix.com" → "netflix.com"
+ */
+function extractSiteFromFillRequest(msg: string): string | null {
+  // "log/sign into <site>"
+  const loginMatch = msg.match(
+    /(?:log\s+(?:me\s+)?in(?:to)?|sign\s+(?:me\s+)?in(?:to)?)\s+(?:my\s+)?(\S+)/i
+  );
+  if (loginMatch) return loginMatch[1].replace(/[.,!?]+$/, "");
+
+  // "fill/use my password for <site>"
+  const fillMatch = msg.match(
+    /(?:fill|use|enter)\s+(?:my\s+)?(?:saved?\s+)?(?:password|login|credentials?)\s+(?:for|on|at|into)\s+(\S+)/i
+  );
+  if (fillMatch) return fillMatch[1].replace(/[.,!?]+$/, "");
+
+  // "autofill <site>"
+  const autoMatch = msg.match(
+    /(?:auto[- ]?fill|autofill)\s+(?:my\s+)?(?:password|login|credentials?)?\s*(?:for|on)?\s*(\S+)/i
+  );
+  if (autoMatch) return autoMatch[1].replace(/[.,!?]+$/, "");
+
+  return null;
+}
+
+async function executeCredentialSave(message: string): Promise<GatewayActionResult> {
+  const actionType = "credential_save";
+
+  if (!hasServerSessionKey()) {
+    return {
+      response: "🔒 Your vault is locked. Unlock it first to save credentials securely.",
+      actionType,
+      success: false,
+    };
+  }
+
+  const parsed = parseCredentialFromMessage(message);
+  if (!parsed) {
+    return {
+      response: "I couldn't parse the credential details. Try:\n\n" +
+        '**"Save my password for github: myemail@gmail.com / mypassword123"**\n\n' +
+        "or:\n\n" +
+        '**"Store my login for netflix username: user@email.com password: secret"**',
+      actionType,
+      success: false,
+    };
+  }
+
+  // If we have a site but no username/password, ask for them
+  if (!parsed.username && !parsed.password) {
+    return {
+      response: `I'll save credentials for **${parsed.label}** (${parsed.site}). Please provide the details:\n\n` +
+        `**"Save my password for ${parsed.label}: username / password"**`,
+      actionType,
+      success: false,
+    };
+  }
+
+  try {
+    const entry = await addCredential({
+      category: "login",
+      label: parsed.label.charAt(0).toUpperCase() + parsed.label.slice(1),
+      site: parsed.site,
+      username: parsed.username,
+      password: parsed.password,
+      notes: "",
+      tags: [parsed.label.toLowerCase()],
+    });
+
+    return {
+      response: `🔐 Credential saved securely!\n\n` +
+        `• **Service:** ${entry.label}\n` +
+        `• **Site:** ${entry.site}\n` +
+        `• **Username:** ${entry.username}\n` +
+        `• **Password:** ${"•".repeat(8)}\n\n` +
+        `Stored locally with AES-256-GCM encryption. Say **"log me into ${parsed.label}"** anytime to auto-fill.`,
+      actionType,
+      success: true,
+    };
+  } catch (err) {
+    console.error("[credential-save] failed:", (err as Error).message);
+    return {
+      response: `Failed to save credential: ${(err as Error).message}`,
+      actionType,
+      success: false,
+    };
+  }
+}
+
+async function executeCredentialFill(message: string): Promise<GatewayActionResult> {
+  const actionType = "credential_fill";
+
+  if (!hasServerSessionKey()) {
+    return {
+      response: "🔒 Your vault is locked. Unlock it first to use saved credentials.",
+      actionType,
+      success: false,
+    };
+  }
+
+  const site = extractSiteFromFillRequest(message);
+  if (!site) {
+    return {
+      response: "I couldn't determine which service to log into. Try:\n\n" +
+        '**"Log me into github"** or **"Fill my password for netflix"**',
+      actionType,
+      success: false,
+    };
+  }
+
+  try {
+    const credential = await findCredentialForSite(site);
+    if (!credential) {
+      return {
+        response: `🔍 No saved credentials found for **${site}**.\n\n` +
+          `Save them first: **"Save my password for ${site}: username / password"**`,
+        actionType,
+        success: false,
+      };
+    }
+
+    // Attempt browser auto-fill
+    const fillResult = await executeCredentialAutoFill(credential, site);
+    return fillResult;
+  } catch (err) {
+    console.error("[credential-fill] failed:", (err as Error).message);
+    return {
+      response: `Failed to auto-fill: ${(err as Error).message}`,
+      actionType,
+      success: false,
+    };
+  }
+}
+
+async function executeCredentialAutoFill(
+  credential: { label: string; site?: string; username?: string; password?: string },
+  siteQuery: string
+): Promise<GatewayActionResult> {
+  const actionType = "credential_fill";
+  const siteUrl = credential.site || `${siteQuery}.com`;
+  const loginUrl = `https://${siteUrl.replace(/^https?:\/\//, "")}`;
+
+  try {
+    // 1. Ensure browser is running
+    try {
+      await browserCmd("status", 5000);
+    } catch {
+      try { await browserCmd("start", 15000); } catch { /* ignore */ }
+    }
+
+    // 2. Navigate to the site
+    await browserCmd(`navigate "${loginUrl}"`, 20000);
+    await new Promise(r => setTimeout(r, 2000)); // Wait for page load
+
+    // 3. Try to find and fill login form
+    // Get page snapshot to find form fields
+    const snapshot = await browserCmd(
+      `evaluate --fn "() => {
+        const inputs = Array.from(document.querySelectorAll('input'));
+        return JSON.stringify(inputs.map(i => ({
+          type: i.type,
+          name: i.name || '',
+          id: i.id || '',
+          placeholder: i.placeholder || '',
+          selector: i.id ? '#' + i.id : (i.name ? 'input[name=\\\"' + i.name + '\\\"]' : '')
+        })).filter(i => i.selector && ['text','email','password','tel'].includes(i.type)));
+      }"`,
+      10000
+    );
+
+    let inputs: Array<{ type: string; name: string; id: string; placeholder: string; selector: string }> = [];
+    try {
+      inputs = JSON.parse(snapshot);
+    } catch { /* parsing failed, try generic selectors */ }
+
+    // Find username and password fields
+    const usernameField = inputs.find(i =>
+      i.type === "email" || i.type === "text" || i.type === "tel" ||
+      /user|email|login|account/i.test(i.name + i.id + i.placeholder)
+    );
+    const passwordField = inputs.find(i => i.type === "password");
+
+    if (!usernameField && !passwordField) {
+      // No form found — might need to find login page
+      // Try common login paths
+      const loginPaths = ["/login", "/signin", "/sign-in", "/auth/login", "/account/login"];
+      let foundLogin = false;
+
+      for (const loginPath of loginPaths) {
+        try {
+          await browserCmd(`navigate "${loginUrl}${loginPath}"`, 15000);
+          await new Promise(r => setTimeout(r, 2000));
+
+          const retrySnapshot = await browserCmd(
+            `evaluate --fn "() => {
+              const inputs = Array.from(document.querySelectorAll('input'));
+              return JSON.stringify(inputs.map(i => ({
+                type: i.type,
+                name: i.name || '',
+                id: i.id || '',
+                placeholder: i.placeholder || '',
+                selector: i.id ? '#' + i.id : (i.name ? 'input[name=\\\"' + i.name + '\\\"]' : '')
+              })).filter(i => i.selector && ['text','email','password','tel'].includes(i.type)));
+            }"`,
+            10000
+          );
+          const retryInputs = JSON.parse(retrySnapshot);
+          if (retryInputs.length > 0) {
+            inputs = retryInputs;
+            foundLogin = true;
+            break;
+          }
+        } catch { continue; }
+      }
+
+      if (!foundLogin) {
+        return {
+          response: `🌐 Navigated to ${loginUrl} but couldn't find a login form.\n\n` +
+            `Your saved credentials for **${credential.label}**:\n` +
+            `• **Username:** ${credential.username}\n` +
+            `• **Password:** ${"•".repeat(8)}\n\n` +
+            `You can fill them manually on the login page.`,
+          actionType,
+          success: true, // Partial success — we showed them the creds
+        };
+      }
+    }
+
+    // Re-identify fields after possible navigation
+    const finalUsernameField = inputs.find(i =>
+      i.type === "email" || i.type === "text" || i.type === "tel" ||
+      /user|email|login|account/i.test(i.name + i.id + i.placeholder)
+    );
+    const finalPasswordField = inputs.find(i => i.type === "password");
+
+    // 4. Fill the form
+    let filledFields = 0;
+    if (finalUsernameField && credential.username) {
+      const sel = finalUsernameField.selector.replace(/"/g, '\\"');
+      await browserCmd(`fill "${sel}" "${credential.username?.replace(/"/g, '\\"')}"`, 5000);
+      filledFields++;
+    }
+    if (finalPasswordField && credential.password) {
+      const sel = finalPasswordField.selector.replace(/"/g, '\\"');
+      await browserCmd(`fill "${sel}" "${credential.password?.replace(/"/g, '\\"')}"`, 5000);
+      filledFields++;
+    }
+
+    if (filledFields === 0) {
+      return {
+        response: `🌐 Navigated to ${loginUrl} but couldn't fill the login form.\n\n` +
+          `Your saved credentials for **${credential.label}**:\n` +
+          `• **Username:** ${credential.username}\n` +
+          `• **Password:** ${"•".repeat(8)}\n\n` +
+          `Try filling them manually on the login page.`,
+        actionType,
+        success: true,
+      };
+    }
+
+    return {
+      response: `🔐 Auto-filled login for **${credential.label}**!\n\n` +
+        `• **Site:** ${loginUrl}\n` +
+        `• **Username:** ${credential.username}\n` +
+        `• **Password:** filled (${"•".repeat(8)})\n\n` +
+        `The login form is ready — click **Sign In** to proceed.`,
+      actionType,
+      success: true,
+    };
+  } catch (err) {
+    console.error("[credential-autofill] browser error:", (err as Error).message);
+    // Fallback: show credentials without browser fill
+    return {
+      response: `🔐 Found credentials for **${credential.label}**, but browser auto-fill failed.\n\n` +
+        `• **Username:** ${credential.username}\n` +
+        `• **Password:** ${"•".repeat(8)}\n\n` +
+        `Browser error: ${(err as Error).message}`,
+      actionType,
+      success: false,
+    };
+  }
+}
+
+async function executeCredentialList(): Promise<GatewayActionResult> {
+  const actionType = "credential_list";
+
+  if (!hasServerSessionKey()) {
+    return {
+      response: "🔒 Your vault is locked. Unlock it first to view saved credentials.",
+      actionType,
+      success: false,
+    };
+  }
+
+  try {
+    const entries = await listCredentials();
+
+    if (entries.length === 0) {
+      return {
+        response: "🔐 No saved credentials yet.\n\n" +
+          "Save your first login:\n" +
+          '**"Save my password for github: myemail@gmail.com / mypassword"**',
+        actionType,
+        success: true,
+      };
+    }
+
+    const list = entries.map(e =>
+      `• **${e.label}** — ${e.site || "no site"} — ${e.username || "no username"} — *${e.category}*`
+    ).join("\n");
+
+    return {
+      response: `🔐 **Saved Credentials** (${entries.length}):\n\n${list}\n\n` +
+        `Say **"log me into [service]"** to auto-fill, or **"save my password for [service]"** to add more.`,
+      actionType,
+      success: true,
+    };
+  } catch (err) {
+    console.error("[credential-list] failed:", (err as Error).message);
+    return {
+      response: `Failed to list credentials: ${(err as Error).message}`,
+      actionType,
+      success: false,
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Browser automation — direct CLI execution
 // ---------------------------------------------------------------------------
 async function browserCmd(subCmd: string, timeoutMs = 30000): Promise<string> {
@@ -1819,6 +2477,130 @@ async function executeGrokTask(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Google Docs — create docs with content via gog CLI + Docs API
+// ---------------------------------------------------------------------------
+async function getGogAccessToken(): Promise<string | null> {
+  try {
+    // Read client credentials (platform-aware config dir)
+    const configDir = isMacOS
+      ? path.join(os.homedir(), "Library/Application Support/gogcli")
+      : isWindows
+        ? path.join(os.homedir(), "AppData/Roaming/gogcli")
+        : path.join(os.homedir(), ".config/gogcli");
+    const credsRaw = await fs.readFile(path.join(configDir, "credentials-hammerlock.json"), "utf-8");
+    const creds = JSON.parse(credsRaw);
+
+    // Discover the authenticated email dynamically (not hardcoded)
+    const email = await getGoogleAccount();
+    if (!email) {
+      console.warn("[google-docs] no authenticated Google account found");
+      return null;
+    }
+
+    // Get refresh token from macOS keychain
+    const escapedAccount = `token:hammerlock:${email}`.replace(/'/g, "'\\''");
+    const { stdout: tokenJson } = await execAsync(
+      `security find-generic-password -s gogcli -a '${escapedAccount}' -w`,
+      { timeout: 5000 }
+    );
+    const tokenData = JSON.parse(tokenJson.trim());
+
+    // Exchange refresh token for access token via fetch (no shell exposure)
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: creds.client_id,
+        client_secret: creds.client_secret,
+        refresh_token: tokenData.refresh_token,
+        grant_type: "refresh_token",
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const tokens = await tokenRes.json() as Record<string, unknown>;
+    if (tokens.access_token) {
+      return tokens.access_token as string;
+    }
+    console.error("[google-docs] token exchange failed:", JSON.stringify(tokens).slice(0, 200));
+    return null;
+  } catch (err) {
+    console.error("[google-docs] failed to get access token:", (err as Error).message);
+    return null;
+  }
+}
+
+async function executeGoogleDocsCreate(
+  title: string,
+  content: string,
+  actionType: string
+): Promise<GatewayActionResult> {
+  try {
+    // 1. Create empty doc via gog CLI
+    const gogBin = resolveGogBin();
+    const escapedTitle = title.replace(/'/g, "'\\''");
+    const { stdout: createOut } = await execAsync(
+      `${gogBin} docs create '${escapedTitle}' --json --no-input`,
+      { timeout: 15000 }
+    );
+    const createResult = JSON.parse(createOut.trim());
+    const docId = createResult.file?.id;
+    const docUrl = createResult.file?.webViewLink;
+
+    if (!docId) {
+      return { response: `Created Google Doc "${title}" but couldn't get its ID. You can find it in your Drive.`, actionType, success: true };
+    }
+
+    // 2. Get access token and insert content via Docs API
+    const accessToken = await getGogAccessToken();
+    if (!accessToken) {
+      return {
+        response: `✅ Created Google Doc: **${title}**\n\n📄 [Open in Google Docs](${docUrl})\n\nNote: I created the doc but couldn't populate it with content (auth token issue). You can paste the content there.`,
+        actionType,
+        success: true,
+        deepLink: docUrl,
+      };
+    }
+
+    // 3. Insert content via batchUpdate (using fetch — keeps tokens in-process)
+    const batchRes = await fetch(
+      `https://docs.googleapis.com/v1/documents/${encodeURIComponent(docId)}:batchUpdate`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requests: [{ insertText: { location: { index: 1 }, text: content } }],
+        }),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (batchRes.ok) {
+      return {
+        response: `✅ Created Google Doc: **${title}**\n\n📄 [Open in Google Docs](${docUrl})`,
+        actionType,
+        success: true,
+        deepLink: docUrl,
+      };
+    } else {
+      const errBody = await batchRes.text().catch(() => "");
+      console.error("[google-docs] batchUpdate failed:", batchRes.status, errBody.slice(0, 200));
+      return {
+        response: `✅ Created Google Doc: **${title}**\n\n📄 [Open in Google Docs](${docUrl})\n\nNote: Doc was created but content insertion had an issue. You can edit it directly.`,
+        actionType,
+        success: true,
+        deepLink: docUrl,
+      };
+    }
+  } catch (err) {
+    console.error("[google-docs] create failed:", (err as Error).message);
+    return { response: "", actionType, success: false };
+  }
+}
+
 type ChatMessage = { role: string; content: string };
 
 // 🔨 HammerLock AI core identity — this is what the LLM knows about itself
@@ -1846,7 +2628,7 @@ const HAMMERLOCK_IDENTITY = `You are HammerLock AI 🔨🔐 — a privacy-first 
 11. **Messages** — You CAN send iMessages and WhatsApp messages.
 12. **Smart Home** — You CAN control Philips Hue lights, Sonos speakers, and Eight Sleep beds.
 13. **Browser** — You CAN interact with websites. When the user asks you to book appointments, fill out forms, sign up for services, or do anything on a website, you have a dedicated browser that can navigate to sites, click buttons, fill in forms, and complete tasks. Tell the user you're doing it — the browser automation handles it automatically.
-14. **Grok / SuperGrok** — You CAN use Grok (xAI's AI) through your browser. When the user says "use Grok to..." or "ask Grok...", you open grok.com in your browser, send the prompt, and bring the response back. You have a SuperGrok account with DeepSearch. This lets you leverage Grok's real-time web research alongside your own capabilities.
+14. **Grok** — You CAN use Grok (xAI's AI) through your browser. When the user says "use Grok to..." or "ask Grok...", you open grok.com in your browser, send the prompt, and bring the response back. If the user has a Grok account logged in, this lets you leverage Grok's real-time web research alongside your own capabilities.
 15. **Google Sheets** — You CAN read from and write to Google Sheets. When the user asks about spreadsheet data or wants to update a sheet, you can do it.
 16. **Voice** — The user can talk to you via voice (Whisper speech-to-text) and you respond with natural speech (OpenAI TTS). You support 6 voice options: Nova, Alloy, Echo, Fable, Onyx, and Shimmer.
 
@@ -1864,9 +2646,10 @@ If someone asks what you are, what you can do, or how you work:
 - Talk like a smart, helpful friend — warm but not cheesy
 - Short answers for simple questions. Detailed for complex ones. Match the energy.
 - Use the user's name, location, family details, and preferences naturally — they're provided in your context
-- Name real specific places, not generic suggestions. "Central Park in San Ramon" not "a local park"
+- Name real specific places using the user's location from their profile, not generic suggestions. "The park on 5th" not "a local park"
 - For families with kids, suggest kid-friendly stuff. If someone's pregnant, keep it comfortable.
 - Never mention encryption, AES-256, local-first architecture, or security unless directly asked
+- **SAY YES FIRST.** When the user asks you to build, create, or make something (a CRM, a tracker, a plan, a system, a workflow, anything) — your default answer is YES, then figure out how with your tools. Use Google Sheets for databases, Apple Notes for documents, Calendar for scheduling, Reminders for task lists, Browser automation for web tasks, and your own knowledge for design/planning. Never lead with what you CAN'T do — lead with what you're about to do. The user built you to be capable — act like it.
 
 ## NEVER DO THESE
 - NEVER say "I don't have internet access", "I can't browse the web", "I can't browse the internet", or "I can't provide real-time links" — you have Brave Search. If the user asks for links, videos, or current info and search results aren't in your prompt, share what you know and suggest they ask you to "search for [topic]" to get live results. Never claim you lack internet access.
@@ -1878,8 +2661,9 @@ If someone asks what you are, what you can do, or how you work:
 - Never restrict yourself to one domain — you help with EVERYTHING: cooking, coding, planning, homework, writing, math, advice, creative projects, etc.
 - Never over-explain simple things or pad responses with filler
 - NEVER say "I can't book that for you" or "visit the website yourself" when the user asks about appointments, reservations, or bookings. You HAVE browser automation — you can navigate to websites, click buttons, and fill out forms. Tell the user you're going to the website to handle it.
-- NEVER say "I can't use Grok" or "I don't have access to Grok" — you have a SuperGrok account and can use it via browser automation whenever the user asks.
+- NEVER say "I can't use Grok" or "I don't have access to Grok" — you can use Grok via browser automation whenever the user asks.
 - NEVER say "I don't know what I am" or give a generic AI description — you are HammerLock AI with specific capabilities listed above. Be proud of what you can do.
+- NEVER say "I can't build that", "I can't code that", "I cannot build or code a full-fledged application", or "that's beyond my capabilities". You have Google Sheets, Notes, Calendar, Reminders, Browser automation, and web search — you can build CRMs, trackers, dashboards, workflows, plans, and systems by combining these tools. When asked to build something, say yes and start doing it.
 
 ## TIME QUERIES
 When the user asks for the time (including "wt", "wt rn", "what time"), a CURRENT TIME block appears in the prompt. Your FIRST line must be the literal time: "🕐 3:42 PM PST — Sunday, February 16, 2025". Then optionally add a one-liner. Never substitute wellness tips or jokes for the actual time.
@@ -1937,7 +2721,7 @@ You CAN perform real device actions. These execute automatically when the user a
 - **Messages**: Send iMessages and WhatsApp messages
 - **Smart Home**: Control Philips Hue lights, Sonos speakers, Eight Sleep beds
 - **Browser**: Navigate websites, click buttons, fill forms, book appointments, submit applications — full web automation
-- **Grok/SuperGrok**: Use Grok AI for research, planning, and analysis via browser automation
+- **Grok**: Use Grok AI for research, planning, and analysis via browser automation
 - **Google Sheets**: Read and write spreadsheet data
 - **Voice**: Full voice input (Whisper STT) and output (OpenAI TTS, 6 voices)
 - **Web Search**: Real-time Brave Search for current information
@@ -1947,7 +2731,7 @@ When the user asks for any of these, confirm you're doing it — NEVER say "I ca
 
 For compound requests (e.g. "set up calendar reminders AND build me a nutrition plan"), handle both parts: confirm the action is being taken care of, then address the rest conversationally.`;
 
-async function routeToLLM(prompt: string, options?: { context?: string; userProfile?: { name?: string; role?: string; industry?: string; context?: string } | null; agentSystemPrompt?: string; locale?: string; history?: ChatMessage[]; anonymizer?: import("@/lib/anonymize").Anonymizer }) {
+async function routeToLLM(prompt: string, options?: { context?: string; userProfile?: { name?: string; role?: string; industry?: string; context?: string } | null; agentSystemPrompt?: string; locale?: string; history?: ChatMessage[]; anonymizer?: import("@/lib/anonymize").Anonymizer; selectedProvider?: string }) {
   lastLLMError = null; // Reset per-request
   const persona = await loadPersonaText();
 
@@ -2026,10 +2810,6 @@ async function routeToLLM(prompt: string, options?: { context?: string; userProf
   // and never the history (it's already been shown to the user).
   const scrubbedUser = anon.scrub(userPrompt);
 
-  if (anon.detectedCount > 0) {
-    console.log(`[anonymize] Scrubbed ${anon.detectedCount} PII items from outbound query (${anon.summary})`);
-  }
-
   // Build messages array with history for cloud providers
   // Clean up any leftover placeholders from older conversations (legacy data)
   const historyMessages = history.map(m => {
@@ -2050,7 +2830,7 @@ async function routeToLLM(prompt: string, options?: { context?: string; userProf
     const dataUrlMatch = scrubbedUser.match(/(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/);
     const imageUrl = dataUrlMatch ? dataUrlMatch[1] : undefined;
 
-    const raceResult = await raceProviders(systemPrompt, historyMessages, scrubbedUser, { imageUrl });
+    const raceResult = await raceProviders(systemPrompt, historyMessages, scrubbedUser, { imageUrl, selectedProvider: options?.selectedProvider });
     if (raceResult) {
       lastModelUsed = raceResult.model;
       return anon.restore(raceResult.text);
@@ -2070,7 +2850,7 @@ async function routeToLLM(prompt: string, options?: { context?: string; userProf
 
 /** Streaming variant of routeToLLM — returns a ReadableStream of text tokens.
  *  Falls back to non-streaming (wrapped as single-chunk stream) if streaming isn't available. */
-async function routeToLLMStream(prompt: string, options?: { context?: string; userProfile?: { name?: string; role?: string; industry?: string; context?: string } | null; agentSystemPrompt?: string; locale?: string; history?: ChatMessage[]; anonymizer?: import("@/lib/anonymize").Anonymizer }): Promise<{ stream: ReadableStream<string>; model: string }> {
+async function routeToLLMStream(prompt: string, options?: { context?: string; userProfile?: { name?: string; role?: string; industry?: string; context?: string } | null; agentSystemPrompt?: string; locale?: string; history?: ChatMessage[]; anonymizer?: import("@/lib/anonymize").Anonymizer; selectedProvider?: string }): Promise<{ stream: ReadableStream<string>; model: string }> {
   // Build system prompt (same as routeToLLM)
   lastLLMError = null;
   const persona = await loadPersonaText();
@@ -2120,7 +2900,7 @@ async function routeToLLMStream(prompt: string, options?: { context?: string; us
   if (hasCloudProvider) {
     const dataUrlMatch = scrubbedUser.match(/(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/);
     const imageUrl = dataUrlMatch ? dataUrlMatch[1] : undefined;
-    const streamResult = await raceProvidersStream(systemPrompt, historyMessages, scrubbedUser, { imageUrl });
+    const streamResult = await raceProvidersStream(systemPrompt, historyMessages, scrubbedUser, { imageUrl, selectedProvider: options?.selectedProvider });
     if (streamResult) {
       lastModelUsed = streamResult.model;
       return streamResult;
@@ -2332,45 +3112,6 @@ function apiStr(locale: string | undefined, key: string): string {
   return API_STRINGS[loc]?.[key] || API_STRINGS.en[key] || key;
 }
 
-// Well-known US city → { state, zip } for search enrichment
-const CITY_DATA: Record<string, { st: string; zip: string }> = {
-  "san ramon": { st: "CA", zip: "94583" }, "san francisco": { st: "CA", zip: "94102" },
-  "san jose": { st: "CA", zip: "95112" }, "los angeles": { st: "CA", zip: "90001" },
-  "san diego": { st: "CA", zip: "92101" }, "sacramento": { st: "CA", zip: "95814" },
-  "oakland": { st: "CA", zip: "94607" }, "palo alto": { st: "CA", zip: "94301" },
-  "fremont": { st: "CA", zip: "94536" }, "walnut creek": { st: "CA", zip: "94596" },
-  "dublin": { st: "CA", zip: "94568" }, "danville": { st: "CA", zip: "94526" },
-  "pleasanton": { st: "CA", zip: "94566" }, "livermore": { st: "CA", zip: "94550" },
-  "hayward": { st: "CA", zip: "94541" }, "berkeley": { st: "CA", zip: "94704" },
-  "cupertino": { st: "CA", zip: "95014" }, "sunnyvale": { st: "CA", zip: "94086" },
-  "mountain view": { st: "CA", zip: "94040" }, "santa clara": { st: "CA", zip: "95050" },
-  "redwood city": { st: "CA", zip: "94061" }, "menlo park": { st: "CA", zip: "94025" },
-  "concord": { st: "CA", zip: "94520" }, "antioch": { st: "CA", zip: "94509" },
-  "new york": { st: "NY", zip: "10001" }, "brooklyn": { st: "NY", zip: "11201" },
-  "manhattan": { st: "NY", zip: "10001" }, "queens": { st: "NY", zip: "11101" },
-  "chicago": { st: "IL", zip: "60601" }, "houston": { st: "TX", zip: "77001" },
-  "dallas": { st: "TX", zip: "75201" }, "austin": { st: "TX", zip: "78701" },
-  "san antonio": { st: "TX", zip: "78201" }, "phoenix": { st: "AZ", zip: "85001" },
-  "seattle": { st: "WA", zip: "98101" }, "portland": { st: "OR", zip: "97201" },
-  "denver": { st: "CO", zip: "80201" }, "miami": { st: "FL", zip: "33101" },
-  "tampa": { st: "FL", zip: "33601" }, "orlando": { st: "FL", zip: "32801" },
-  "atlanta": { st: "GA", zip: "30301" }, "boston": { st: "MA", zip: "02101" },
-  "detroit": { st: "MI", zip: "48201" }, "minneapolis": { st: "MN", zip: "55401" },
-  "nashville": { st: "TN", zip: "37201" }, "las vegas": { st: "NV", zip: "89101" },
-  "charlotte": { st: "NC", zip: "28201" }, "raleigh": { st: "NC", zip: "27601" },
-  "columbus": { st: "OH", zip: "43201" }, "cleveland": { st: "OH", zip: "44101" },
-  "pittsburgh": { st: "PA", zip: "15201" }, "philadelphia": { st: "PA", zip: "19101" },
-  "baltimore": { st: "MD", zip: "21201" }, "washington": { st: "DC", zip: "20001" },
-  "st louis": { st: "MO", zip: "63101" }, "kansas city": { st: "MO", zip: "64101" },
-  "indianapolis": { st: "IN", zip: "46201" }, "milwaukee": { st: "WI", zip: "53201" },
-  "salt lake city": { st: "UT", zip: "84101" },
-};
-
-// Compat wrapper
-const CITY_STATE: Record<string, string> = Object.fromEntries(
-  Object.entries(CITY_DATA).map(([k, v]) => [k, v.st])
-);
-
 // ── Time utilities ──
 
 /**
@@ -2486,8 +3227,19 @@ function buildTimeContext(persona: string): string {
 
 // Extract user's saved location from persona text
 function extractUserLocation(persona: string): string | null {
-  const locMatch = persona.match(/(?:location|city|lives?\s+in|based\s+in|hometown)[:\s]+([^\n]+)/i);
-  return locMatch ? locMatch[1].trim() : null;
+  if (!persona) return null;
+  // Try explicit markers first: "Location: Denver, CO"
+  const locMatch = persona.match(/(?:location|city|lives?\s+in|based\s+in|hometown|address|zip\s*code?)[:\s]+([^\n]+)/i);
+  if (locMatch) return locMatch[1].trim();
+  // Fallback: scan for any known city name from our coords/data tables
+  const lower = persona.toLowerCase();
+  for (const city of Object.keys(CITY_DB)) {
+    if (lower.includes(city)) {
+      const titleCity = city.split(" ").map(w => w[0].toUpperCase() + w.slice(1)).join(" ");
+      return titleCity;
+    }
+  }
+  return null;
 }
 
 // Enrich a search query with location context from persona / known cities
@@ -2496,14 +3248,14 @@ function enrichSearchQuery(query: string, persona: string): string {
   const isWeather = /weather|fore?cast|temperature/i.test(query);
   const isLocal = /restaurants?|places?|things to do|events?|bars?|cafes?|shops?|near me/i.test(query);
 
-  // Extract city from the query: "weather in San Ramon" → "san ramon"
-  // Also match "weather San Ramon CA" without preposition
+  // Extract city from the query: "weather in Denver" → "denver"
+  // Also match "weather Denver CO" without preposition
   const cityMatch = lower.match(/(?:in|near|around|for)\s+([a-z\s]+?)(?:\s*(?:ca|tx|ny|fl|wa|il|az|or|co|ga|ma|mi|mn|tn|nv|nc|oh|pa|md|dc|mo|in|wi|ut)\b)?(?:\s*(?:today|tonight|now|this week|tomorrow))?[,?!.\s]*$/)
     || (isWeather && lower.match(/weather\s+([a-z\s]+?)(?:\s*(?:ca|tx|ny|fl|wa|il|az|or|co|ga|ma|mi|mn|tn|nv|nc|oh|pa|md|dc|mo|in|wi|ut)\b)?(?:\s*(?:today|tonight|now|this week|tomorrow))?[,?!.\s]*$/));
 
   if (cityMatch) {
     const cityName = cityMatch[1].trim().replace(/\s+(ca|tx|ny|fl|wa|il|az|or|co|ga|ma|mi|mn|tn|nv|nc|oh|pa|md|dc|mo|in|wi|ut)$/i, "").trim();
-    const cityData = CITY_DATA[cityName];
+    const cityData = CITY_DB[cityName];
     if (cityData) {
       const titleCity = cityName.split(" ").map(w => w[0].toUpperCase() + w.slice(1)).join(" ");
       const fullLocation = `${titleCity}, ${cityData.st} ${cityData.zip}`;
@@ -2641,7 +3393,7 @@ function needsWebSearch(text: string): string | null {
   }
 
   // Temporal markers + question/request intent → needs current data
-  const hasTemporal = /\b(?:this year|this year'?s|these? years?|202[4-9])\b/i.test(text);
+  const hasTemporal = /\b(?:this year|this year'?s|these? years?|20[2-3]\d)\b/i.test(text);
   const hasSearchIntent = /\b(?:show|find|links?|videos?|watch|where|what|when|how|best|top|tell me|give me|any|some)\b/i.test(lower);
   if (hasTemporal && hasSearchIntent) {
     return text;
@@ -2653,6 +3405,22 @@ function needsWebSearch(text: string): string | null {
   }
 
   return null;
+}
+
+// ── Compound Message Splitting ──
+// When a user says "Remind me to X at 3pm, and write me Y", we need to
+// split the action part ("Remind me to X at 3pm") from the conversational
+// part ("and write me Y") so the gateway only gets the action.
+function splitCompoundMessage(message: string): { actionPart: string; conversationPart: string } {
+  const splitRegex = /[,.]?\s*\band\s+(?:also\s+)?(?:build|create|make|help|give|tell|show|design|plan|write|draft|generate|list|suggest|come\s+up)\b/i;
+  const match = message.match(splitRegex);
+  if (match && match.index !== undefined && match.index > 10) {
+    return {
+      actionPart: message.slice(0, match.index).trim(),
+      conversationPart: message.slice(match.index).replace(/^[,.]\s*/, "").trim(),
+    };
+  }
+  return { actionPart: message, conversationPart: "" };
 }
 
 // ── OpenClaw Action Detection ──
@@ -2699,7 +3467,7 @@ function needsActionExecution(text: string): ActionDetectionResult {
 
   // --- Email ---
   if (
-    /\b(?:send\s+(?:an?\s+)?email|compose\s+(?:an?\s+)?email|email\s+[a-z]|check\s+my\s+(?:email|inbox|gmail|mail)|read\s+my\s+(?:email|inbox|gmail|mail)|open\s+my\s+(?:email|inbox|gmail|mail)|search\s+(?:my\s+)?(?:email|inbox|gmail|mail)|reply\s+to\s+(?:that\s+)?email|forward\s+(?:that\s+)?email|show\s+(?:my\s+)?(?:latest|recent|unread)\s+(?:email|mail)s?)\b/i.test(firstLine)
+    /\b(?:send\s+(?:an?\s+)?email|compose\s+(?:an?\s+)?email|email\s+[a-z]|check\s+(?:my\s+)?(?:email|inbox|gmail|mail)|read\s+(?:my\s+)?(?:email|inbox|gmail|mail)|open\s+(?:my\s+)?(?:email|inbox|gmail|mail)|search\s+(?:my\s+)?(?:email|inbox|gmail|mail)|reply\s+to\s+(?:that\s+)?email|forward\s+(?:that\s+)?email|show\s+(?:me\s+)?(?:my\s+)?(?:latest|recent|unread)\s+(?:email|mail)s?)\b/i.test(firstLine)
   ) {
     return { type: "email", message: text, compound: isCompound };
   }
@@ -2717,7 +3485,7 @@ function needsActionExecution(text: string): ActionDetectionResult {
 
   // --- Calendar ---
   if (
-    /\b(?:what(?:'?s|\s+is)\s+on\s+my\s+calendar|check\s+(?:my\s+)?calendar|show\s+(?:me\s+)?my\s+calendar|my\s+calendar\s+(?:today|tomorrow|this\s+week)|schedule\s+a?\s*(?:meeting|event|appointment|call)|add\s+to\s+(?:my\s+)?calendar|create\s+(?:a\s+|an\s+)?(?:calendar\s+)?(?:event|meeting|appointment)|(?:any|do\s+i\s+have)\s+(?:events?|meetings?|appointments?)\s+(?:today|tomorrow|this\s+week))\b/i.test(firstLine)
+    /\b(?:what(?:'?s|\s+is)\s+on\s+my\s+calendar|check\s+(?:my\s+)?calendar|show\s+(?:me\s+)?my\s+calendar|my\s+calendar\s+(?:today|tomorrow|this\s+week)|schedule\s+a?\s*(?:meeting|event|appointment|call)|add\s+to\s+(?:my\s+)?calendar|create\s+(?:a\s+|an\s+)?(?:calendar\s+)?(?:event|meeting|appointment)|(?:any|do\s+i\s+have(?:\s+any)?)\s+(?:events?|meetings?|appointments?)\s+(?:today|tomorrow|this\s+week))\b/i.test(firstLine)
   ) {
     return { type: "calendar", message: text, compound: isCompound };
   }
@@ -2765,6 +3533,40 @@ function needsActionExecution(text: string): ActionDetectionResult {
     return { type: "camera", message: text, compound: isCompound };
   }
 
+  // --- Credentials / Passwords (local encrypted vault) ---
+  // Save: "save my password for github", "store my login for netflix"
+  if (
+    /\b(?:save|store|remember|add)\s+(?:my\s+)?(?:password|login|credentials?|creds?|account)\s+(?:for|to)\s+/i.test(firstLine) ||
+    /\b(?:save|store|remember|add)\s+(?:a\s+)?(?:new\s+)?(?:password|login|credentials?|creds?)\b/i.test(firstLine)
+  ) {
+    return { type: "credential_save", message: text, compound: isCompound };
+  }
+  // Fill/use: "log me into github", "fill my login for netflix", "use my saved password for X"
+  if (
+    /\b(?:log\s+(?:me\s+)?in(?:to)?|sign\s+(?:me\s+)?in(?:to)?)\s+(?:my\s+)?/i.test(firstLine) ||
+    /\b(?:fill|use|enter)\s+(?:my\s+)?(?:saved?\s+)?(?:password|login|credentials?|creds?)\s+(?:for|on|at|into)\s+/i.test(firstLine) ||
+    /\b(?:auto[- ]?fill|autofill)\s+(?:my\s+)?(?:password|login|credentials?)\b/i.test(firstLine)
+  ) {
+    return { type: "credential_fill", message: text, compound: isCompound };
+  }
+  // List/show: "show my saved passwords", "list my credentials", "what passwords do I have saved"
+  if (
+    /\b(?:show|list|view|see)\s+(?:me\s+)?(?:my\s+)?(?:saved?\s+)?(?:passwords?|logins?|credentials?|creds?)\b/i.test(firstLine) ||
+    /\bwhat\s+(?:passwords?|logins?|credentials?)\s+(?:do\s+I\s+have|are)\s+(?:saved|stored)\b/i.test(firstLine) ||
+    /\b(?:my\s+)?(?:saved?\s+)?(?:passwords?|credentials?)\s+(?:list|vault)\b/i.test(firstLine)
+  ) {
+    return { type: "credential_list", message: text, compound: isCompound };
+  }
+
+  // --- Google Docs ---
+  if (
+    /\b(?:create|make|write|start)\s+(?:a\s+)?(?:new\s+)?(?:.*?\s+)?(?:on\s+|in\s+)?google\s+docs?\b/i.test(firstLine) ||
+    /\bgoogle\s+docs?\s+(?:called|titled|named|about|for)\b/i.test(firstLine) ||
+    /\b(?:create|make)\s+(?:a\s+)?(?:to[- ]?do\s+list|checklist|document|doc)\s+(?:on|in|with)\s+google/i.test(firstLine)
+  ) {
+    return { type: "google_docs", message: text, compound: isCompound };
+  }
+
   // --- Google Sheets ---
   if (
     /\b(?:create|make|new)\s+(?:a\s+)?(?:new\s+)?(?:google\s+)?(?:sheet|spreadsheet)\b/i.test(firstLine) ||
@@ -2789,22 +3591,22 @@ function needsActionExecution(text: string): ActionDetectionResult {
   // mentions an action domain. The OpenClaw agent is much better at understanding
   // intent than regex — let it decide what to do.
   if (
-    /\b(?:reminder|remind|alarm|alert)\b/i.test(firstLine) ||
-    /\b(?:calendar|schedule|event|meeting|appointment|booking)\b/i.test(firstLine) ||
-    /\b(?:email|e-mail|inbox|gmail|mail|message|text|imessage|sms|whatsapp)\b/i.test(firstLine) ||
-    /\b(?:note|notes|memo|jot\s+down|write\s+down)\b/i.test(firstLine) ||
-    /\b(?:todo|to-do|to\s+do\s+list|task|things)\b/i.test(firstLine) ||
-    /\b(?:light|lights|lamp|sonos|speaker|thermostat|hue|smart\s+home)\b/i.test(firstLine) ||
-    /\b(?:github|pull\s+request|pr|issue|commit|repo)\b/i.test(firstLine) ||
-    /\b(?:camera|doorbell|security\s+cam)\b/i.test(firstLine) ||
+    /\b(?:reminders?|remind|alarm|alert)\b/i.test(firstLine) ||
+    /\b(?:calendar|schedule|events?|meetings?|appointments?|booking)\b/i.test(firstLine) ||
+    /\b(?:emails?|e-mail|inbox|gmail|mail|messages?|texts?|imessage|sms|whatsapp)\b/i.test(firstLine) ||
+    /\b(?:notes?|memo|jot\s+down|write\s+down)\b/i.test(firstLine) ||
+    /\b(?:todos?|to-do|to\s+do\s+list|tasks?|things)\b/i.test(firstLine) ||
+    /\b(?:lights?|lamp|sonos|speakers?|thermostat|hue|smart\s+home)\b/i.test(firstLine) ||
+    /\b(?:github|pull\s+requests?|prs?|issues?|commits?|repos?)\b/i.test(firstLine) ||
+    /\b(?:cameras?|doorbell|security\s+cam)\b/i.test(firstLine) ||
     /\b(?:sheets?|spreadsheets?|google\s+sheets?)\b/i.test(firstLine)
   ) {
     // Determine the best category for the agent
     let agentType = "action";
-    if (/\b(?:reminder|remind|alarm)\b/i.test(firstLine)) agentType = "reminder";
-    else if (/\b(?:calendar|schedule|event|meeting|appointment)\b/i.test(firstLine)) agentType = "calendar";
-    else if (/\b(?:email|e-mail|inbox|gmail|mail)\b/i.test(firstLine)) agentType = "email";
-    else if (/\b(?:message|text|imessage|sms|whatsapp)\b/i.test(firstLine)) agentType = "message";
+    if (/\b(?:reminders?|remind|alarm)\b/i.test(firstLine)) agentType = "reminder";
+    else if (/\b(?:calendar|schedule|events?|meetings?|appointments?)\b/i.test(firstLine)) agentType = "calendar";
+    else if (/\b(?:emails?|e-mail|inbox|gmail|mail)\b/i.test(firstLine)) agentType = "email";
+    else if (/\b(?:messages?|texts?|imessage|sms|whatsapp)\b/i.test(firstLine)) agentType = "message";
     else if (/\b(?:note|notes|memo)\b/i.test(firstLine)) agentType = "notes";
     else if (/\b(?:todo|to-do|task|things)\b/i.test(firstLine)) agentType = "todo";
     else if (/\b(?:light|sonos|speaker|thermostat|hue|smart\s+home)\b/i.test(firstLine)) agentType = "smart_home";
@@ -2819,7 +3621,7 @@ function needsActionExecution(text: string): ActionDetectionResult {
 }
 
 export async function POST(req: Request) {
-  const { command, userProfile, agentSystemPrompt, locale, history, stream: requestStream } = await req.json();
+  const { command, userProfile, agentSystemPrompt, locale, history, stream: requestStream, selectedProvider } = await req.json();
   if (!command || typeof command !== "string") {
     return NextResponse.json({ response: apiStr(locale, "no_command") }, { status: 400 });
   }
@@ -2859,9 +3661,11 @@ export async function POST(req: Request) {
     // to the LLM if the agent is completely unreachable.
     const actionResult = needsActionExecution(normalized);
     if (actionResult) {
-      console.log(`[action] detected: type=${actionResult.type} compound=${!!actionResult.compound} msg="${normalized.slice(0, 60)}"`);
-      const gatewayResult = await executeNativeAction(actionResult.message, actionResult.type);
-      console.log(`[action] result: success=${gatewayResult.success} response="${(gatewayResult.response || "").slice(0, 80)}"`);
+      // For compound requests, only send the action part to the gateway (not the whole message)
+      const messageForAction = actionResult.compound
+        ? splitCompoundMessage(actionResult.message).actionPart
+        : actionResult.message;
+      const gatewayResult = await executeNativeAction(messageForAction, actionResult.type);
 
       if (actionResult.compound) {
         // ── COMPOUND REQUEST: action + conversation ──
@@ -2872,46 +3676,17 @@ export async function POST(req: Request) {
         const actionSummary = gatewayResult.success
           ? `✅ I've handled the action part: ${gatewayResult.response || "done"}`
           : `⚠️ I tried the action but it needs more info. ${gatewayResult.response || ""}`;
-        console.log(`[action] compound — executing LLM for remaining parts`);
         const compoundContext = `CONTEXT: The user asked a compound request. You already handled the action part:\n${actionSummary}\n\nNow address the rest of their message conversationally. Don't repeat the action confirmation — just mention it briefly and focus on the other parts.`;
         if (requestStream) {
           const { stream, model } = await routeToLLMStream(normalized, {
-            context: compoundContext, userProfile, agentSystemPrompt, locale, history: chatHistory,
+            context: compoundContext, userProfile, agentSystemPrompt, locale, history: chatHistory, selectedProvider,
           });
-          let accumulated = "";
-          const encoder = new TextEncoder();
-          const sseStream = new ReadableStream({
-            async start(ctrl) {
-              // Send the action result as the first token
-              const prefix = actionSummary + "\n\n";
-              accumulated += prefix;
-              ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ token: prefix })}\n\n`));
-              const reader = stream.getReader();
-              try {
-                while (true) {
-                  const { done, value } = await reader.read();
-                  if (done) break;
-                  accumulated += value;
-                  ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ token: value })}\n\n`));
-                }
-                const parsed = parseFollowUps(cleanLLMResponse(accumulated));
-                ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, response: parsed.clean, followUps: parsed.followUps, model })}\n\n`));
-                ctrl.close();
-              } catch (err) {
-                ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, error: (err as Error).message })}\n\n`));
-                ctrl.close();
-              }
-              if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
-            },
-          });
-          return new Response(sseStream, {
-            headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
-          });
+          return buildSSEResponse(stream, model, { prefix: actionSummary + "\n\n" });
         } else {
           const llmReply = await routeToLLM(normalized, {
-            context: compoundContext, userProfile, agentSystemPrompt, locale, history: chatHistory,
+            context: compoundContext, userProfile, agentSystemPrompt, locale, history: chatHistory, selectedProvider,
           });
-          if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
+          await deductIfDesktop();
           return NextResponse.json({
             response: actionSummary + "\n\n" + cleanLLMResponse(llmReply),
             actionType: gatewayResult.actionType,
@@ -2923,7 +3698,7 @@ export async function POST(req: Request) {
 
       // ── SIMPLE ACTION: just the action, no conversation needed ──
       if (gatewayResult.success) {
-        if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
+        await deductIfDesktop();
         return NextResponse.json({
           response: gatewayResult.response,
           actionType: gatewayResult.actionType,
@@ -2940,7 +3715,6 @@ export async function POST(req: Request) {
           actionStatus: "error",
         });
       }
-      console.log(`[action] falling through to LLM — gateway agent failed or returned empty`);
     }
 
     // Check for explicit search commands first
@@ -3012,7 +3786,7 @@ export async function POST(req: Request) {
       if (!results.length) {
         // Fall through to normal LLM if no search results — pass same anonymizer
         const reply = await routeToLLM(normalized, { userProfile, agentSystemPrompt, locale, history: chatHistory, anonymizer: anon });
-        if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
+        await deductIfDesktop();
         const fallbackParsed = parseFollowUps(reply);
         return NextResponse.json({
           response: cleanLLMResponse(fallbackParsed.clean),
@@ -3052,6 +3826,11 @@ export async function POST(req: Request) {
           const userLoc = extractUserLocation(persona);
           coords = getCoordsForLocation(userLoc);
         }
+        // Fall back to userProfile context (client-sent vault data)
+        if (!coords && userProfile?.context) {
+          const ctxLoc = extractUserLocation(userProfile.context);
+          coords = getCoordsForLocation(ctxLoc);
+        }
         if (coords) {
           const wd = await fetchWeatherData(coords[0], coords[1]);
           if (wd) weatherData = `\n\n${wd}`;
@@ -3059,7 +3838,7 @@ export async function POST(req: Request) {
       }
 
       const weatherRules = isWeatherQuery
-        ? `\n\nWEATHER-SPECIFIC RULES:\n- Start with: "**Right now in [City]:** [temp]°F, [conditions]" — bold the temp and city\n- Show: current temp, feels-like, conditions, rain/snow chance, tonight's low, forecast\n- Keep it SHORT and voice-friendly — 3-5 lines max, no tables, no bullet overload\n- Example: "**Right now in San Ramon:** 56°F, cloudy. Feels like 53°F. Rain likely tonight, low around 46°F."\n- End with: *Real-time as of ${timeTag}*\n- If no exact local data, say "Closest I got is [nearby city]—want that?" but NEVER default to a general state/region page\n- NEVER say "I can't check the weather" or "I recommend checking Weather.com" — you HAVE the search results, USE THEM\n- Extract ANY weather data from the snippets: temperatures, conditions, forecasts, rain chances — and present it confidently\n- Do NOT use tables for weather — keep it conversational and natural\n- Do NOT tell the user to go check another website — that defeats the purpose`
+        ? `\n\nWEATHER-SPECIFIC RULES:\n- Start with: "**Right now in [City]:** [temp]°F, [conditions]" — bold the temp and city\n- Show: current temp, feels-like, conditions, rain/snow chance, tonight's low, forecast\n- Keep it SHORT and voice-friendly — 3-5 lines max, no tables, no bullet overload\n- Example: "**Right now in Denver:** 42°F, partly cloudy. Feels like 38°F. Snow possible tonight, low around 28°F."\n- End with: *Real-time as of ${timeTag}*\n- If no exact local data, say "Closest I got is [nearby city]—want that?" but NEVER default to a general state/region page\n- NEVER say "I can't check the weather" or "I recommend checking Weather.com" — you HAVE the search results, USE THEM\n- Extract ANY weather data from the snippets: temperatures, conditions, forecasts, rain chances — and present it confidently\n- Do NOT use tables for weather — keep it conversational and natural\n- Do NOT tell the user to go check another website — that defeats the purpose`
         : "";
 
       // Build a dedicated search system prompt that overrides any "I can't access the web" behavior.
@@ -3115,7 +3894,7 @@ ${formattedResults}
         `${searchQuery}`,
         { context: undefined, userProfile, agentSystemPrompt: searchSystemPrompt, locale, history: chatHistory, anonymizer: anon }
       );
-      if (!isServerless) await deductCredit("search");
+      await deductIfDesktop("search");
 
       // Build structured sources array for expandable accordion
       const sourcesData = results.map(r => ({
@@ -3158,7 +3937,7 @@ ${formattedResults}
           const raw = await fs.readFile(schedulesPath, "utf8");
           const content = isEncrypted(raw) ? (decryptFromFile(raw) || "[]") : raw;
           return JSON.parse(content) as ScheduledTask[];
-        } catch { return []; }
+        } catch (err) { console.warn("[schedule] load failed:", (err as Error).message); return []; }
       }
       async function writeSchedules(tasks: ScheduledTask[]): Promise<void> {
         await fs.mkdir(path.dirname(schedulesPath), { recursive: true });
@@ -3280,7 +4059,7 @@ ${formattedResults}
         ? `\n\n📝 *I currently remember ${memoryCount} things about you. Say \`tell me about myself\` to see them.*`
         : "";
       return NextResponse.json({
-        response: `Great question! Here's how to train me to your preferences:\n\n**Just say \`remember:\` followed by anything** — I'll save it and use it to personalize every future response.\n\n**Examples:**\n- \`remember: I prefer short, direct answers\`\n- \`remember: I live in Austin, TX\`\n- \`remember: I have 2 kids and a dog\`\n- \`remember: my favorite food is Thai\`\n- \`remember: I'm a morning person\`\n- \`remember: communication style: casual\`\n\nThe more you teach me, the better I get at anticipating what you need. Everything is stored encrypted locally — only you can access it.${currentMemories}`
+        response: `Great question! Here's how to train me to your preferences:\n\n**Just say \`remember:\` followed by anything** — I'll save it and use it to personalize every future response.\n\n**Examples:**\n- \`remember: I prefer short, direct answers\`\n- \`remember: I live in Denver, CO\`\n- \`remember: I have 2 kids and a dog\`\n- \`remember: my favorite food is Thai\`\n- \`remember: I'm a morning person\`\n- \`remember: communication style: casual\`\n\nThe more you teach me, the better I get at anticipating what you need. Everything is stored encrypted locally — only you can access it.${currentMemories}`
       });
     }
 
@@ -3298,10 +4077,11 @@ ${formattedResults}
         const narratedReply = await routeToLLM(narratePrompt, { userProfile, locale, history: chatHistory });
 
         const hint = memoryCount <= 4
-          ? `\n\n---\n💡 *Teach me more! Say \`remember: I live in San Ramon\` or \`remember: my wife is pregnant\` to build your profile.*`
+          ? `\n\n---\n💡 *Teach me more! Say \`remember: I live in Denver, CO\` or \`remember: my favorite cuisine is Thai\` to build your profile.*`
           : `\n\n---\n📝 *${memoryCount} things I know about you. Say \`remember: ...\` to teach me more.*`;
         return NextResponse.json({ response: narratedReply + hint });
-      } catch {
+      } catch (err) {
+        console.warn("[vault] persona read failed:", (err as Error).message);
         return NextResponse.json({ response: apiStr(locale, "no_persona_alt") });
       }
     }
@@ -3382,7 +4162,7 @@ ${formattedResults}
     if (ttsMatch) {
       const actualQuery = ttsMatch[1].trim();
       const reply = await routeToLLM(actualQuery, { userProfile, agentSystemPrompt, locale, history: chatHistory });
-      if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
+      await deductIfDesktop();
       return NextResponse.json({ response: reply });
     }
 
@@ -3435,7 +4215,7 @@ ${formattedResults}
         `Here's the user's recent conversation history. Summarize the key themes and topics they discussed this session in a natural, warm way. Don't list messages — synthesize. Use a conversational tone like "You've been exploring..." or "This week you talked about...". Keep it to 3-5 sentences.\n\nHistory:\n${historyText}`,
         { userProfile, locale }
       );
-      if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
+      await deductIfDesktop();
       return NextResponse.json({ response: summaryReply });
     }
 
@@ -3477,15 +4257,19 @@ ${formattedResults}
       const notesDir = path.join(os.homedir(), ".hammerlock", "notes");
       try {
         await fs.mkdir(notesDir, { recursive: true });
-        // Simple base64 encoding as a stand-in for AES-256 (real crypto would need a master key flow)
-        const encoded = Buffer.from(noteContent, "utf8").toString("base64");
-        await fs.writeFile(path.join(notesDir, fileName), encoded, "utf8");
+        if (!hasServerSessionKey()) {
+          return NextResponse.json({
+            response: `🔒 Your vault is locked. Please unlock it first (open **My Vault** in the sidebar) so I can encrypt this note with your vault key.`,
+          });
+        }
+        const encrypted = encryptForFile(noteContent);
+        await fs.writeFile(path.join(notesDir, fileName), encrypted, "utf8");
         return NextResponse.json({
-          response: `🔐 Locked—**${fileName}** encrypted and stored in your Vault.\n\n*Content secured locally. Say \`decrypt ${fileName}\` to view it, or open **My Vault** in the sidebar.*`,
+          response: `🔐 Locked—**${fileName}** encrypted (AES-256-GCM) and stored in your Vault.\n\n*Content secured locally. Say \`decrypt ${fileName}\` to view it, or open **My Vault** in the sidebar.*`,
           createVaultNote: { name: fileName, content: noteContent, encrypted: true },
         });
       } catch (err) {
-        return NextResponse.json({ response: `Couldn't encrypt: ${(err as Error).message}` });
+        return NextResponse.json({ response: `Couldn't encrypt the note. Make sure your vault is unlocked and try again.` });
       }
     }
 
@@ -3497,13 +4281,28 @@ ${formattedResults}
       try {
         const filePath = path.join(notesDir, fileName);
         const raw = await fs.readFile(filePath, "utf8");
-        // Try base64 decode
         let content: string;
-        try {
-          content = Buffer.from(raw, "base64").toString("utf8");
-          // Validate it's readable text
-          if (!/^[\x20-\x7E\n\r\t]+$/.test(content)) content = raw;
-        } catch { content = raw; }
+        if (isEncrypted(raw)) {
+          // Real AES-256-GCM encrypted file
+          if (!hasServerSessionKey()) {
+            return NextResponse.json({
+              response: `🔒 This note is encrypted. Please unlock your vault first (open **My Vault** in the sidebar) to decrypt it.`,
+            });
+          }
+          const decrypted = decryptFromFile(raw);
+          if (!decrypted) {
+            return NextResponse.json({
+              response: `Couldn't decrypt "${fileName}". The vault key may have changed. Try unlocking your vault again.`,
+            });
+          }
+          content = decrypted;
+        } else {
+          // Legacy base64 fallback (pre-encryption files)
+          try {
+            const decoded = Buffer.from(raw, "base64").toString("utf8");
+            content = /^[\x20-\x7E\n\r\t]+$/.test(decoded) ? decoded : raw;
+          } catch { content = raw; }
+        }
         return NextResponse.json({
           response: `🔓 Decrypted **${fileName}**:\n\n> ${content.slice(0, 500)}${content.length > 500 ? "..." : ""}`,
         });
@@ -3523,7 +4322,7 @@ ${formattedResults}
         imagePrompt,
         { userProfile, agentSystemPrompt, locale, history: chatHistory }
       );
-      if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
+      await deductIfDesktop();
       return NextResponse.json({ response: reply });
     }
 
@@ -3550,46 +4349,20 @@ ${formattedResults}
       const userLoc = extractUserLocation(persona);
       if (!userLoc) {
         return NextResponse.json({
-          response: `📍 Quick—where you at? Give me your city + state (like "San Ramon, CA") and I'll lock it in for all future searches.\n\nJust say: **remember: location: San Ramon, CA 94583**\n\n*Once saved, I'll automatically pull local weather, restaurants, and events for you.*`
+          response: `📍 Quick—where you at? Give me your city + state (like "Denver, CO") and I'll lock it in for all future searches.\n\nJust say: **remember: location: Denver, CO 80202**\n\n*Once saved, I'll automatically pull local weather, restaurants, and events for you.*`
         });
       }
     }
 
     // ---- STREAMING PATH: return SSE stream if requested ----
     if (requestStream) {
-      const { stream, model } = await routeToLLMStream(normalized, { userProfile, agentSystemPrompt, locale, history: chatHistory });
-      let accumulated = "";
-      const encoder = new TextEncoder();
-      const sseStream = new ReadableStream({
-        async start(ctrl) {
-          const reader = stream.getReader();
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              accumulated += value;
-              ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ token: value })}\n\n`));
-            }
-            // Send final message with full text + follow-ups
-            const parsed = parseFollowUps(cleanLLMResponse(accumulated));
-            ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, response: parsed.clean, followUps: parsed.followUps, model })}\n\n`));
-            ctrl.close();
-          } catch (err) {
-            ctrl.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, error: (err as Error).message })}\n\n`));
-            ctrl.close();
-          }
-          // Deduct credit after streaming completes
-          if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
-        },
-      });
-      return new Response(sseStream, {
-        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
-      });
+      const { stream, model } = await routeToLLMStream(normalized, { userProfile, agentSystemPrompt, locale, history: chatHistory, selectedProvider });
+      return buildSSEResponse(stream, model);
     }
 
     // ---- NON-STREAMING PATH: traditional JSON response ----
-    const reply = await routeToLLM(normalized, { userProfile, agentSystemPrompt, locale, history: chatHistory });
-    if (!isServerless) await deductCredit(creditTypeForModel(lastModelUsed));
+    const reply = await routeToLLM(normalized, { userProfile, agentSystemPrompt, locale, history: chatHistory, selectedProvider });
+    await deductIfDesktop();
     const mainParsed = parseFollowUps(reply);
     return NextResponse.json({
       response: cleanLLMResponse(mainParsed.clean),

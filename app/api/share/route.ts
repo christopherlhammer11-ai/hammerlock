@@ -70,9 +70,9 @@ export async function POST(req: Request) {
       entryCount: entries.length,
     });
   } catch (error) {
-    console.error("Share creation error:", (error as Error).message);
+    console.error("[share] Creation error:", (error as Error).message);
     return NextResponse.json(
-      { error: "Failed to create share: " + (error as Error).message },
+      { error: "Something went wrong. Please try again." },
       { status: 500 }
     );
   }
@@ -118,9 +118,9 @@ export async function GET(req: Request) {
       accessCount: shareData.accessCount,
     });
   } catch (error) {
-    console.error("Share retrieval error:", (error as Error).message);
+    console.error("[share] Retrieval error:", (error as Error).message);
     return NextResponse.json(
-      { error: "Failed to retrieve share: " + (error as Error).message },
+      { error: "Something went wrong. Please try again." },
       { status: 500 }
     );
   }

@@ -8,12 +8,20 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { createRateLimiter } from "@/lib/rate-limit";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_AUDIENCE_ID = process.env.RESEND_AUDIENCE_ID;
+const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 5 });
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const limited = limiter.check(ip);
+    if (limited) {
+      return NextResponse.json({ error: "Too many requests." }, { status: 429 });
+    }
+
     const { email, source, platform } = await req.json();
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
@@ -26,7 +34,7 @@ export async function POST(req: NextRequest) {
     const normalized = email.trim().toLowerCase();
 
     // Log the lead (visible in Vercel function logs)
-    console.log(
+    console.warn(
       `[download-lead] ${normalized} | source=${source || "get-app"} | platform=${platform || "unknown"} | ${new Date().toISOString()}`
     );
 
@@ -40,7 +48,7 @@ export async function POST(req: NextRequest) {
           firstName: "", // Can be enriched later
           unsubscribed: false,
         });
-        console.log(`[download-lead] Added to Resend audience: ${normalized}`);
+        console.warn(`[download-lead] Added to Resend audience: ${normalized}`);
       } catch (resendError) {
         // Don't block the download if Resend fails
         console.error("[download-lead] Resend error:", (resendError as Error).message);

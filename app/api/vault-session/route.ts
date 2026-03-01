@@ -7,6 +7,7 @@ import {
   decryptFromFile,
   isEncrypted,
 } from "@/lib/server-crypto";
+import { loadCredentials, clearCredentialCache } from "@/lib/credential-store";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
@@ -41,11 +42,20 @@ export async function POST(req: Request) {
       // Load decrypted env vars into process.env so LLM routing works
       await loadEncryptedEnvVars();
 
+      // Load encrypted credential store into memory
+      try {
+        const credStore = await loadCredentials();
+        console.warn(`[vault-session] Loaded ${credStore.entries.length} credentials from vault`);
+      } catch (err) {
+        console.warn("[vault-session] Credential store load failed:", (err as Error).message);
+      }
+
       return NextResponse.json({ status: "ok", encrypted: true });
     }
 
     if (action === "lock") {
       clearServerSessionKey();
+      clearCredentialCache();
       return NextResponse.json({ status: "ok" });
     }
 
@@ -57,7 +67,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("[vault-session] Error:", (error as Error).message);
     return NextResponse.json(
-      { error: "Vault session error: " + (error as Error).message },
+      { error: "Vault session error. Please try again." },
       { status: 500 }
     );
   }
@@ -76,7 +86,7 @@ async function migrateFileToEncrypted(filePath: string) {
       // File is plaintext — encrypt it
       const encrypted = encryptForFile(content);
       await fs.writeFile(filePath, encrypted, "utf8");
-      console.log(`[vault-session] Migrated ${path.basename(filePath)} to encrypted storage`);
+      console.warn(`[vault-session] Migrated ${path.basename(filePath)} to encrypted storage`);
     }
   } catch {
     // File doesn't exist yet — that's fine
@@ -118,7 +128,7 @@ async function loadEncryptedEnvVars() {
         loaded++;
       }
     }
-    console.log(`[vault-session] Loaded ${loaded} env vars into process.env`);
+    console.warn(`[vault-session] Loaded ${loaded} env vars into process.env`);
 
     // Auto-set HAMMERLOCK_USER_*_KEY flags if user has their own keys loaded
     // (these are runtime flags for the credit system — not persisted)

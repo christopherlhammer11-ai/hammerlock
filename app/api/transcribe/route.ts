@@ -87,7 +87,7 @@ export async function POST(req: Request) {
         else if (mimeType.includes("ogg")) ext = "ogg";
         else if (mimeType.includes("mpeg") || mimeType.includes("mp3")) ext = "mp3";
 
-        console.log(`[transcribe] Audio: type=${mimeType}, size=${audio.size}, ext=${ext}, locale=${locale}`);
+        console.warn(`[transcribe] Audio: type=${mimeType}, size=${audio.size}, ext=${ext}, locale=${locale}`);
 
         const audioBlob = new Blob([await audio.arrayBuffer()], { type: mimeType });
         whisperForm.append("file", audioBlob, `recording.${ext}`);
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
               normalized.includes("ai assistant called hammerlock") ||
               normalized.includes("user is speaking");
             if (isHallucination) {
-              console.log(`[transcribe] Filtered Whisper hallucination: "${text}"`);
+              console.warn(`[transcribe] Filtered Whisper hallucination: "${text}"`);
               return NextResponse.json(
                 { error: "Could not understand the recording. Please speak clearly and try again." },
                 { status: 422 }
@@ -131,13 +131,12 @@ export async function POST(req: Request) {
             }
             return NextResponse.json({ text, provider: "whisper" });
           }
-          console.log("[transcribe] Whisper returned empty text");
+          console.warn("[transcribe] Whisper returned empty text");
         } else {
           const errBody = await res.text();
           console.error("[transcribe] Whisper API error:", res.status, errBody.slice(0, 500));
-          // Return specific error so UI can show it
           return NextResponse.json(
-            { error: `Whisper API error (${res.status}): ${errBody.slice(0, 200)}` },
+            { error: "Transcription failed. Please check your API key and try again." },
             { status: res.status }
           );
         }
@@ -168,7 +167,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("[transcribe] Error:", (error as Error).message);
     return NextResponse.json(
-      { error: "Transcription failed: " + (error as Error).message },
+      { error: "Transcription failed. Please try again." },
       { status: 500 }
     );
   }

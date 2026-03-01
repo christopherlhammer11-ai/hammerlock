@@ -15,7 +15,11 @@ import crypto from "crypto";
 // Removed: 0, O, 1, I, L to avoid visual ambiguity
 const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"; // 29 chars
 
-const KEY_SALT = process.env.STRIPE_SECRET_KEY || "hammerlock-license-salt";
+function getKeySalt(): string {
+  const salt = process.env.STRIPE_SECRET_KEY;
+  if (!salt) throw new Error("STRIPE_SECRET_KEY is required for license key operations");
+  return salt;
+}
 
 /**
  * Generate a cryptographically random license key.
@@ -40,7 +44,7 @@ export function generateLicenseKey(): string {
  * Uses HMAC-SHA256 with the Stripe secret key as salt.
  */
 export function deriveKeyFromSession(sessionId: string): string {
-  const hash = crypto.createHmac("sha256", KEY_SALT).update(sessionId).digest();
+  const hash = crypto.createHmac("sha256", getKeySalt()).update(sessionId).digest();
   const groups: string[] = [];
   for (let g = 0; g < 4; g++) {
     let group = "";
@@ -56,7 +60,7 @@ export function deriveKeyFromSession(sessionId: string): string {
  * Validate that a string matches the license key format.
  */
 export function isValidKeyFormat(key: string): boolean {
-  return /^HL-[23456789A-HJ-NP-Z]{4}-[23456789A-HJ-NP-Z]{4}-[23456789A-HJ-NP-Z]{4}-[23456789A-HJ-NP-Z]{4}$/.test(
+  return /^HL-[23456789A-HJKMNP-Z]{4}-[23456789A-HJKMNP-Z]{4}-[23456789A-HJKMNP-Z]{4}-[23456789A-HJKMNP-Z]{4}$/.test(
     key.toUpperCase()
   );
 }

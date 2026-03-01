@@ -33,12 +33,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  console.log(`[webhook] ${event.type}`, event.id);
+  console.warn(`[webhook] ${event.type}`, event.id);
 
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      console.log("[webhook] Checkout completed:", {
+      console.warn("[webhook] Checkout completed:", {
         sessionId: session.id,
         customerId: session.customer,
         subscriptionId: session.subscription,
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        console.log("[webhook] License key derived for session:", session.id);
+        console.warn("[webhook] License key derived for session:", session.id);
       } catch (err) {
         console.error("[webhook] Failed to process checkout:", (err as Error).message);
       }
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
 
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
-      console.log("[webhook] Subscription updated:", {
+      console.warn("[webhook] Subscription updated:", {
         id: subscription.id,
         status: subscription.status,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
-      console.log("[webhook] Subscription cancelled:", {
+      console.warn("[webhook] Subscription cancelled:", {
         id: subscription.id,
         status: subscription.status,
       });
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
 
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
-      console.log("[webhook] Payment failed:", {
+      console.warn("[webhook] Payment failed:", {
         invoiceId: invoice.id,
         customerId: invoice.customer,
         amountDue: invoice.amount_due,
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
 
     case "customer.subscription.trial_will_end": {
       const subscription = event.data.object as Stripe.Subscription;
-      console.log("[webhook] Trial ending soon:", {
+      console.warn("[webhook] Trial ending soon:", {
         id: subscription.id,
         trialEnd: subscription.trial_end,
       });
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     }
 
     default:
-      console.log(`[webhook] Unhandled: ${event.type}`);
+      console.warn(`[webhook] Unhandled: ${event.type}`);
   }
 
   return NextResponse.json({ received: true });

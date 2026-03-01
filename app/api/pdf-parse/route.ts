@@ -55,11 +55,9 @@ export async function POST(req: Request) {
       filename: file.name,
     });
   } catch (error) {
-    const msg = (error as Error).message;
-    console.error("PDF parse error:", msg);
-    console.error("PDF parse stack:", (error as Error).stack);
+    console.error("[pdf-parse] Error:", (error as Error).message);
     return NextResponse.json(
-      { error: "Failed to parse PDF: " + msg },
+      { error: "Failed to parse PDF. The file may be corrupted or password-protected." },
       { status: 500 }
     );
   }

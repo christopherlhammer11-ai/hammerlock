@@ -60,9 +60,12 @@ export function openclawCommand(subcommand: string, profile = "hammerlock"): str
     return `openclaw --profile ${profile} ${subcommand}`;
   }
 
-  // Bundled — run via node
+  // Bundled — run via Electron binary in Node mode.
+  // ELECTRON_RUN_AS_NODE=1 makes the Electron binary act as a plain Node.js
+  // runtime, otherwise it launches a new app instance (which exits immediately
+  // due to the single-instance lock) instead of running the script.
   const scriptPath = args[0];
-  return `"${command}" "${scriptPath}" --profile ${profile} ${subcommand}`;
+  return `ELECTRON_RUN_AS_NODE=1 "${command}" "${scriptPath}" --profile ${profile} ${subcommand}`;
 }
 
 /**

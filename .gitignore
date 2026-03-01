@@ -19,3 +19,7 @@ dist-electron/
 *.pem
 *.cer
 *.certSigningRequest
+.env*.local
+.env.x-api
+.env.vercel
+.env.vercel-live

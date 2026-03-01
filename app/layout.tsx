@@ -10,6 +10,7 @@ import { I18nProvider } from "@/lib/i18n";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import ErrorBoundary from "@/app/components/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
@@ -47,8 +48,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#00ff88",
 };
 
@@ -74,13 +73,15 @@ export default function RootLayout({
       <body className={`${inter.variable} ${jetbrains.variable} ${spaceGrotesk.variable}`}>
         {/* Electron drag bar — invisible fixed strip at top for window dragging */}
         <div className="electron-drag-bar" />
-        <I18nProvider>
-          <SubscriptionProvider>
-            <VaultProvider>
-              <PersonalVaultProvider>{children}</PersonalVaultProvider>
-            </VaultProvider>
-          </SubscriptionProvider>
-        </I18nProvider>
+        <ErrorBoundary>
+          <I18nProvider>
+            <SubscriptionProvider>
+              <VaultProvider>
+                <PersonalVaultProvider>{children}</PersonalVaultProvider>
+              </VaultProvider>
+            </SubscriptionProvider>
+          </I18nProvider>
+        </ErrorBoundary>
         <Script
           id="electron-detect-body"
           strategy="afterInteractive"
@@ -92,8 +93,9 @@ export default function RootLayout({
             `,
           }}
         />
-        <Analytics />
-        <SpeedInsights />
+        {/* Only load Vercel analytics on the web — skip in Electron (privacy-first) */}
+        {process.env.VERCEL && <Analytics />}
+        {process.env.VERCEL && <SpeedInsights />}
         <Script
           id="sw-register"
           strategy="afterInteractive"

@@ -3,6 +3,7 @@ import { openclawCommand } from "@/lib/openclaw-paths";
 
 export async function GET() {
   // Check if at least one cloud LLM provider is configured (env vars)
+  const hasGemini = !!process.env.GEMINI_API_KEY;
   const hasOpenAI = !!process.env.OPENAI_API_KEY;
   const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
 
@@ -34,12 +35,13 @@ export async function GET() {
     }
   }
 
-  const hasLLM = hasOpenAI || hasAnthropic || ollamaUp;
+  const hasLLM = hasGemini || hasOpenAI || hasAnthropic || ollamaUp;
 
   return NextResponse.json({
     status: hasLLM || gatewayUp ? "ready" : "no_provider",
     gateway: gatewayUp ? "connected" : "offline",
     providers: {
+      gemini: hasGemini,
       ollama: ollamaUp,
       openai: hasOpenAI,
       anthropic: hasAnthropic,

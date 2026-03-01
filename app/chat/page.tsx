@@ -1,12 +1,12 @@
-// 🔨🔐 HammerLock AI — Chat Console
-// Where the magic happens. Privacy-first, personality-loaded.
+// HammerLock AI — Chat Console
+// Privacy-first AI chat interface with encrypted local memory.
 "use client";
 import {
   Lock, Mic, MicOff, Paperclip, Send, Square, Terminal, X, ChevronRight, Trash2,
   FileText, Share2, User, Search, BarChart3, Bot, Zap, Globe, Settings, Key,
-  Plus, FolderPlus, MessageSquare, ChevronDown, Edit3, Check, Download,
+  Plus, FolderPlus, MessageSquare, ChevronDown, Check, Download,
   Copy, Volume2, VolumeX, RefreshCw, Menu, PanelLeftClose, Archive,
-  Shield, StickyNote, File, Image,
+  Shield, StickyNote, File, Image, Cpu,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -29,456 +29,29 @@ import PersonalVaultPanel from "@/components/PersonalVaultPanel";
 import IntegrationSetup from "@/components/IntegrationSetup";
 import PermissionsSetup from "@/components/PermissionsSetup";
 import { usePersonalVault } from "@/lib/personal-vault-store";
-import { type ScheduledTask, formatSchedule, formatTime12h } from "@/lib/schedules";
+import { type ScheduledTask } from "@/lib/schedules";
+import {
+  ACTION_BADGE_ICONS, ACTION_BADGE_LABELS,
+  NUDGE_CATALOG, THINKING_MESSAGES, getThinkingMessage,
+  AGENT_EMOJI, AGENT_INTRO_TIPS, AGENT_INTRO_SEEN_KEY,
+  AGENT_ACTIONS, WORKFLOW_CHAINS, VOICE_OPTIONS, MODEL_OPTIONS,
+  detectRelevantChains, isElectron,
+  type WorkflowAction, type WorkflowChain,
+} from "@/lib/chat-constants";
 
 type GatewayStatus = "connected" | "connecting" | "offline";
 
-// OpenClaw action badge display maps
-const ACTION_BADGE_ICONS: Record<string, string> = {
-  reminder: "⏰", email: "📧", message: "💬", notes: "📝",
-  calendar: "📅", smart_home: "💡", github: "🐙", todo: "✅",
-  camera: "📷", summarize_url: "🔗",
-};
-const ACTION_BADGE_LABELS: Record<string, string> = {
-  reminder: "Reminder", email: "Email", message: "Message Sent",
-  notes: "Note Created", calendar: "Calendar", smart_home: "Smart Home",
-  github: "GitHub", todo: "Todo", camera: "Camera", summarize_url: "Summarized",
-};
+// Constants imported from @/lib/chat-constants
 
-/** Nudge catalog — proactive tips shown at the right moment */
-const NUDGE_CATALOG: Record<string, NudgeDef> = {
-  remember_tip: {
-    id: "remember_tip",
-    icon: "🧠",
-    message: "Teach me about yourself! Say \"remember: I live in Austin\" or any detail — I'll use it to personalize every response.",
-    ctaLabel: "Try it \u2192",
-    ctaCommand: "remember: ",
-  },
-  search_tip: {
-    id: "search_tip",
-    icon: "🌐",
-    message: "I can search the web! Try asking about weather, news, restaurants, or anything that needs real-time data.",
-    ctaLabel: "Try a search \u2192",
-    ctaCommand: "search ",
-  },
-  voice_tip: {
-    id: "voice_tip",
-    icon: "🎙\uFE0F",
-    message: "You can talk to me! Click the mic button to use voice input, or say \"read it out loud\" to hear my response.",
-  },
-  vault_tip: {
-    id: "vault_tip",
-    icon: "📎",
-    message: "Upload PDFs and images with the paperclip button — I'll analyze them and store them encrypted on your device.",
-  },
-  agents_tip: {
-    id: "agents_tip",
-    icon: "🤖",
-    message: "You're chatting with the general assistant. Try a specialist! Strategist does competitive analysis, Counsel handles legal research, Analyst builds financial models, and Writer polishes your drafts.",
-    ctaLabel: "Browse Agents \u2192",
-    ctaCommand: "__open_agents_tab__",
-  },
-  agent_deep_tip: {
-    id: "agent_deep_tip",
-    icon: "📄",
-    message: "Pro tip: Upload a PDF and switch to the right agent \u2014 Counsel for contracts, Analyst for financials, Researcher for academic papers. Each agent reads the file through its specialist lens.",
-  },
-};
 
-/** Fun thinking messages shown while AI is processing */
-const THINKING_MESSAGES = [
-  "Cooking up something good...",
-  "Hmm, let me think about that...",
-  "Crunching the numbers...",
-  "Digging through the archives...",
-  "Putting the pieces together...",
-  "Working my magic...",
-  "On it, one sec...",
-  "Consulting the oracle...",
-  "Brewing up an answer...",
-  "Let me look into that...",
-  "Neurons firing...",
-  "Connecting the dots...",
-  "Hold tight, almost there...",
-  "Shuffling through the data...",
-  "Thinking cap: ON...",
-  "🔨 Hammering it out...",
-  "🔨 Forging your answer...",
-  "🔨 Nailing this down...",
-  "🔨 Striking while the iron's hot...",
-  "🔨 Drop the hammer in 3... 2...",
-];
-function getThinkingMessage() {
-  return THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)];
-}
-
-/** Simple emoji-based agent icon to avoid lucide barrel import issues in dev */
-const AGENT_EMOJI: Record<string, string> = {
-  Terminal: "\u2318", Target: "\uD83C\uDFAF", Scale: "\u2696\uFE0F", TrendingUp: "\uD83D\uDCC8",
-  BookOpen: "\uD83D\uDCDA", Wrench: "\uD83D\uDD27", PenTool: "\u270D\uFE0F",
-  Bot: "\uD83E\uDD16", Brain: "\uD83E\uDDE0", Cpu: "\uD83D\uDCBB", Flame: "\uD83D\uDD25",
-  Heart: "\u2764\uFE0F", Lightbulb: "\uD83D\uDCA1", Rocket: "\uD83D\uDE80", Shield: "\uD83D\uDEE1\uFE0F",
-  Star: "\u2B50", Wand2: "\u2728", Zap: "\u26A1",
-  Wallet: "\uD83D\uDCB0", Megaphone: "\uD83D\uDCE3", Sword: "\u2694\uFE0F",
-};
 function AgentIcon({ name, size = 14 }: { name: string; size?: number }) {
   const emoji = AGENT_EMOJI[name] || "\uD83E\uDD16";
   return <span style={{ fontSize: size * 0.9, lineHeight: 1 }}>{emoji}</span>;
 }
 
-/** Agent onboarding tips — shown on first switch to each agent */
-const AGENT_INTRO_TIPS: Record<string, { tips: string[]; example: string }> = {
-  coach: {
-    tips: [
-      "Tell Coach about your fitness level and any injuries — it'll customize everything for you",
-      "Ask for quick workouts when you're short on time: \"Give me a 15-min full body workout\"",
-      "Get meal plans based on what you have: \"I have chicken, rice, and veggies — plan my week\"",
-    ],
-    example: "I'm a beginner, no gym — just dumbbells at home. Build me a 4-week plan to get stronger, 30 min/day.",
-  },
-  money: {
-    tips: [
-      "Start with the basics: \"I make $X/month after taxes\" — Money does the math from there",
-      "Be honest about debt — no judgment, just a plan: \"I owe $12K across 3 credit cards\"",
-      "Ask it to find savings: \"Where am I overspending?\" — paste your expenses and let it analyze",
-    ],
-    example: "I make $4,200/mo after taxes. Rent is $1,400, car is $380. Help me budget the rest and start saving.",
-  },
-  content: {
-    tips: [
-      "Always mention the platform — Instagram captions are different from LinkedIn posts",
-      "Describe your vibe: \"casual and funny\" vs \"professional and authoritative\" changes everything",
-      "Ask for bulk content: \"Give me 10 hooks\" or \"Plan a week of posts\" to batch your content creation",
-    ],
-    example: "I run a small bakery. Give me 5 Instagram captions for this week — fun, casual, with CTAs to order online.",
-  },
-  strategist: {
-    tips: [
-      "Start by describing your business in 2\u20133 sentences \u2014 Strategist remembers context for the whole conversation",
-      "Ask it to challenge your assumptions: \"What am I missing in this plan?\"",
-      "Use it for framework-driven analysis: \"Run a SWOT\" or \"Map my competitive landscape\"",
-    ],
-    example: "I'm launching a B2B SaaS for compliance teams in fintech. Help me map the competitive landscape and find the gaps.",
-  },
-  counsel: {
-    tips: [
-      "Always specify the jurisdiction: \"Under California law...\" or \"Per EU GDPR requirements...\"",
-      "Upload contracts as PDFs and ask: \"Flag any unusual clauses or missing protections\"",
-      "Use it for research, not advice \u2014 it will always remind you to consult a licensed attorney",
-    ],
-    example: "Review this vendor agreement and flag any one-sided terms, missing IP protections, or liability concerns.",
-  },
-  analyst: {
-    tips: [
-      "Give it numbers first \u2014 the Analyst works best with specific data points",
-      "Ask for structured scenarios: \"Build a bull/base/bear case for this acquisition\"",
-      "Use it for quick market sizing: \"What's the TAM/SAM/SOM for [industry] in [region]?\"",
-    ],
-    example: "I'm raising a Series A at $15M pre. Our ARR is $1.2M growing 15% MoM. Help me build the financial model.",
-  },
-  researcher: {
-    tips: [
-      "Be specific about scope: \"Research the last 3 years of studies on [topic]\"",
-      "Ask it to evaluate source quality: \"How credible is this? What's the methodology?\"",
-      "Request structured outputs: \"Give me background, methodology, findings, analysis, and limitations\"",
-    ],
-    example: "Search for recent studies on employee retention in remote-first companies. Synthesize the findings.",
-  },
-  operator: {
-    tips: [
-      "Start with the outcome: \"I need to launch [X] by [date]. Break it down for me.\"",
-      "Use it as a daily standup partner: \"Here's what I did today, what should I focus on tomorrow?\"",
-      "Have it prioritize: \"I have 12 tasks. Help me rank them P0/P1/P2.\"",
-    ],
-    example: "I'm shipping a product update next Friday. Here's what's left: [list]. Help me prioritize and create a day-by-day plan.",
-  },
-  writer: {
-    tips: [
-      "Always state the audience: \"This is for our investors\" vs. \"This is for our engineering team\"",
-      "Ask for drafts first, then iterate: \"Draft v1, then I'll give you feedback\"",
-      "Specify tone: \"Write this like a CEO update \u2014 confident but not arrogant\"",
-    ],
-    example: "Draft a cold email to a potential enterprise customer. We sell compliance automation for fintech. Keep it under 150 words.",
-  },
-  director: {
-    tips: [
-      "Start with the platform and length: \"30-second TikTok\" vs. \"3-minute YouTube tutorial\" — Director optimizes for each",
-      "Describe your product/demo: \"It's an encrypted AI chat app\" — Director builds the visual story around it",
-      "Ask for complete packages: \"Give me the script, shot list, and voiceover\" — one prompt, everything you need",
-    ],
-    example: "Script a 60-second product demo video for HammerLock AI. Show the vault feature, agent switching, and privacy pitch. Punchy and modern.",
-  },
-};
 
-/** Vault settings key for tracking which agents have been introduced */
-const AGENT_INTRO_SEEN_KEY = "agent_intro_seen";
 
-/** ─── WORKFLOW ENGINE ───
- * Agent-aware action buttons + smart multi-step workflow chains.
- * Each agent gets contextual actions based on what it just generated,
- * plus proactive multi-step workflow suggestions.
- */
 
-type WorkflowAction = {
-  id: string;
-  icon: string;
-  label: string;
-  /** Command template — {content} is replaced with the AI response */
-  command: string;
-};
-
-type WorkflowChain = {
-  id: string;
-  icon: string;
-  label: string;
-  /** Steps described for the user */
-  description: string;
-  /** Array of commands to execute sequentially */
-  steps: string[];
-  /** Keywords that trigger this chain suggestion (matched against AI response) */
-  triggers: string[];
-};
-
-/** Per-agent quick actions shown as buttons on AI responses */
-const AGENT_ACTIONS: Record<string, WorkflowAction[]> = {
-  analyst: [
-    { id: "email_report", icon: "📧", label: "Email This", command: "Send email with subject 'Financial Analysis from HammerLock AI': {content}" },
-    { id: "save_notes", icon: "📝", label: "Save to Notes", command: "Create note in Apple Notes: Financial Analysis\n\n{content}" },
-    { id: "add_tasks", icon: "✅", label: "Create Tasks", command: "Add to my todo list: Review and validate the financial model assumptions, Update revenue forecast spreadsheet, Schedule review meeting" },
-  ],
-  strategist: [
-    { id: "email_report", icon: "📧", label: "Email This", command: "Send email with subject 'Strategy Brief from HammerLock AI': {content}" },
-    { id: "save_notes", icon: "📝", label: "Save to Notes", command: "Create note in Apple Notes: Strategy Brief\n\n{content}" },
-    { id: "add_tasks", icon: "✅", label: "Action Items", command: "Add to my todo list: Execute on strategy recommendations, Research competitor moves, Schedule strategy review" },
-  ],
-  counsel: [
-    { id: "email_report", icon: "📧", label: "Email Analysis", command: "Send email with subject 'Legal Analysis from HammerLock AI': {content}" },
-    { id: "save_notes", icon: "📝", label: "Save to Notes", command: "Create note in Apple Notes: Legal Analysis\n\n{content}" },
-    { id: "calendar_review", icon: "📅", label: "Schedule Review", command: "Schedule a meeting to review legal analysis findings" },
-  ],
-  researcher: [
-    { id: "email_report", icon: "📧", label: "Email Research", command: "Send email with subject 'Research Brief from HammerLock AI': {content}" },
-    { id: "save_notes", icon: "📝", label: "Save to Notes", command: "Create note in Apple Notes: Research Brief\n\n{content}" },
-    { id: "add_tasks", icon: "✅", label: "Follow-ups", command: "Add to my todo list: Validate research sources, Deep-dive into key findings, Compile final research report" },
-  ],
-  operator: [
-    { id: "add_tasks", icon: "✅", label: "Create Tasks", command: "Add to my todo list: {content}" },
-    { id: "calendar", icon: "📅", label: "Schedule It", command: "Add to calendar: {content}" },
-    { id: "email_team", icon: "📧", label: "Email Team", command: "Send email with subject 'Action Plan from HammerLock AI': {content}" },
-  ],
-  writer: [
-    { id: "email_draft", icon: "📧", label: "Send as Email", command: "Send email: {content}" },
-    { id: "save_notes", icon: "📝", label: "Save Draft", command: "Create note in Apple Notes: Draft\n\n{content}" },
-    { id: "copy_clean", icon: "📋", label: "Copy Clean", command: "__copy_clean__" },
-  ],
-  coach: [
-    { id: "save_plan", icon: "📝", label: "Save Plan", command: "Create note in Apple Notes: Fitness & Wellness Plan\n\n{content}" },
-    { id: "set_reminder", icon: "⏰", label: "Set Reminder", command: "Set a reminder: Time for your workout! Here's the plan: {content}" },
-    { id: "grocery_list", icon: "🛒", label: "Grocery List", command: "Create note in Apple Notes: Grocery List\n\n{content}" },
-  ],
-  money: [
-    { id: "save_budget", icon: "📝", label: "Save Budget", command: "Create note in Apple Notes: Budget Plan\n\n{content}" },
-    { id: "set_reminder", icon: "⏰", label: "Bill Reminder", command: "Set a reminder: Budget check-in — {content}" },
-    { id: "email_it", icon: "📧", label: "Email Summary", command: "Send email with subject 'Budget Summary from HammerLock AI': {content}" },
-  ],
-  content: [
-    { id: "copy_post", icon: "📋", label: "Copy Post", command: "__copy_clean__" },
-    { id: "save_calendar", icon: "📝", label: "Save Calendar", command: "Create note in Apple Notes: Content Calendar\n\n{content}" },
-    { id: "schedule_post", icon: "⏰", label: "Schedule Post", command: "Set a reminder: Time to post! Content ready: {content}" },
-  ],
-  director: [
-    { id: "copy_script", icon: "📋", label: "Copy Script", command: "__copy_clean__" },
-    { id: "save_script", icon: "📝", label: "Save Script", command: "Create note in Apple Notes: Video Script\n\n{content}" },
-    { id: "email_script", icon: "📧", label: "Email Script", command: "Send email with subject 'Video Script from HammerLock AI': {content}" },
-  ],
-  general: [
-    { id: "email_it", icon: "📧", label: "Email This", command: "Send email with subject 'From HammerLock AI': {content}" },
-    { id: "save_notes", icon: "📝", label: "Save to Notes", command: "Create note in Apple Notes: {content}" },
-    { id: "remind_me", icon: "⏰", label: "Remind Me", command: "Set a reminder: Follow up on this — {content}" },
-  ],
-};
-
-/** Smart workflow chains — multi-step sequences suggested based on context */
-const WORKFLOW_CHAINS: Record<string, WorkflowChain[]> = {
-  analyst: [
-    {
-      id: "full_report_flow",
-      icon: "🔄",
-      label: "Full Report Pipeline",
-      description: "Save analysis → Create review tasks → Email to stakeholders",
-      steps: [
-        "Create note in Apple Notes: Financial Analysis Report\n\n{content}",
-        "Add to my todo list: Review financial model assumptions, Validate conversion rate estimates, Update P&L spreadsheet with new projections",
-        "Send email with subject 'Financial Analysis Ready for Review': I've completed a financial analysis. Key findings are saved in Notes. Please review when you have a chance.",
-      ],
-      triggers: ["revenue", "forecast", "model", "scenario", "bull", "bear", "base case", "projection", "financial"],
-    },
-    {
-      id: "investor_prep",
-      icon: "💰",
-      label: "Investor Prep Pipeline",
-      description: "Save model → Draft investor email → Schedule pitch prep",
-      steps: [
-        "Create note in Apple Notes: Investor-Ready Financial Model\n\n{content}",
-        "Add to my todo list: Polish financial model for investors, Prepare Q&A for tough questions, Update pitch deck with new numbers",
-        "Schedule a meeting for pitch deck review and investor prep session",
-      ],
-      triggers: ["series", "fundrais", "investor", "valuation", "pitch", "raise", "round"],
-    },
-  ],
-  strategist: [
-    {
-      id: "strategy_exec",
-      icon: "🔄",
-      label: "Strategy → Execution",
-      description: "Save strategy → Create action items → Email team → Schedule kickoff",
-      steps: [
-        "Create note in Apple Notes: Strategy Document\n\n{content}",
-        "Add to my todo list: Execute top 3 strategic priorities, Assign ownership for each initiative, Set 30/60/90 day milestones",
-        "Schedule a meeting for strategy kickoff and team alignment",
-      ],
-      triggers: ["strategy", "competitive", "swot", "market entry", "go-to-market", "positioning", "roadmap"],
-    },
-  ],
-  counsel: [
-    {
-      id: "legal_review_flow",
-      icon: "🔄",
-      label: "Legal Review Pipeline",
-      description: "Save findings → Flag action items → Schedule attorney review",
-      steps: [
-        "Create note in Apple Notes: Legal Review Findings\n\n{content}",
-        "Add to my todo list: Address flagged contract issues, Consult with licensed attorney on key concerns, Prepare revised contract draft",
-        "Schedule a meeting for legal review with outside counsel",
-      ],
-      triggers: ["contract", "clause", "liability", "indemnif", "warrant", "breach", "compliance", "risk", "legal"],
-    },
-  ],
-  researcher: [
-    {
-      id: "research_to_action",
-      icon: "🔄",
-      label: "Research → Report → Share",
-      description: "Save research → Compile report → Email findings",
-      steps: [
-        "Create note in Apple Notes: Research Findings\n\n{content}",
-        "Add to my todo list: Validate key research sources, Identify gaps for follow-up research, Draft executive summary of findings",
-        "Send email with subject 'Research Findings Summary': Research is complete. Key findings have been saved to Notes. Summary attached.",
-      ],
-      triggers: ["study", "research", "finding", "evidence", "literature", "source", "methodology", "paper"],
-    },
-  ],
-  operator: [
-    {
-      id: "plan_to_calendar",
-      icon: "🔄",
-      label: "Plan → Tasks → Calendar",
-      description: "Create all tasks → Block calendar time → Email team the plan",
-      steps: [
-        "Add to my todo list: {content}",
-        "Schedule a meeting for weekly sprint review and progress check",
-        "Send email with subject 'This Week\\'s Plan': Here\\'s the execution plan for this week. Tasks have been created and calendar time blocked.",
-      ],
-      triggers: ["plan", "sprint", "priorit", "p0", "p1", "task", "deadline", "milestone", "checklist", "standup"],
-    },
-  ],
-  writer: [
-    {
-      id: "publish_flow",
-      icon: "🔄",
-      label: "Draft → Review → Send",
-      description: "Save draft → Create review task → Send when ready",
-      steps: [
-        "Create note in Apple Notes: Content Draft\n\n{content}",
-        "Add to my todo list: Proofread and polish the draft, Get feedback from team, Schedule publication date",
-      ],
-      triggers: ["draft", "blog", "post", "article", "email", "copy", "pitch", "newsletter", "script"],
-    },
-  ],
-  coach: [
-    {
-      id: "fitness_routine",
-      icon: "💪",
-      label: "Save Plan → Set Reminders",
-      description: "Save workout plan → Create grocery list → Set daily reminder",
-      steps: [
-        "Create note in Apple Notes: Workout & Meal Plan\n\n{content}",
-        "Set a reminder for tomorrow at 7am: Time for your workout! Check your plan in Notes.",
-      ],
-      triggers: ["workout", "exercise", "meal plan", "calories", "protein", "sets", "reps", "cardio", "strength", "routine"],
-    },
-  ],
-  money: [
-    {
-      id: "budget_pipeline",
-      icon: "💰",
-      label: "Save Budget → Set Bill Reminders",
-      description: "Save budget to Notes → Set reminder for monthly check-in",
-      steps: [
-        "Create note in Apple Notes: Monthly Budget Plan\n\n{content}",
-        "Set a reminder: Monthly budget review — check spending against plan and adjust for next month",
-      ],
-      triggers: ["budget", "expense", "income", "debt", "saving", "payoff", "interest", "monthly", "credit card", "loan"],
-    },
-  ],
-  content: [
-    {
-      id: "content_pipeline",
-      icon: "📱",
-      label: "Save Calendar → Schedule Posts",
-      description: "Save content calendar → Set posting reminders",
-      steps: [
-        "Create note in Apple Notes: Content Calendar\n\n{content}",
-        "Set a reminder: Content posting day! Check your calendar in Notes for today's post.",
-      ],
-      triggers: ["post", "caption", "content", "instagram", "tiktok", "linkedin", "twitter", "hook", "carousel", "reel", "thread"],
-    },
-  ],
-  director: [
-    {
-      id: "script_to_production",
-      icon: "🎬",
-      label: "Script → Save → Schedule Shoot",
-      description: "Save video script → Create shot list tasks → Schedule shoot day",
-      steps: [
-        "Create note in Apple Notes: Video Script\n\n{content}",
-        "Add to my todo list: Review and finalize script, Prep set and props, Record B-roll footage, Film main takes, Edit and add music",
-        "Set a reminder: Video shoot day! Script is saved in Notes — review it before you start.",
-      ],
-      triggers: ["script", "scene", "shot", "take", "voiceover", "b-roll", "hook", "cta", "demo", "tutorial", "walkthrough"],
-    },
-    {
-      id: "video_series_plan",
-      icon: "📺",
-      label: "Plan Series → Save → Remind",
-      description: "Save video series plan → Set weekly filming reminders",
-      steps: [
-        "Create note in Apple Notes: Video Series Plan\n\n{content}",
-        "Set a reminder: Video content day! Check your series plan in Notes and film the next episode.",
-      ],
-      triggers: ["series", "episode", "weekly", "campaign", "launch", "funnel", "playlist"],
-    },
-  ],
-};
-
-/** Detect which workflow chains are relevant based on AI response content */
-function detectRelevantChains(agentId: string, responseText: string): WorkflowChain[] {
-  const chains = WORKFLOW_CHAINS[agentId] || [];
-  const lower = responseText.toLowerCase();
-  return chains.filter(chain =>
-    chain.triggers.some(trigger => lower.includes(trigger))
-  );
-}
-
-/** Detect if running inside Electron desktop app */
-function isElectron(): boolean {
-  if (typeof window === "undefined") return false;
-  return !!(window as unknown as Record<string, unknown>).electron ||
-    (typeof navigator !== "undefined" && (
-      navigator.userAgent.includes("Electron") ||
-      navigator.userAgent.includes("HammerLock")
-    ));
-}
 
 // ---- Multi-conversation types ----
 type Conversation = {
@@ -531,14 +104,6 @@ export default function ChatPage() {
   const [recordingTime, setRecordingTime] = useState(0); // seconds elapsed
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Voice selector — persisted to localStorage
-  const VOICE_OPTIONS = [
-    { id: "nova", label: "Nova", desc: "Warm female" },
-    { id: "alloy", label: "Alloy", desc: "Neutral" },
-    { id: "echo", label: "Echo", desc: "Male" },
-    { id: "fable", label: "Fable", desc: "British" },
-    { id: "onyx", label: "Onyx", desc: "Deep male" },
-    { id: "shimmer", label: "Shimmer", desc: "Soft female" },
-  ] as const;
   const [selectedVoice, setSelectedVoice] = useState<string>(() => {
     if (typeof window !== "undefined") return localStorage.getItem("hammerlock_voice") || "nova";
     return "nova";
@@ -547,10 +112,17 @@ export default function ChatPage() {
   const voiceMenuRef = useRef<HTMLDivElement>(null);
   const selectedVoiceRef = useRef(selectedVoice);
   selectedVoiceRef.current = selectedVoice;
+  // ---- Model selector state ----
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("hammerlock_model") || "auto";
+    return "auto";
+  });
+  const [showModelMenu, setShowModelMenu] = useState(false);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
   const [uploadedPdf, setUploadedPdf] = useState<{ name: string; text: string } | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const dragCounterRef = useRef(0);
-  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<"chats" | "tools" | "settings">("chats");
   // ---- @mention agent picker state ----
   const [mentionQuery, setMentionQuery] = useState("");
   const [showMentionMenu, setShowMentionMenu] = useState(false);
@@ -621,13 +193,6 @@ export default function ChatPage() {
     { key: "style", q: t.onboarding_q_style, placeholder: t.onboarding_q_style_placeholder },
   ];
 
-  const PROMPT_PILLS = [
-    t.pill_status,
-    t.pill_persona,
-    t.pill_search,
-    t.pill_report,
-  ];
-
   // ---- @mention filtered agents ----
   const allAgents = [...BUILT_IN_AGENTS, ...customAgents];
   const mentionAgents = showMentionMenu
@@ -668,6 +233,18 @@ export default function ChatPage() {
     return () => document.removeEventListener("mousedown", handleDown);
   }, [showVoiceMenu]);
 
+  // Close model selector menu on click outside
+  useEffect(() => {
+    if (!showModelMenu) return;
+    const handleDown = (e: MouseEvent) => {
+      if (modelMenuRef.current && !modelMenuRef.current.contains(e.target as Node)) {
+        setShowModelMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleDown);
+    return () => document.removeEventListener("mousedown", handleDown);
+  }, [showModelMenu]);
+
   // ---- REMINDER SCHEDULER: check persona reminders against system clock ----
   const firedRemindersRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -683,6 +260,12 @@ export default function ChatPage() {
       const now = new Date();
       const currentH = now.getHours();
       const currentM = now.getMinutes();
+
+      // Prune old entries to prevent unbounded memory growth
+      const todayStr = now.toDateString();
+      for (const key of firedRemindersRef.current) {
+        if (!key.endsWith(todayStr)) firedRemindersRef.current.delete(key);
+      }
 
       // Parse reminder lines: "Reminder: drink water (daily at 10am)"
       const reminderLines = personaText.split("\n").filter((l: string) => /^Reminder:/i.test(l.trim()));
@@ -731,6 +314,7 @@ export default function ChatPage() {
                   const url = URL.createObjectURL(blob);
                   const audio = new Audio(url);
                   audio.onended = () => URL.revokeObjectURL(url);
+                  audio.onerror = () => URL.revokeObjectURL(url);
                   audio.play();
                 });
               }
@@ -759,6 +343,14 @@ export default function ChatPage() {
         const res = await fetch("/api/schedules");
         if (!res.ok) return;
         const { due } = await res.json() as { due: ScheduledTask[] };
+
+        // Prune old entries to prevent unbounded memory growth
+        const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().slice(0, 16);
+        for (const key of scheduleFiredRef.current) {
+          const parts = key.split("-");
+          const ts = parts.slice(-2).join("-");
+          if (ts < cutoff) scheduleFiredRef.current.delete(key);
+        }
 
         for (const task of due) {
           // Skip if already fired this cycle
@@ -833,6 +425,7 @@ export default function ChatPage() {
                     const url = URL.createObjectURL(blob);
                     const audio = new Audio(url);
                     audio.onended = () => URL.revokeObjectURL(url);
+                    audio.onerror = () => URL.revokeObjectURL(url);
                     audio.play();
                   });
                 }
@@ -1153,7 +746,7 @@ export default function ChatPage() {
   }, [lockVault, router]);
 
   // ---- AUTO-LOCK ON INACTIVITY ----
-  // Desktop (Electron): 2 hours — user locks manually when desired, vault session
+  // Desktop (Electron): 24 hours — user locks manually when desired, vault session
   // persists in localStorage across window close/reopen.
   // Browser: 15 minutes — more aggressive since session is in sessionStorage.
   const AUTO_LOCK_MS = isElectron() ? 24 * 60 * 60 * 1000 : 15 * 60 * 1000;
@@ -1272,10 +865,6 @@ export default function ChatPage() {
     setConversations(prev => prev.map(c => c.groupId === id ? { ...c, groupId: null } : c));
   }, []);
 
-  const moveToGroup = useCallback((convoId: string, groupId: string | null) => {
-    setConversations(prev => prev.map(c => c.id === convoId ? { ...c, groupId } : c));
-  }, []);
-
   // ---- AGENT HANDLERS ----
   const handleCreateAgent = useCallback(() => {
     if (!newAgent.name.trim() || !newAgent.expertise.trim()) return;
@@ -1352,7 +941,7 @@ export default function ChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          command: `Title this chat in 2-5 words. Be SPECIFIC to the content. No quotes, no period, no emoji.\nBAD (too generic): "Casual Greeting Exchange", "General Conversation", "Chat Session", "Friendly Chat"\nGOOD (specific): "Sushi Near San Ramon", "Weekly Weather Check", "Pizza Recommendations", "Kid Summer Camp Ideas"${avoidList}\n\nChat:\nUser: ${userMsg.slice(0, 200)}\nAI: ${aiReply.slice(0, 200)}\n\nTitle:`,
+          command: `Title this chat in 2-5 words. Be SPECIFIC to the content. No quotes, no period, no emoji.\nBAD (too generic): "Casual Greeting Exchange", "General Conversation", "Chat Session", "Friendly Chat"\nGOOD (specific): "Sushi Near Downtown", "Weekly Weather Check", "Pizza Recommendations", "Summer Camp Ideas"${avoidList}\n\nChat:\nUser: ${userMsg.slice(0, 200)}\nAI: ${aiReply.slice(0, 200)}\n\nTitle:`,
           locale,
         }),
         signal: AbortSignal.timeout(8000),
@@ -1375,6 +964,11 @@ export default function ChatPage() {
   const sendCommand = useCallback(async (preset?: string) => {
     const text = (preset || input).trim();
     if (text === "" || sending) return;
+    // Limit input to 50KB to prevent oversized requests and UI freeze
+    if (text.length > 50000) {
+      showError("Message is too long. Please shorten it and try again.");
+      return;
+    }
     if (!isUnlocked) {
       showError("Vault is locked. Please unlock to continue.");
       router.replace("/vault");
@@ -1408,8 +1002,8 @@ export default function ChatPage() {
     }
 
     const ts = new Date().toISOString();
-    const uid = Date.now().toString();
-    const pid = String(Date.now()+1);
+    const uid = `u-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const pid = `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const userMsg: VaultMessage = {id:uid,role:"user",content:text + (currentPdf ? t.chat_pdf_ref(currentPdf.name) : ""),timestamp:ts};
     const pendingMsg: VaultMessage = {id:pid,role:"ai",content:getThinkingMessage(),timestamp:ts,pending:true};
     setMessages(prev => [...prev, userMsg, pendingMsg]);
@@ -1456,7 +1050,7 @@ export default function ChatPage() {
         ? "\n\n[VOICE MODE] The user is speaking to you via voice. Keep responses concise and conversational — 2-3 sentences unless they ask for detail. Avoid markdown, bullet points, code blocks, or visual formatting. Use natural speech patterns. Say \"first, second, third\" instead of bullet lists."
         : "";
       const agentPrompt = (currentAgent?.systemPrompt || "") + voiceModePrompt;
-      const res = await fetch("/api/execute", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({command:fullText,persona:"operator",userProfile,agentSystemPrompt:agentPrompt,locale,history:recentHistory,stream:true}),signal:abortController.signal});
+      const res = await fetch("/api/execute", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({command:fullText,persona:"operator",userProfile,agentSystemPrompt:agentPrompt,locale,history:recentHistory,stream:true,selectedProvider:selectedModel !== "auto" ? selectedModel : undefined}),signal:abortController.signal});
 
       // ---- STREAMING PATH: read SSE tokens as they arrive ----
       const contentType = res.headers.get("content-type") || "";
@@ -1476,9 +1070,16 @@ export default function ChatPage() {
         let accumulated = "";
         let rafPending = false;
 
+        // Stale-stream watchdog: if no data arrives for 30s, abort
+        const STREAM_STALE_MS = 30_000;
+        let staleTimer = setTimeout(() => { try { abortController.abort(); reader.cancel(); } catch {} }, STREAM_STALE_MS);
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          // Reset stale timer on each chunk
+          clearTimeout(staleTimer);
+          staleTimer = setTimeout(() => { try { abortController.abort(); reader.cancel(); } catch {} }, STREAM_STALE_MS);
           sseBuffer += decoder.decode(value, { stream: true });
           const sseLines = sseBuffer.split("\n\n");
           sseBuffer = sseLines.pop() || "";
@@ -1512,6 +1113,7 @@ export default function ChatPage() {
             } catch { /* skip malformed SSE chunks */ }
           }
         }
+        clearTimeout(staleTimer); // Clean up stale-stream watchdog
         if (!reply) reply = accumulated;
       } else {
         // ---- JSON FALLBACK: non-streaming response (search, actions, special commands) ----
@@ -1606,10 +1208,17 @@ export default function ChatPage() {
       }
     } catch(e) {
       if (abortController.signal.aborted) {
-        // User cancelled — keep whatever we streamed so far
-        setMessages(prev => prev.map(m => m.id === pid
-          ? { ...m, pending: false, content: m.content && m.content !== getThinkingMessage() ? m.content + "\n\n*(stopped)*" : "*(stopped by user)*", timestamp: new Date().toISOString() }
-          : m));
+        // User cancelled or stream timed out — keep whatever we streamed so far
+        setMessages(prev => prev.map(m => {
+          if (m.id !== pid) return m;
+          const hasContent = m.content && !(THINKING_MESSAGES as readonly string[]).includes(m.content) && m.content.length > 5;
+          return {
+            ...m,
+            pending: false,
+            content: hasContent ? m.content : "*(Connection timed out. Please try again.)*",
+            timestamp: new Date().toISOString(),
+          };
+        }));
       } else {
         const errMsg = String(e);
         setMessages(prev => prev.map(m => m.id===pid ? {...m,role:"error",content:errMsg,pending:false} : m));
@@ -1639,14 +1248,14 @@ export default function ChatPage() {
   sendCommandRef.current = sendCommand;
 
   // ---- VOICE INPUT with silence detection + audio level visualization ----
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const silenceFrameRef = useRef(0);
 
   // Cleanup helper — stops all recording resources
   const cleanupRecording = useCallback(() => {
-    if (silenceTimerRef.current) { clearInterval(silenceTimerRef.current as unknown as number); silenceTimerRef.current = null; }
+    if (silenceTimerRef.current) { clearInterval(silenceTimerRef.current); silenceTimerRef.current = null; }
     if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
     if (audioContextRef.current) { audioContextRef.current.close().catch(() => {}); audioContextRef.current = null; }
     analyserRef.current = null;
@@ -1856,16 +1465,21 @@ export default function ChatPage() {
     setChainTotal(chain.steps.length);
     const truncated = msgContent.length > 2000 ? msgContent.slice(0, 2000) + "..." : msgContent;
 
-    for (let i = 0; i < chain.steps.length; i++) {
-      setChainStep(i + 1);
-      setWorkflowToast(`🔨 Hammering step ${i + 1}/${chain.steps.length}...`);
-      const cmd = chain.steps[i].replace(/\{content\}/g, truncated);
-      sendCommand(cmd);
-      // Wait between steps to let each action complete
-      await new Promise(resolve => setTimeout(resolve, 3000));
+    try {
+      for (let i = 0; i < chain.steps.length; i++) {
+        setChainStep(i + 1);
+        setWorkflowToast(`🔨 Hammering step ${i + 1}/${chain.steps.length}...`);
+        const cmd = chain.steps[i].replace(/\{content\}/g, truncated);
+        await sendCommand(cmd);
+        // Wait between steps to let streaming finish
+        if (i < chain.steps.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 4000));
+        }
+      }
+      setWorkflowToast("🔨 Nailed it! Workflow complete.");
+    } catch {
+      setWorkflowToast("⚠️ Workflow interrupted.");
     }
-
-    setWorkflowToast("🔨 Nailed it! Workflow complete.");
     setTimeout(() => {
       setWorkflowToast(null);
       setChainRunning(false);
@@ -1931,7 +1545,7 @@ export default function ChatPage() {
     // Special command: open the agents section in sidebar
     if (command === "__open_agents_tab__") {
       setSidebarOpen(true);
-      setOptionsOpen(true);
+      setSidebarTab("tools");
       setActiveNudge(null);
       return;
     }
@@ -1946,22 +1560,7 @@ export default function ChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- SAVE TO VAULT ----
   const [vaultSaved, setVaultSaved] = useState(false);
-  const handleSaveToVault = useCallback(async (text: string) => {
-    try {
-      const snippet = text.length > 500 ? text.slice(0, 500) + "..." : text;
-      const res = await fetch("/api/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: `remember: ${snippet}`, locale }),
-      });
-      if (res.ok) {
-        setVaultSaved(true);
-        setTimeout(() => setVaultSaved(false), 2000);
-      }
-    } catch { /* silent */ }
-  }, [locale]);
 
   // ---- FILE VAULT OPERATIONS ----
   const vaultFiles: VaultFile[] = (vaultData?.vaultFiles || []) as VaultFile[];
@@ -2120,7 +1719,7 @@ export default function ChatPage() {
   // ---- TUTORIAL (first launch) ----
   const TUTORIAL_STEPS = [
     { icon: "🔐", title: t.tutorial_title || "Get the Most Out of HammerLock AI", desc: t.tutorial_step1_desc || "HammerLock AI encrypts everything on your device. Your conversations, personas, and files never leave your machine." },
-    { icon: "🤖", title: t.tutorial_step2_title || "6 Specialized Agents", desc: t.tutorial_step2_desc || "Switch between Strategist, Counsel, Analyst, Researcher, Operator, and Writer in the sidebar. Create your own custom agents too." },
+    { icon: "🤖", title: t.tutorial_step2_title || `${BUILT_IN_AGENTS.length} Specialized Agents`, desc: t.tutorial_step2_desc || "Switch between specialized agents in the sidebar — each one is optimized for different tasks. Create your own custom agents too." },
     { icon: "🎙️", title: t.tutorial_step3_title || "Voice & Web Search", desc: t.tutorial_step3_desc || "Click the microphone to dictate. Type 'search' to find anything on the web with cited sources. All queries are PII-scrubbed." },
     { icon: "🧠", title: t.tutorial_step4_title || "Teach It About You", desc: t.tutorial_step4_desc || "Say 'remember that...' to store preferences. Load your persona each session. HammerLock AI gets smarter the more you use it." },
     { icon: "🚀", title: t.tutorial_done_title || "You're All Set!", desc: t.tutorial_done_desc || "Start chatting, upload PDFs, run searches, or switch agents. Everything stays encrypted on your machine." },
@@ -2282,8 +1881,8 @@ export default function ChatPage() {
     if (!isFeatureAvailable("reports")) { setPaywallFeature("Reports"); setShowPaywall(true); return; }
     if (messages.length === 0) { showError(t.error_no_conversation); return; }
     const ts = new Date().toISOString();
-    const uid = Date.now().toString();
-    const pid = String(Date.now()+1);
+    const uid = `u-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const pid = `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setMessages(prev => [...prev,
       {id:uid,role:"user",content:t.chat_generate_report,timestamp:ts},
       {id:pid,role:"ai",content:t.chat_generating_report,timestamp:ts,pending:true}
@@ -2393,18 +1992,32 @@ export default function ChatPage() {
           </div>
         </div>
       )}
-      <aside className={`console-sidebar${sidebarOpen ? "" : " collapsed"}`}>
-        <div className="sidebar-scroll">
-        {/* Top: New Chat */}
-        <div className="sidebar-section">
+      <aside className={`console-sidebar${sidebarOpen ? "" : " collapsed"}`} role="navigation" aria-label="Chat sidebar">
+        {/* New Chat — always at top */}
+        <div className="sidebar-section" style={{ flexShrink: 0 }}>
           <button className="sidebar-item" onClick={handleClearChat}><Plus size={16} /> {t.sidebar_new_chat}</button>
         </div>
 
-        {/* Conversation list — fills available space */}
-        <div className="sidebar-section" style={{ flex: 1, minHeight: 80, display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <div className="sidebar-label" style={{ marginBottom: 0 }}>{t.sidebar_chats}</div>
-            <div style={{ display: "flex", gap: 2 }}>
+        {/* Tab bar */}
+        <div className="sidebar-tabs">
+          <button className={`sidebar-tab${sidebarTab === "chats" ? " active" : ""}`} onClick={() => setSidebarTab("chats")}>
+            <MessageSquare size={13} /> Chats
+          </button>
+          <button className={`sidebar-tab${sidebarTab === "tools" ? " active" : ""}`} onClick={() => setSidebarTab("tools")}>
+            <Zap size={13} /> Tools
+          </button>
+          <button className={`sidebar-tab${sidebarTab === "settings" ? " active" : ""}`} onClick={() => setSidebarTab("settings")}>
+            <Settings size={13} /> Settings
+          </button>
+        </div>
+
+        {/* Tab content — scrollable */}
+        <div className="sidebar-scroll">
+
+        {/* ═══ CHATS TAB ═══ */}
+        {sidebarTab === "chats" && (
+          <div className="sidebar-section" style={{ flex: 1, minHeight: 80, display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 4, gap: 2 }}>
               <button
                 className="ghost-btn"
                 onClick={() => {
@@ -2432,52 +2045,116 @@ export default function ChatPage() {
                 <FolderPlus size={14} />
               </button>
             </div>
-          </div>
 
-          {/* New group inline input */}
-          {showNewGroup && (
-            <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
-              <input
-                autoFocus
-                type="text"
-                placeholder={t.sidebar_group_placeholder}
-                value={newGroupName}
-                onChange={e => setNewGroupName(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") createGroup(); if (e.key === "Escape") setShowNewGroup(false); }}
-                style={{
-                  flex: 1, padding: "4px 8px", background: "var(--bg-tertiary, #111)",
-                  border: "1px solid var(--border-subtle, #222)", borderRadius: 6,
-                  color: "var(--text-primary)", fontSize: "0.75rem",
-                }}
-              />
-              <button className="ghost-btn" onClick={createGroup} style={{ padding: 2 }}><Check size={14} /></button>
-              <button className="ghost-btn" onClick={() => setShowNewGroup(false)} style={{ padding: 2 }}><X size={14} /></button>
-            </div>
-          )}
+            {/* New group inline input */}
+            {showNewGroup && (
+              <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder={t.sidebar_group_placeholder}
+                  value={newGroupName}
+                  onChange={e => setNewGroupName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") createGroup(); if (e.key === "Escape") setShowNewGroup(false); }}
+                  style={{
+                    flex: 1, padding: "4px 8px", background: "var(--bg-tertiary, #111)",
+                    border: "1px solid var(--border-subtle, #222)", borderRadius: 6,
+                    color: "var(--text-primary)", fontSize: "0.75rem",
+                  }}
+                />
+                <button className="ghost-btn" onClick={createGroup} style={{ padding: 2 }}><Check size={14} /></button>
+                <button className="ghost-btn" onClick={() => setShowNewGroup(false)} style={{ padding: 2 }}><X size={14} /></button>
+              </div>
+            )}
 
-          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
-            {/* Ungrouped conversations with date section headers */}
-            {(() => {
-              let lastBucket = "";
-              return ungrouped.map(convo => {
-                const bucket = getDateBucket(convo.updatedAt);
-                const showHeader = bucket !== lastBucket;
-                lastBucket = bucket;
-                return (
-                  <div key={convo.id}>
-                    {showHeader && (
-                      <div style={{
-                        fontSize: "0.65rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em",
-                        color: "var(--text-muted, #666)", padding: "8px 12px 2px", marginTop: 4,
-                      }}>{bucket}</div>
-                    )}
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+              {/* Ungrouped conversations with date section headers */}
+              {(() => {
+                let lastBucket = "";
+                return ungrouped.map(convo => {
+                  const bucket = getDateBucket(convo.updatedAt);
+                  const showHeader = bucket !== lastBucket;
+                  lastBucket = bucket;
+                  return (
+                    <div key={convo.id}>
+                      {showHeader && (
+                        <div style={{
+                          fontSize: "0.65rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em",
+                          color: "var(--text-muted, #666)", padding: "8px 12px 2px", marginTop: 4,
+                        }}>{bucket}</div>
+                      )}
+                      <div
+                        className={"sidebar-item" + (convo.id === activeConvoId ? " active" : "")}
+                        onClick={() => switchConversation(convo.id)}
+                        onContextMenu={e => { e.preventDefault(); setRenamingId(convo.id); setRenameValue(convo.name); }}
+                        style={{ padding: "8px 12px", fontSize: "0.85rem", position: "relative", gap: 6 }}
+                      >
+                        <MessageSquare size={13} />
+                        {renamingId === convo.id ? (
+                          <input
+                            autoFocus
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") renameConversation(convo.id, renameValue); if (e.key === "Escape") setRenamingId(null); }}
+                            onBlur={() => renameConversation(convo.id, renameValue)}
+                            onClick={e => e.stopPropagation()}
+                            style={{
+                              flex: 1, background: "transparent", border: "none", borderBottom: "1px solid var(--accent)",
+                              color: "var(--text-primary)", fontSize: "0.85rem", padding: 0, outline: "none",
+                            }}
+                          />
+                        ) : (
+                          <span title={convo.name} style={{
+                            flex: 1, overflow: "hidden", textOverflow: "ellipsis",
+                            whiteSpace: "nowrap", lineHeight: 1.3,
+                          }}>{convo.name}</span>
+                        )}
+                        {conversations.length > 1 && (
+                          <button
+                            className="ghost-btn sidebar-delete-btn"
+                            onClick={e => { e.stopPropagation(); deleteConversation(convo.id); }}
+                            style={{ padding: 1 }}
+                          ><X size={12} /></button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+
+              {/* Grouped conversations */}
+              {grouped.map(g => (
+                <div key={g.id} style={{ marginTop: 4 }}>
+                  <div
+                    style={{
+                      display: "flex", alignItems: "center", gap: 4, padding: "4px 8px",
+                      fontSize: "0.7rem", color: "var(--text-muted)", cursor: "pointer",
+                      textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600,
+                    }}
+                    onClick={() => toggleGroupCollapse(g.id)}
+                  >
+                    <ChevronDown size={12} style={{ transform: g.collapsed ? "rotate(-90deg)" : "none", transition: "transform 0.15s" }} />
+                    <span style={{ flex: 1 }}>{g.name}</span>
+                    <button
+                      className="ghost-btn"
+                      onClick={e => { e.stopPropagation(); createNewConversation(g.id); }}
+                      style={{ padding: 1 }}
+                    ><Plus size={11} /></button>
+                    <button
+                      className="ghost-btn"
+                      onClick={e => { e.stopPropagation(); deleteGroup(g.id); }}
+                      style={{ padding: 1, opacity: 0.4 }}
+                    ><X size={11} /></button>
+                  </div>
+                  {!g.collapsed && g.convos.map(convo => (
                     <div
+                      key={convo.id}
                       className={"sidebar-item" + (convo.id === activeConvoId ? " active" : "")}
                       onClick={() => switchConversation(convo.id)}
                       onContextMenu={e => { e.preventDefault(); setRenamingId(convo.id); setRenameValue(convo.name); }}
-                      style={{ padding: "8px 12px", fontSize: "0.85rem", position: "relative", gap: 6 }}
+                      style={{ padding: "7px 12px 7px 24px", fontSize: "0.83rem", gap: 6 }}
                     >
-                      <MessageSquare size={13} />
+                      <MessageSquare size={12} />
                       {renamingId === convo.id ? (
                         <input
                           autoFocus
@@ -2488,7 +2165,7 @@ export default function ChatPage() {
                           onClick={e => e.stopPropagation()}
                           style={{
                             flex: 1, background: "transparent", border: "none", borderBottom: "1px solid var(--accent)",
-                            color: "var(--text-primary)", fontSize: "0.85rem", padding: 0, outline: "none",
+                            color: "var(--text-primary)", fontSize: "0.83rem", padding: 0, outline: "none",
                           }}
                         />
                       ) : (
@@ -2497,235 +2174,161 @@ export default function ChatPage() {
                           whiteSpace: "nowrap", lineHeight: 1.3,
                         }}>{convo.name}</span>
                       )}
-                      {conversations.length > 1 && (
-                        <button
-                          className="ghost-btn sidebar-delete-btn"
-                          onClick={e => { e.stopPropagation(); deleteConversation(convo.id); }}
-                          style={{ padding: 1 }}
-                        ><X size={12} /></button>
-                      )}
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-
-            {/* Grouped conversations -- handled below */}
-            {grouped.map(g => (
-              <div key={g.id} style={{ marginTop: 4 }}>
-                <div
-                  style={{
-                    display: "flex", alignItems: "center", gap: 4, padding: "4px 8px",
-                    fontSize: "0.7rem", color: "var(--text-muted)", cursor: "pointer",
-                    textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600,
-                  }}
-                  onClick={() => toggleGroupCollapse(g.id)}
-                >
-                  <ChevronDown size={12} style={{ transform: g.collapsed ? "rotate(-90deg)" : "none", transition: "transform 0.15s" }} />
-                  <span style={{ flex: 1 }}>{g.name}</span>
-                  <button
-                    className="ghost-btn"
-                    onClick={e => { e.stopPropagation(); createNewConversation(g.id); }}
-                    style={{ padding: 1 }}
-                  ><Plus size={11} /></button>
-                  <button
-                    className="ghost-btn"
-                    onClick={e => { e.stopPropagation(); deleteGroup(g.id); }}
-                    style={{ padding: 1, opacity: 0.4 }}
-                  ><X size={11} /></button>
-                </div>
-                {!g.collapsed && g.convos.map(convo => (
-                  <div
-                    key={convo.id}
-                    className={"sidebar-item" + (convo.id === activeConvoId ? " active" : "")}
-                    onClick={() => switchConversation(convo.id)}
-                    onContextMenu={e => { e.preventDefault(); setRenamingId(convo.id); setRenameValue(convo.name); }}
-                    style={{ padding: "7px 12px 7px 24px", fontSize: "0.83rem", gap: 6 }}
-                  >
-                    <MessageSquare size={12} />
-                    {renamingId === convo.id ? (
-                      <input
-                        autoFocus
-                        value={renameValue}
-                        onChange={e => setRenameValue(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") renameConversation(convo.id, renameValue); if (e.key === "Escape") setRenamingId(null); }}
-                        onBlur={() => renameConversation(convo.id, renameValue)}
-                        onClick={e => e.stopPropagation()}
-                        style={{
-                          flex: 1, background: "transparent", border: "none", borderBottom: "1px solid var(--accent)",
-                          color: "var(--text-primary)", fontSize: "0.83rem", padding: 0, outline: "none",
-                        }}
-                      />
-                    ) : (
-                      <span title={convo.name} style={{
-                        flex: 1, overflow: "hidden", textOverflow: "ellipsis",
-                        whiteSpace: "nowrap", lineHeight: 1.3,
-                      }}>{convo.name}</span>
-                    )}
-                    <button
-                      className="ghost-btn"
-                      onClick={e => { e.stopPropagation(); deleteConversation(convo.id); }}
-                      style={{ padding: 1, opacity: 0.4 }}
-                    ><X size={12} /></button>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Collapsible Options section */}
-        <div className="sidebar-section sidebar-options-section">
-          <button
-            className="sidebar-options-toggle"
-            onClick={() => setOptionsOpen(prev => !prev)}
-          >
-            <ChevronDown
-              size={14}
-              style={{
-                transform: optionsOpen ? "none" : "rotate(-90deg)",
-                transition: "transform 0.15s",
-              }}
-            />
-            <span>OPTIONS</span>
-          </button>
-
-          {optionsOpen && (
-            <div className="sidebar-options-content">
-              {/* Tools */}
-              <div className="sidebar-label">{t.sidebar_tools_label}</div>
-              <button className="sidebar-item" onClick={() => sendCommand("status")}><Settings size={14} /> {t.sidebar_system_status}</button>
-              <button className="sidebar-item" onClick={() => sendCommand("!load-persona")}><User size={14} /> {t.sidebar_my_persona}</button>
-              <button className="sidebar-item" onClick={handleGenerateReport}><BarChart3 size={14} /> {t.sidebar_generate_report}</button>
-              <button className="sidebar-item" onClick={handleShare}><Share2 size={14} /> {t.sidebar_share_chat}</button>
-              <button className="sidebar-item" onClick={handleExportChat}><Download size={14} /> {t.sidebar_export_chat}</button>
-              <button className="sidebar-item" onClick={handleUpload}><Paperclip size={14} /> {t.sidebar_upload_pdf}</button>
-              <button className="sidebar-item" onClick={() => setShowVaultPanel(true)}><Shield size={14} /> My Files {vaultFiles.length > 0 && <span style={{ marginLeft: "auto", fontSize: "0.7rem", opacity: 0.5 }}>{vaultFiles.length}</span>}</button>
-              <button className="sidebar-item" onClick={() => setShowPersonalVaultPanel(true)}><Lock size={14} /> Personal Vault {pvHasVault && <span style={{ marginLeft: "auto", fontSize: "0.65rem", opacity: 0.6 }}>{pvIsUnlocked ? "Open" : "Locked"}</span>}</button>
-              <button className="sidebar-item" onClick={() => setShowApiKeyModal(true)}><Key size={14} /> {t.sidebar_api_keys}</button>
-
-              {/* Agent-specific quick commands */}
-              {(() => {
-                const agent = getAgentById(activeAgentId, customAgents);
-                if (agent && agent.id !== "general" && agent.quickCommands.length > 0) {
-                  return (
-                    <>
-                      <div style={{ height: 8 }} />
-                      <div className="sidebar-label" style={{ color: agent.color }}>{agent.name.toUpperCase()}</div>
-                      {agent.quickCommands.map(qc => (
-                        <button key={qc.label} className="sidebar-item" onClick={() => {
-                          if (qc.cmd.endsWith(" ")) { setInput(qc.cmd); inputRef.current?.focus(); }
-                          else sendCommand(qc.cmd);
-                        }}>
-                          <ChevronRight size={14} /> {qc.label}
-                        </button>
-                      ))}
-                    </>
-                  );
-                }
-                return null;
-              })()}
-
-              {/* Agents */}
-              <div style={{ height: 8 }} />
-              <div className="sidebar-label">{t.sidebar_agents_label}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 200, overflowY: "auto" }}>
-                {[...BUILT_IN_AGENTS, ...customAgents].map(agent => (
-                  <div
-                    key={agent.id}
-                    onClick={() => setActiveAgentId(agent.id)}
-                    title={agent.tagline}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      padding: "6px 10px", borderRadius: 8, cursor: "pointer",
-                      background: activeAgentId === agent.id ? "var(--bg-tertiary)" : "transparent",
-                      border: activeAgentId === agent.id ? `1px solid ${agent.color}33` : "1px solid transparent",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    <div style={{
-                      width: 24, height: 24, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
-                      background: `${agent.color}18`, color: agent.color, flexShrink: 0,
-                    }}>
-                      <AgentIcon name={agent.icon} size={13} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        fontSize: "0.75rem", fontWeight: 600,
-                        color: activeAgentId === agent.id ? "var(--text-primary)" : "var(--text-secondary)",
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      }}>
-                        {agent.name}
-                      </div>
-                      {activeAgentId === agent.id && agent.id !== "general" && (
-                        <div style={{
-                          fontSize: "0.65rem", color: "var(--text-muted)",
-                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                          marginTop: 1, lineHeight: 1.2,
-                        }}>
-                          {agent.tagline}
-                        </div>
-                      )}
-                    </div>
-                    {activeAgentId === agent.id && (
-                      <div style={{ width: 5, height: 5, borderRadius: 3, background: agent.color, flexShrink: 0 }} />
-                    )}
-                    {agent.custom && (
                       <button
                         className="ghost-btn"
-                        onClick={e => { e.stopPropagation(); handleDeleteCustomAgent(agent.id); }}
-                        style={{ padding: 2, opacity: 0.4 }}
-                      ><X size={11} /></button>
+                        onClick={e => { e.stopPropagation(); deleteConversation(convo.id); }}
+                        style={{ padding: 1, opacity: 0.4 }}
+                      ><X size={12} /></button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ TOOLS TAB ═══ */}
+        {sidebarTab === "tools" && (
+          <div className="sidebar-section" style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+            <div className="sidebar-label">{t.sidebar_tools_label}</div>
+            <button className="sidebar-item" onClick={() => sendCommand("status")}><Settings size={14} /> {t.sidebar_system_status}</button>
+            <button className="sidebar-item" onClick={() => sendCommand("!load-persona")}><User size={14} /> {t.sidebar_my_persona}</button>
+            <button className="sidebar-item" onClick={handleGenerateReport}><BarChart3 size={14} /> {t.sidebar_generate_report}</button>
+            <button className="sidebar-item" onClick={handleShare}><Share2 size={14} /> {t.sidebar_share_chat}</button>
+            <button className="sidebar-item" onClick={handleExportChat}><Download size={14} /> {t.sidebar_export_chat}</button>
+            <button className="sidebar-item" onClick={handleUpload}><Paperclip size={14} /> {t.sidebar_upload_pdf}</button>
+            <button className="sidebar-item" onClick={() => setShowVaultPanel(true)}><Shield size={14} /> My Files {vaultFiles.length > 0 && <span style={{ marginLeft: "auto", fontSize: "0.7rem", opacity: 0.5 }}>{vaultFiles.length}</span>}</button>
+            <button className="sidebar-item" onClick={() => setShowPersonalVaultPanel(true)}><Lock size={14} /> Personal Vault {pvHasVault && <span style={{ marginLeft: "auto", fontSize: "0.65rem", opacity: 0.6 }}>{pvIsUnlocked ? "Open" : "Locked"}</span>}</button>
+            <button className="sidebar-item" onClick={() => setShowApiKeyModal(true)}><Key size={14} /> {t.sidebar_api_keys}</button>
+
+            {/* Agent-specific quick commands */}
+            {(() => {
+              const agent = getAgentById(activeAgentId, customAgents);
+              if (agent && agent.id !== "general" && agent.quickCommands.length > 0) {
+                return (
+                  <>
+                    <div style={{ height: 12 }} />
+                    <div className="sidebar-label" style={{ color: agent.color }}>{agent.name.toUpperCase()}</div>
+                    {agent.quickCommands.map(qc => (
+                      <button key={qc.label} className="sidebar-item" onClick={() => {
+                        if (qc.cmd.endsWith(" ")) { setInput(qc.cmd); inputRef.current?.focus(); }
+                        else sendCommand(qc.cmd);
+                      }}>
+                        <ChevronRight size={14} /> {qc.label}
+                      </button>
+                    ))}
+                  </>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Agents section */}
+            <div style={{ height: 12 }} />
+            <div className="sidebar-label">{t.sidebar_agents_label}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {[...BUILT_IN_AGENTS, ...customAgents].map(agent => (
+                <div
+                  key={agent.id}
+                  onClick={() => setActiveAgentId(agent.id)}
+                  title={agent.tagline}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "6px 10px", borderRadius: 8, cursor: "pointer",
+                    background: activeAgentId === agent.id ? "var(--bg-tertiary)" : "transparent",
+                    border: activeAgentId === agent.id ? `1px solid ${agent.color}33` : "1px solid transparent",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  <div style={{
+                    width: 24, height: 24, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: `${agent.color}18`, color: agent.color, flexShrink: 0,
+                  }}>
+                    <AgentIcon name={agent.icon} size={13} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: "0.75rem", fontWeight: 600,
+                      color: activeAgentId === agent.id ? "var(--text-primary)" : "var(--text-secondary)",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {agent.name}
+                    </div>
+                    {activeAgentId === agent.id && agent.id !== "general" && (
+                      <div style={{
+                        fontSize: "0.65rem", color: "var(--text-muted)",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        marginTop: 1, lineHeight: 1.2,
+                      }}>
+                        {agent.tagline}
+                      </div>
                     )}
                   </div>
-                ))}
-              </div>
-              <button
-                className="sidebar-item"
-                onClick={() => setShowCreateAgent(true)}
-                style={{ marginTop: 4, color: "var(--accent)", fontSize: "0.78rem" }}
-              >
-                <Plus size={14} /> {t.sidebar_create_agent}
-              </button>
+                  {activeAgentId === agent.id && (
+                    <div style={{ width: 5, height: 5, borderRadius: 3, background: agent.color, flexShrink: 0 }} />
+                  )}
+                  {agent.custom && (
+                    <button
+                      className="ghost-btn"
+                      onClick={e => { e.stopPropagation(); handleDeleteCustomAgent(agent.id); }}
+                      style={{ padding: 2, opacity: 0.4 }}
+                    ><X size={11} /></button>
+                  )}
+                </div>
+              ))}
             </div>
-          )}
-        </div>
-
-        </div>{/* end sidebar-scroll */}
-        {/* Pinned bottom: Language picker + Lock */}
-        <div className="sidebar-bottom">
-          <div style={{ position: "relative" }}>
             <button
               className="sidebar-item"
-              onClick={() => setShowLangPicker(!showLangPicker)}
-              style={{ fontSize: "0.8rem", padding: "8px 12px" }}
+              onClick={() => setShowCreateAgent(true)}
+              style={{ marginTop: 4, color: "var(--accent)", fontSize: "0.78rem" }}
             >
-              <Globe size={14} /> {t.sidebar_language}: {LOCALE_LABELS[locale]}
+              <Plus size={14} /> {t.sidebar_create_agent}
             </button>
-            {showLangPicker && (
-              <div style={{
-                position: "absolute", bottom: "100%", left: 0, right: 0,
-                background: "var(--bg-card, #111)", border: "1px solid var(--border-color, #1a1a1a)",
-                borderRadius: 8, padding: 4, zIndex: 50, maxHeight: 240, overflowY: "auto",
-                boxShadow: "0 -8px 24px rgba(0,0,0,0.5)",
-              }}>
-                {(Object.keys(LOCALE_LABELS) as Locale[]).map(loc => (
-                  <button
-                    key={loc}
-                    onClick={() => { setLocale(loc); setShowLangPicker(false); }}
-                    style={{
-                      display: "block", width: "100%", padding: "6px 10px", background: loc === locale ? "var(--accent-subtle)" : "transparent",
-                      border: "none", color: loc === locale ? "var(--accent)" : "var(--text-secondary)",
-                      fontSize: "0.8rem", textAlign: "left", borderRadius: 6, cursor: "pointer",
-                    }}
-                  >
-                    {LOCALE_LABELS[loc]}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
-          <button className="sidebar-lock" onClick={() => setShowSettings(true)} style={{ marginBottom: 4, opacity: 0.7 }}><Settings size={16} /> Settings</button>
+        )}
+
+        {/* ═══ SETTINGS TAB ═══ */}
+        {sidebarTab === "settings" && (
+          <div className="sidebar-section" style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ position: "relative" }}>
+              <button
+                className="sidebar-item"
+                onClick={() => setShowLangPicker(!showLangPicker)}
+                style={{ fontSize: "0.85rem", padding: "8px 12px" }}
+              >
+                <Globe size={14} /> {t.sidebar_language}: {LOCALE_LABELS[locale]}
+              </button>
+              {showLangPicker && (
+                <div style={{
+                  background: "var(--bg-card, #111)", border: "1px solid var(--border-color, #1a1a1a)",
+                  borderRadius: 8, padding: 4, maxHeight: 240, overflowY: "auto",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.4)", marginTop: 2,
+                }}>
+                  {(Object.keys(LOCALE_LABELS) as Locale[]).map(loc => (
+                    <button
+                      key={loc}
+                      onClick={() => { setLocale(loc); setShowLangPicker(false); }}
+                      style={{
+                        display: "block", width: "100%", padding: "6px 10px", background: loc === locale ? "var(--accent-subtle)" : "transparent",
+                        border: "none", color: loc === locale ? "var(--accent)" : "var(--text-secondary)",
+                        fontSize: "0.8rem", textAlign: "left", borderRadius: 6, cursor: "pointer",
+                      }}
+                    >
+                      {LOCALE_LABELS[loc]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button className="sidebar-item" onClick={() => setShowSettings(true)} style={{ fontSize: "0.85rem", padding: "8px 12px" }}><Settings size={14} /> Settings</button>
+            <button className="sidebar-item" onClick={() => setShowApiKeyModal(true)} style={{ fontSize: "0.85rem", padding: "8px 12px" }}><Key size={14} /> {t.sidebar_api_keys}</button>
+          </div>
+        )}
+
+        </div>{/* end sidebar-scroll */}
+
+        {/* Pinned bottom: Lock button always visible */}
+        <div className="sidebar-bottom">
           <button className="sidebar-lock" onClick={handleLock}><Lock size={16} /> {t.sidebar_lock}</button>
         </div>
       </aside>
@@ -2776,7 +2379,7 @@ export default function ChatPage() {
             {errorBanner}
           </div>
         )}
-        <div className="console-feed" ref={feedRef}>
+        <div className="console-feed" ref={feedRef} role="log" aria-live="polite" aria-label="Chat messages">
           {/* Onboarding flow — premium first-run experience */}
           {onboardingStep >= 0 && (
             <div className="empty-state" style={{ gap: 0, paddingTop: 40 }}>
@@ -2916,8 +2519,9 @@ export default function ChatPage() {
                   const markIntroSeen = () => {
                     if (hasSeenIntro || !updateVaultData) return;
                     updateVaultData((prev) => {
-                      const existing = Array.isArray(prev.settings[AGENT_INTRO_SEEN_KEY])
-                        ? (prev.settings[AGENT_INTRO_SEEN_KEY] as string[])
+                      const settings = prev.settings || {};
+                      const existing = Array.isArray(settings[AGENT_INTRO_SEEN_KEY])
+                        ? (settings[AGENT_INTRO_SEEN_KEY] as string[])
                         : [];
                       if (existing.includes(agent.id)) return prev;
                       return { ...prev, settings: { ...prev.settings, [AGENT_INTRO_SEEN_KEY]: [...existing, agent.id] } };
@@ -3085,7 +2689,7 @@ export default function ChatPage() {
                       <div className="trust-divider" />
                       <div className="trust-item"><Shield size={12} /> Local-First</div>
                       <div className="trust-divider" />
-                      <div className="trust-item"><Terminal size={12} /> 11 Agents</div>
+                      <div className="trust-item"><Terminal size={12} /> {BUILT_IN_AGENTS.length} Agents</div>
                     </div>
 
                     {/* Ollama setup banner — shown on desktop when Ollama not detected */}
@@ -3170,12 +2774,26 @@ export default function ChatPage() {
                 <span className="message-sender">{msg.role==="user" ? t.chat_you : (getAgentById(activeAgentId, customAgents)?.name || t.chat_ai)}</span>
                 <span className="message-time">{new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}</span>
               </div>
-              <div className="message-content"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />}}>{msg.content}</ReactMarkdown></div>
+              <div className="message-content"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                a: ({node, ...props}: any) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+                code: ({node, inline, className, children, ...props}: any) => {
+                  if (inline) return <code className={className} {...props}>{children}</code>;
+                  const text = String(children).replace(/\n$/, "");
+                  return (
+                    <div className="code-block-wrap">
+                      <button className="code-copy-btn" onClick={() => { navigator.clipboard.writeText(text); }}>
+                        <Copy size={13} /> Copy
+                      </button>
+                      <pre><code className={className} {...props}>{children}</code></pre>
+                    </div>
+                  );
+                },
+              }}>{msg.content}</ReactMarkdown></div>
               {msg.sources && msg.sources.length > 0 && (
                 <SourcesAccordion sources={msg.sources} summary={msg.sourcesSummary} />
               )}
               {msg.actionType && !msg.pending && (
-                msg.deepLink ? (
+                msg.deepLink && /^https?:\/\//i.test(msg.deepLink) ? (
                   <a href={msg.deepLink} target="_blank" rel="noopener noreferrer"
                     className="action-badge action-badge-link" data-status={msg.actionStatus || "success"}>
                     <span>{msg.actionStatus === "error" ? "⚠️" : ACTION_BADGE_ICONS[msg.actionType] || "⚡"}</span>
@@ -3603,10 +3221,12 @@ export default function ChatPage() {
           )}
           {/* @mention agent picker dropdown */}
           {showMentionMenu && mentionAgents.length > 0 && (
-            <div className="mention-menu">
+            <div className="mention-menu" role="listbox" aria-label="Select an agent">
               {mentionAgents.map((agent, i) => (
                 <button
                   key={agent.id}
+                  role="option"
+                  aria-selected={i === mentionIndex}
                   className={`mention-item${i === mentionIndex ? " active" : ""}`}
                   onMouseDown={e => {
                     e.preventDefault();
@@ -3623,7 +3243,7 @@ export default function ChatPage() {
                   <span className="mention-tagline">{agent.tagline}</span>
                 </button>
               ))}
-              <div className="mention-hint">↑↓ navigate · Enter to select · Esc to close</div>
+              <div className="mention-hint" role="status">↑↓ navigate · Enter to select · Esc to close</div>
             </div>
           )}
           <div className="input-bar">
@@ -3720,11 +3340,11 @@ export default function ChatPage() {
               }}
             />
             {sending ? (
-              <button type="button" className="stop-btn" onClick={stopResponse} title="Stop generating">
+              <button type="button" className="stop-btn" onClick={stopResponse} title="Stop generating" aria-label="Stop generating">
                 <Square size={14} />
               </button>
             ) : (
-              <button type="button" className="send-btn" onClick={() => sendCommand()} disabled={!input.trim()}>
+              <button type="button" className="send-btn" onClick={() => sendCommand()} disabled={!input.trim()} aria-label="Send message">
                 <Send size={16} />
               </button>
             )}
@@ -3761,6 +3381,7 @@ export default function ChatPage() {
                             const url = URL.createObjectURL(blob);
                             const audio = new Audio(url);
                             audio.onended = () => URL.revokeObjectURL(url);
+                            audio.onerror = () => URL.revokeObjectURL(url);
                             audio.play();
                           });
                         }
@@ -3774,6 +3395,38 @@ export default function ChatPage() {
                 ))}
               </div>
             )}
+            {/* Model selector */}
+            <div style={{ position: "relative" }} ref={modelMenuRef}>
+              <button
+                type="button"
+                className="voice-selector-pill"
+                onClick={() => { setShowModelMenu(v => !v); setShowVoiceMenu(false); }}
+                title="Change AI model"
+              >
+                <Cpu size={11} />
+                <span>{MODEL_OPTIONS.find(m => m.id === selectedModel)?.label || "Auto"}</span>
+              </button>
+              {showModelMenu && (
+                <div className="voice-selector-menu">
+                  {MODEL_OPTIONS.map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={`voice-option${selectedModel === m.id ? " active" : ""}`}
+                      onClick={() => {
+                        setSelectedModel(m.id);
+                        localStorage.setItem("hammerlock_model", m.id);
+                        setShowModelMenu(false);
+                      }}
+                    >
+                      <span className="voice-option-name">{m.label}</span>
+                      <span className="voice-option-desc">{m.desc}</span>
+                      {selectedModel === m.id && <span className="voice-option-check">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="console-footer">
             <span className="dot" /> {t.chat_footer_encrypted}

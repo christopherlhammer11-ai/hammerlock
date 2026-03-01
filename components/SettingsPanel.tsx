@@ -137,13 +137,44 @@ export default function SettingsPanel({ open, onClose, onOpenIntegrations, onOpe
             )}
           </div>
 
-          {/* Room for future settings sections */}
+          {/* About */}
           <div className="settings-section">
             <div className="settings-section-title">About</div>
-            <div className="settings-row-desc" style={{ padding: "0 0 8px" }}>
-              HammerLock AI — encrypted, local-first AI assistant.
-              <br />
-              All data stays on your device.
+            <div className="settings-row-desc" style={{ padding: "0 0 4px" }}>
+              <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>HammerLock AI</strong>{" "}
+              <span style={{ opacity: 0.6 }}>v{process.env.NEXT_PUBLIC_APP_VERSION || "0.3.2"}</span>
+            </div>
+            <div className="settings-row-desc" style={{ padding: "0 0 8px", lineHeight: 1.6 }}>
+              Encrypted, local-first AI assistant. All data stays on your device.
+            </div>
+            <div style={{ display: "flex", gap: "12px", padding: "0 0 6px", flexWrap: "wrap" }}>
+              <a
+                href="https://hammerlockai.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: "0.75rem", color: "var(--accent)", textDecoration: "none" }}
+              >
+                Website
+              </a>
+              <a
+                href="https://hammerlockai.com/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: "0.75rem", color: "var(--text-muted)", textDecoration: "none" }}
+              >
+                Privacy
+              </a>
+              <a
+                href="https://hammerlockai.com/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: "0.75rem", color: "var(--text-muted)", textDecoration: "none" }}
+              >
+                Terms
+              </a>
+            </div>
+            <div className="settings-row-desc" style={{ padding: "4px 0 0", fontSize: "0.7rem", opacity: 0.4 }}>
+              &copy; {new Date().getFullYear()} HammerLock AI. All rights reserved.
             </div>
           </div>
         </div>
