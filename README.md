@@ -1,123 +1,90 @@
-# OpenClaw Crypto Trading Agent
+# HammerLock AI
 
-## Security-First Crypto Arb & DeFi Yield Agent
+Privacy-first local AI assistant with encrypted memory, local vault storage, and
+agent workflows designed around user control.
 
-A pure-Python trading agent stack built on OpenClaw for autonomous crypto
-arbitrage and funding rate capture. Designed for privacy, auditability,
-and brutal risk management.
+HammerLock exists for people who want useful AI without turning every private
+workflow, note, document, and preference into another cloud dependency.
 
-## ⚠️ CRITICAL WARNINGS
+## Product Promise
 
-1. **THIS IS NOT FINANCIAL ADVICE.** Most trading agents lose money.
-2. **MALWARE IS REAL.** 300-900+ malicious skills hit ClawHub in Jan-Feb 2026.
-   NEVER install any skill without reading every line of source code.
-3. **START WITH PAPER TRADING.** Run 200+ paper trades before any real capital.
-4. **MAX $500 IN HOT WALLETS.** Never risk money you can't lose.
+Your AI. Your data. Your rules.
 
-## Architecture
+- Local-first assistant experience
+- AES-256-GCM encrypted vault storage
+- 11 specialized agents for different work modes
+- Local credential vault and browser automation paths
+- PDF, note, memory, schedule, and action workflows
+- Bring-your-own API keys for supported LLM providers
+- Desktop packaging path through Electron
 
-```
-YOUR LOCAL MAC (development + backtesting)
-   ↓ git push / docker build
-ISOLATED VPS ($6-12/mo Hetzner/DigitalOcean)
-   └─ Docker Compose
-        ├─ OpenClaw (orchestrator + Telegram interface)
-        ├─ Funding Rate Arb (Python skill - ccxt)
-        ├─ Polymarket Logic Arb (Python skill - Gamma API)
-        └─ Risk Gate (circuit breakers, daily loss limits)
-   Firewall: SSH from your IP only, outbound to exchanges
-```
+## Current Status
 
-## Skills
+Verified on April 22, 2026:
 
-### 1. Funding Rate Arb (`skills/funding-rate-arb/`)
-- Monitors BTC/ETH/SOL funding rates across Binance, Bybit, OKX
-- Detects cross-exchange spreads above threshold (after fees)
-- Executes delta-neutral positions (long low / short high)
-- Commands: `scan funding arb`, `execute funding arb`, `funding arb status`
+- `npm test` passes: 53 tests across license keys and server crypto
+- `npm run build` passes: Next.js production build completes
+- Missing credential-store build blocker fixed
 
-### 2. Polymarket Logic Arb (`skills/polymarket-logic-arb/`)
-- Scans for sum-to-1 pricing inefficiencies
-- Skeleton for correlated market analysis (add YOUR edge)
-- Commands: `scan polymarket arb`, `scan polymarket correlated [keyword]`
+Known productization work:
+
+- Add a short visual demo or walkthrough
+- Publish a clean download path for the desktop app
+- Verify Electron packaging on the target release machines
+- Connect production checkout/license flow end to end
+
+## Why It Matters
+
+Most AI assistants optimize for convenience first and privacy later. HammerLock
+starts from the opposite direction: local storage, encrypted memory, explicit
+configuration, and a workflow where sensitive context remains under the user's
+control.
+
+This is the flagship product in Christopher Hammer's AI engineering portfolio.
+It demonstrates product architecture, encrypted local state, agent routing,
+tool execution, licensing, and practical AI UX.
 
 ## Quick Start
 
-### Week 1: Local Development
 ```bash
-# Install OpenClaw
-curl -fsSL https://openclaw.ai/install.sh | bash
-openclaw onboard  # Connect Telegram
-
-# Install vetted skills (REVIEW SOURCE FIRST)
-openclaw skill add https://github.com/chainstacklabs/polyclaw
-
-# Add custom skills
-openclaw skill add ./skills/funding-rate-arb
-openclaw skill add ./skills/polymarket-logic-arb
-
-# Test in Telegram:
-# "scan funding arb"
-# "scan polymarket arb"
+npm install
+npm run dev
 ```
 
-### Week 2-3: Paper Trading
-- Set PAPER_MODE=true in .env (default)
-- Run for 7-14 days, review every trade in logs/
-- Tune thresholds based on what you see
+Open `http://localhost:3000`.
 
-### Week 4: VPS Deployment
+## Verification
+
 ```bash
-# On VPS (Ubuntu 24.04)
-sudo ./setup-vps.sh
-cp .env.example .env
-# Edit .env with your keys
-docker compose up -d
+npm test
+npm run build
 ```
 
-## Risk Controls (Hardcoded)
+## Desktop Builds
 
-| Control | Default | Notes |
-|---------|---------|-------|
-| Paper mode | ON | Must explicitly disable |
-| Max position | $50 | Per leg |
-| Daily loss limit | $25 | Circuit breaker |
-| Approval threshold | $100 | Telegram confirmation |
-| Daily trade cap | 20 | Sanity limit |
-| Audit log | Always on | Immutable JSONL |
-
-## File Structure
-
-```
-openclaw-trading-agent/
-├── docker-compose.yml          # VPS deployment
-├── .env.example                # Template (NEVER commit .env)
-├── setup-vps.sh                # One-time VPS hardening
-├── skills/
-│   ├── Dockerfile              # Python runtime container
-│   ├── requirements.txt        # Python dependencies
-│   ├── funding-rate-arb/
-│   │   ├── SKILL.md            # OpenClaw skill definition
-│   │   └── main.py             # Scanner + executor
-│   └── polymarket-logic-arb/
-│       ├── SKILL.md
-│       └── main.py             # Scanner (add your edge here)
-├── logs/                       # Structured trade logs (JSONL)
-├── data/                       # Trade records, backtest data
-└── README.md
+```bash
+npm run electron:build:mac
+npm run electron:build:win
+npm run electron:build:linux
 ```
 
-## Where YOUR Edge Goes
+Electron packaging requires platform-specific signing, notarization, and release
+credentials before public distribution.
 
-The framework handles scanning, risk, execution, and logging.
-Your competitive advantage comes from:
+## Core Areas
 
-1. **Custom filters in `scan_correlated()`** — sentiment, on-chain data,
-   domain expertise that other bots don't have
-2. **Threshold tuning** — based on your backtesting and paper results
-3. **Market selection** — which pairs, which prediction markets
-4. **Discipline** — not overriding the risk gates when you're "sure"
+- `app/` - Next.js app routes, product pages, chat, vault, and APIs
+- `components/` - UI panels for vault, settings, integrations, and permissions
+- `lib/` - crypto, vault storage, agents, licensing, schedules, credentials, and routing
+- `electron/` - desktop shell
+- `tests/` - server crypto and license-key coverage
 
-## License
+## Links
 
-Use at your own risk. No warranty. Not financial advice.
+- Product site: https://hammerlockai.com
+- GitHub profile: https://github.com/christopherlhammer11-ai
+- Portfolio: https://2026-04-21-that-s-a-full-green-run.vercel.app
+
+## Author
+
+Christopher L. Hammer
