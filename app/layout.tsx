@@ -39,6 +39,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    site: "@HammerlockAI",
+    creator: "@HammerlockAI",
     title: "HammerLock AI — Your AI. Your Data. Your Rules.",
     description: "Local-first AI with encrypted memory built for operators.",
     images: ["/brand/hammerlock-og-banner.jpg"],

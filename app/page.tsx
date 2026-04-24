@@ -11,6 +11,7 @@ import { useI18n, LOCALE_LABELS, type Locale } from "@/lib/i18n";
 import { track } from "@vercel/analytics";
 
 // Features array is built inside the component to access i18n
+const HAMMERLOCK_X_URL = "https://x.com/HammerlockAI";
 
 // Steps array is built inside the component to access i18n
 
@@ -255,6 +256,7 @@ export default function LandingPage() {
           <li><a href="#how">{t.site_nav_how}</a></li>
           <li><a href="#why">{t.site_nav_why}</a></li>
           <li><a href="/blog/blog-index.html">Research</a></li>
+          <li><a href={HAMMERLOCK_X_URL} target="_blank" rel="noopener noreferrer">X</a></li>
         </ul>
         <div className="lang-picker" ref={langRef} style={{ position: 'relative' }}>
           <button
@@ -315,6 +317,7 @@ export default function LandingPage() {
             <a href="#how" onClick={() => setMobileNavOpen(false)}>{t.site_nav_how}</a>
             <a href="#why" onClick={() => setMobileNavOpen(false)}>{t.site_nav_why}</a>
             <a href="/blog" onClick={() => setMobileNavOpen(false)}>Research</a>
+            <a href={HAMMERLOCK_X_URL} target="_blank" rel="noopener noreferrer" onClick={() => setMobileNavOpen(false)}>X / @HammerlockAI</a>
             <a href="#pricing" className="btn-primary" style={{ textAlign: 'center' }} onClick={() => setMobileNavOpen(false)}>{t.site_cta}</a>
           </div>
         </>
@@ -1053,7 +1056,7 @@ export default function LandingPage() {
 
             {/* Social Media */}
             <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
-              <a href="https://x.com/hammerlockai" target="_blank" rel="noopener noreferrer" title="Follow us on X" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem', transition: 'color 0.2s' }}>𝕏</a>
+              <a href={HAMMERLOCK_X_URL} target="_blank" rel="noopener noreferrer" title="Follow HammerLock AI on X" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '0.86rem', transition: 'color 0.2s', fontWeight: 700 }}>𝕏 @HammerlockAI</a>
               <a href="https://instagram.com/hammerlockai" target="_blank" rel="noopener noreferrer" title="Follow on Instagram" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>📷</a>
               <a href="https://tiktok.com/@hammerlockai" target="_blank" rel="noopener noreferrer" title="Follow on TikTok" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>♪</a>
             </div>
