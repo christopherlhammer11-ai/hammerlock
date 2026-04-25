@@ -362,6 +362,11 @@ export interface SkillInfo {
   displayName: string;
   emoji: string;
   description: string;
+  engine: "hammerlock" | "openclaw" | "hybrid";
+  ownership: "flagship" | "connector";
+  ownershipLabel: string;
+  runtimeLabel: string;
+  strategyNote: string;
   featured: boolean;
   ready: boolean;
   disabled: boolean;
@@ -388,6 +393,82 @@ export interface SkillCategory {
   skills: SkillInfo[];
   readyCount: number;
   totalCount: number;
+}
+
+const TOOL_RUNTIME_STRATEGY: Record<string, {
+  engine: SkillInfo["engine"];
+  ownership: SkillInfo["ownership"];
+  strategyNote: string;
+}> = {
+  "apple-notes": {
+    engine: "hybrid",
+    ownership: "flagship",
+    strategyNote: "HammerLock should own the user experience here, even when OpenClaw still helps with local execution.",
+  },
+  "apple-reminders": {
+    engine: "hybrid",
+    ownership: "flagship",
+    strategyNote: "Core daily workflow. Keep the HammerLock setup, testing, and orchestration layer first-class.",
+  },
+  "imsg": {
+    engine: "hybrid",
+    ownership: "flagship",
+    strategyNote: "High-value private messaging workflow that should feel native inside HammerLock.",
+  },
+  "gog": {
+    engine: "hybrid",
+    ownership: "flagship",
+    strategyNote: "Important work surface for email, calendar, and docs. HammerLock should own the workflow framing.",
+  },
+  "github": {
+    engine: "hybrid",
+    ownership: "flagship",
+    strategyNote: "Developer workflow users will attribute to HammerLock, even if the connector layer stays shared.",
+  },
+  "nano-pdf": {
+    engine: "hammerlock",
+    ownership: "flagship",
+    strategyNote: "Document work is part of the HammerLock product promise and should stay a first-class workflow.",
+  },
+  "openai-whisper": {
+    engine: "hammerlock",
+    ownership: "flagship",
+    strategyNote: "Voice and transcription are core HammerLock experiences and should feel product-native.",
+  },
+  "peekaboo": {
+    engine: "hybrid",
+    ownership: "flagship",
+    strategyNote: "Screen capture is part of the flagship local workflow surface, even if the underlying automation is shared.",
+  },
+  "weather": {
+    engine: "hammerlock",
+    ownership: "flagship",
+    strategyNote: "Simple utility that should feel built in and available instantly.",
+  },
+};
+
+function getToolRuntimeMeta(skillName: string) {
+  const meta = TOOL_RUNTIME_STRATEGY[skillName];
+  if (meta) {
+    return {
+      ...meta,
+      ownershipLabel: meta.ownership === "flagship" ? "HammerLock Workflow" : "Connector",
+      runtimeLabel:
+        meta.engine === "hammerlock"
+          ? "HammerLock Native"
+          : meta.engine === "hybrid"
+            ? "HammerLock + OpenClaw"
+            : "OpenClaw Connector",
+    };
+  }
+
+  return {
+    engine: "openclaw" as const,
+    ownership: "connector" as const,
+    ownershipLabel: "Connector",
+    runtimeLabel: "OpenClaw Connector",
+    strategyNote: "Useful integration breadth powered by OpenClaw so HammerLock can stay focused on flagship workflows.",
+  };
 }
 
 export async function GET() {
@@ -460,12 +541,18 @@ export async function GET() {
           "CLI Setup";
         const verificationNote = featuredChecks[raw.name];
         const setupTrack = SKILL_SETUP_TRACKS[raw.name] || [];
+        const runtimeMeta = getToolRuntimeMeta(raw.name);
 
         catSkills.push({
           name: raw.name,
           displayName: SKILL_DISPLAY_NAMES[raw.name] || raw.name,
           emoji: raw.emoji,
           description: raw.description.split(".")[0] + ".", // First sentence only
+          engine: runtimeMeta.engine,
+          ownership: runtimeMeta.ownership,
+          ownershipLabel: runtimeMeta.ownershipLabel,
+          runtimeLabel: runtimeMeta.runtimeLabel,
+          strategyNote: runtimeMeta.strategyNote,
           featured: FEATURED_SKILLS.has(raw.name),
           ready,
           disabled,

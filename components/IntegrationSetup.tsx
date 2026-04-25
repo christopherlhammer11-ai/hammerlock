@@ -1,8 +1,8 @@
 /**
  * IntegrationSetup — Guided integration discovery & setup panel
  *
- * Shows available OpenClaw skills grouped by category with use case examples.
- * Users can tap "Set up" to have the OpenClaw agent walk them through config.
+ * Shows HammerLock workflows and connector-backed tools grouped by category.
+ * Users can tap "Set up" to have HammerLock guide them through the best path.
  * Appears after persona onboarding on first launch, and from Settings anytime.
  */
 "use client";
@@ -19,6 +19,11 @@ interface SkillInfo {
   displayName: string;
   emoji: string;
   description: string;
+  engine: "hammerlock" | "openclaw" | "hybrid";
+  ownership: "flagship" | "connector";
+  ownershipLabel: string;
+  runtimeLabel: string;
+  strategyNote: string;
   featured: boolean;
   ready: boolean;
   disabled: boolean;
@@ -269,6 +274,8 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
 
   const allSkills = categories.flatMap((cat) => cat.skills);
   const featuredSkills = allSkills.filter((skill) => skill.featured);
+  const flagshipSkills = allSkills.filter((skill) => skill.ownership === "flagship");
+  const connectorSkills = allSkills.filter((skill) => skill.ownership === "connector");
   const readyNeedsAttention = allSkills.filter((skill) => !skill.ready).length;
   const healthScore = totalSkills > 0 ? Math.round((totalReady / totalSkills) * 100) : 0;
   const favoriteSkills = allSkills.filter((skill) => favorites.includes(skill.name));
@@ -530,6 +537,29 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                 <div className="integration-setup-stat">
                   <div className="integration-setup-stat-value">{healthScore}%</div>
                   <div className="integration-setup-stat-label">Tool health</div>
+                </div>
+              </div>
+
+              <div className="integration-runtime-split">
+                <div className="integration-section-heading">
+                  <div className="integration-section-title">HammerLock vs Connectors</div>
+                  <div className="integration-section-hint">Own the flagship workflows. Use OpenClaw where connector breadth adds real value.</div>
+                </div>
+                <div className="integration-runtime-grid">
+                  <div className="integration-runtime-card">
+                    <div className="integration-bundle-title">HammerLock Workflows</div>
+                    <div className="integration-trust-value">{flagshipSkills.length}</div>
+                    <div className="integration-bundle-subtitle">
+                      Core experiences HammerLock should own end to end: setup, trust, UX, and orchestration.
+                    </div>
+                  </div>
+                  <div className="integration-runtime-card">
+                    <div className="integration-bundle-title">OpenClaw Connectors</div>
+                    <div className="integration-trust-value">{connectorSkills.length}</div>
+                    <div className="integration-bundle-subtitle">
+                      Long-tail integrations and local connectors where shared infrastructure keeps shipping fast.
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1091,6 +1121,10 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                         <div className="integration-featured-name">{skill.displayName}</div>
                         <div className="integration-featured-desc">{skill.description}</div>
                         <div className="integration-featured-path">{skill.setupPathLabel}</div>
+                        <div className="integration-featured-runtime">
+                          <span className={`integration-runtime-badge ${skill.ownership}`}>{skill.ownershipLabel}</span>
+                          <span className="integration-runtime-text">{skill.runtimeLabel}</span>
+                        </div>
                         {skill.verificationNote && (
                           <div className="integration-featured-verify">{skill.verificationNote}</div>
                         )}
@@ -1156,6 +1190,10 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                               {skill.name}
                               {skill.featured ? " • featured" : ""}
                             </span>
+                            <span className="integration-skill-runtime">
+                              <span className={`integration-runtime-badge ${skill.ownership}`}>{skill.ownershipLabel}</span>
+                              <span className="integration-runtime-text">{skill.runtimeLabel}</span>
+                            </span>
                           </div>
                         </div>
                         <div className="integration-skill-right">
@@ -1185,6 +1223,14 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                               <span>{skill.verificationNote}</span>
                             </div>
                           )}
+
+                          <div className="integration-skill-strategy">
+                            <div className="integration-skill-examples-label">Why it belongs here</div>
+                            <div className="integration-skill-requirement">
+                              <Zap size={12} />
+                              <span>{skill.strategyNote}</span>
+                            </div>
+                          </div>
 
                           {skill.requirements.length > 0 && (
                             <div className="integration-skill-requirements">
