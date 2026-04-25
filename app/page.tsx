@@ -98,34 +98,54 @@ export default function LandingPage() {
 
   const plans = [
     {
-      name: t.site_plan_free, tag: t.site_plan_free_tag, description: t.site_plan_free_desc,
-      price: 0, priceLabel: '$0', pricePeriod: '',
-      features: [t.site_plan_free_f1, t.site_plan_free_f2, t.site_plan_free_f3, t.site_plan_free_f4, t.site_plan_free_f5],
-      ctaLabel: t.site_cta_trial, ctaAction: 'github', // links to GitHub
+      name: 'Personal', tag: 'OPEN SOURCE', description: 'Everything you need to get started. No account required.',
+      price: 0, priceLabel: 'Free', pricePeriod: 'forever',
+      features: [
+        'Unlimited conversations',
+        'AES-256 encryption',
+        'Persistent memory vault',
+        'Voice input & TTS',
+        'PDF upload & analysis',
+      ],
+      ctaLabel: 'Download Free', ctaAction: 'github',
     },
     {
-      name: t.site_plan_core, description: t.site_plan_core_desc,
-      price: 15, priceLabel: '$15', pricePeriod: t.site_plan_one_time,
-      features: [t.site_plan_core_f1, t.site_plan_core_f2, t.site_plan_core_f3, t.site_plan_core_f4, t.site_plan_core_f5],
-      ctaAction: 'core-onetime',
+      name: 'Pro', description: 'Full power. All agents, all skills, all providers.', popular: true,
+      price: 0, priceLabel: 'Free', pricePeriod: 'forever',
+      features: [
+        'Everything in Personal',
+        '11 AI agents',
+        '27 native skills',
+        'Web search with citations',
+        'Browser automation',
+        'Multi-provider racing (6+ LLMs)',
+        'Bring your own API keys',
+      ],
+      ctaLabel: 'Download Free', ctaAction: 'github',
     },
     {
-      name: t.site_plan_pro, description: t.site_plan_pro_desc, popular: true,
-      price: 29, priceLabel: '$29', pricePeriod: t.site_plan_per_mo,
-      features: [t.site_plan_pro_f1, t.site_plan_pro_f2, t.site_plan_pro_f3, t.site_plan_pro_f4, t.site_plan_pro_f5, t.site_plan_pro_f6, t.site_plan_pro_f7],
-      ctaAction: 'pro-monthly',
+      name: 'Teams', description: 'For teams that need privacy-first AI. Self-hosted.',
+      price: 0, priceLabel: 'Free', pricePeriod: 'self-hosted',
+      features: [
+        'Everything in Pro',
+        'Multi-user support',
+        'Shared vault & personas',
+        'Admin dashboard',
+        'Priority support',
+      ],
+      ctaLabel: 'Download Free', ctaAction: 'github',
     },
     {
-      name: t.site_plan_teams, description: t.site_plan_teams_desc,
-      price: 49, priceLabel: '$49', pricePeriod: t.site_plan_per_user,
-      features: [t.site_plan_teams_f1, t.site_plan_teams_f2, t.site_plan_teams_f3, t.site_plan_teams_f4, t.site_plan_teams_f5],
-      ctaAction: 'teams-monthly',
-    },
-    {
-      name: t.site_plan_enterprise, description: t.site_plan_enterprise_desc, enterprise: true,
-      price: -1, priceLabel: t.site_plan_custom, pricePeriod: '',
-      features: [t.site_plan_ent_f1, t.site_plan_ent_f2, t.site_plan_ent_f3, t.site_plan_ent_f4, t.site_plan_ent_f5],
-      ctaLabel: t.site_plan_contact_sales, ctaAction: 'contact',
+      name: 'Enterprise', description: 'Air-gapped deployments, custom integrations, dedicated support.', enterprise: true,
+      price: -1, priceLabel: 'Contact Us', pricePeriod: '',
+      features: [
+        'Everything in Teams',
+        'Air-gapped deployment',
+        'Custom integrations',
+        'SLA & dedicated support',
+        'On-premise installation',
+      ],
+      ctaLabel: 'Get In Touch', ctaAction: 'contact',
     },
   ];
 
@@ -203,20 +223,34 @@ export default function LandingPage() {
 
   // Scroll fade-in for sections
   useEffect(() => {
-    const sections = document.querySelectorAll('.fade-in-section');
-    if (!sections.length) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-          }
-        });
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
-    );
-    sections.forEach((s) => observer.observe(s));
-    return () => observer.disconnect();
+    // Small delay to ensure DOM is fully hydrated before observing
+    const timer = setTimeout(() => {
+      const sections = document.querySelectorAll('.fade-in-section');
+      if (!sections.length) return;
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+              observer.unobserve(entry.target); // stop watching once visible
+            }
+          });
+        },
+        { threshold: 0.01, rootMargin: '200px 0px 0px 0px' }
+      );
+      sections.forEach((s) => observer.observe(s));
+
+      // Fallback: if any section is already in the viewport on load, mark it visible
+      sections.forEach((s) => {
+        const rect = s.getBoundingClientRect();
+        if (rect.top < window.innerHeight + 200) {
+          s.classList.add('visible');
+        }
+      });
+
+      return () => observer.disconnect();
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleCheckout = async (plan: string) => {
@@ -526,17 +560,17 @@ export default function LandingPage() {
 
       {/* PRICING */}
       <section id="pricing" className="pricing-section fade-in-section">
-        <div className="section-label">{t.site_section_pricing}</div>
-        <h2>{t.site_pricing_h2}</h2>
+        <div className="section-label">100% FREE</div>
+        <h2>No subscriptions. No paywalls. Just use it.</h2>
         <p className="section-subtitle">
-          {t.site_sub_pricing}
+          HammerLock AI is free and open source. Bring your own API keys, run local models with Ollama, or use our hosted credits. Your choice.
         </p>
 
 
         <div className="pricing-grid">
           {plans.map((plan) => (
             <div key={plan.name} className={`pricing-card${plan.popular ? ' popular' : ''}${plan.enterprise ? ' enterprise' : ''}`}>
-              {plan.popular && <div className="pricing-badge">{t.site_plan_popular}</div>}
+              {plan.popular && <div className="pricing-badge">MOST POPULAR</div>}
               <div className="pricing-tag-row">
                 {plan.tag && <span className="pricing-tag">{plan.tag}</span>}
               </div>
@@ -584,57 +618,20 @@ export default function LandingPage() {
           ))}
         </div>
 
-        {/* Credit Booster Add-ons */}
-        <div className="booster-addons" style={{
+        {/* BYOK callout */}
+        <div style={{
           marginTop: 40, padding: '24px 32px', background: 'rgba(0,255,136,0.03)',
           border: '1px solid rgba(0,255,136,0.12)', borderRadius: 14, textAlign: 'center',
           maxWidth: 680, marginLeft: 'auto', marginRight: 'auto',
         }}>
           <h3 style={{ fontSize: '1.1rem', color: 'var(--accent)', marginBottom: 12 }}>
-            {t.site_plan_need_more}
+            Bring Your Own Keys. Pay nothing to us.
           </h3>
-          <div style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
-            <div style={{ padding: '12px 20px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <strong>{t.site_plan_booster}</strong> <span style={{ color: 'var(--accent)' }}>{t.site_plan_booster_price}</span>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t.site_plan_booster_desc}</div>
-              <button
-                onClick={() => handleCheckout('booster-monthly')}
-                disabled={checkoutLoading !== null}
-                className="cta-main"
-                style={{ marginTop: 4, padding: '6px 18px', fontSize: '0.85rem' }}
-              >
-                {checkoutLoading === 'booster-monthly' ? t.site_plan_loading : 'Add Booster'}
-              </button>
-            </div>
-            <div style={{ padding: '12px 20px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <strong>{t.site_plan_power}</strong> <span style={{ color: 'var(--accent)' }}>{t.site_plan_power_price}</span>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t.site_plan_power_desc}</div>
-              <button
-                onClick={() => handleCheckout('power-monthly')}
-                disabled={checkoutLoading !== null}
-                className="cta-main"
-                style={{ marginTop: 4, padding: '6px 18px', fontSize: '0.85rem' }}
-              >
-                {checkoutLoading === 'power-monthly' ? t.site_plan_loading : 'Add Power Pack'}
-              </button>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
-            {t.site_plan_byok_unlimited}
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.6 }}>
+            Use your own API keys from OpenAI, Anthropic, Google, Groq, Mistral, or DeepSeek. Or run 100% local with Ollama — zero cost, zero cloud.
           </p>
-        </div>
-
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: 20, maxWidth: 600, marginLeft: 'auto', marginRight: 'auto' }}>
-          {t.site_plan_credits_footnote}
-        </p>
-
-        {/* Cancel anytime + contact */}
-        <div style={{ textAlign: 'center', marginTop: 24, padding: '16px 24px', background: 'rgba(255,255,255,0.02)', borderRadius: 10, maxWidth: 600, marginLeft: 'auto', marginRight: 'auto' }}>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 6px', fontWeight: 600 }}>
-            Cancel anytime. No long-term contracts. No hidden fees.
-          </p>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
-            All subscriptions can be cancelled instantly from your Stripe dashboard. Questions? Reach us at{' '}
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
+            Questions? Reach us at{' '}
             <a href="mailto:info@hammerlockai.com" style={{ color: 'var(--accent)', textDecoration: 'none' }}>info@hammerlockai.com</a>
           </p>
         </div>

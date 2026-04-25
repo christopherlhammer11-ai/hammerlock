@@ -427,20 +427,8 @@ function createWindow() {
 async function transitionToVault() {
   if (!mainWindow) return;
 
-  // License gate: check tier on startup, redirect to /activate if no license
+  // HammerLock AI is free — go straight to vault (no license gate)
   let targetPath = "/vault";
-  try {
-    const checkRes = await fetch(`http://127.0.0.1:${NEXT_PORT}/api/license/check`);
-    const checkData = await checkRes.json();
-    if (checkData.needsActivation) {
-      targetPath = "/activate";
-    } else if (checkData.tier) {
-      // Store tier for in-app use
-      global.licenseTier = checkData.tier;
-    }
-  } catch (err) {
-    console.warn("[license] Check failed, defaulting to vault:", err.message);
-  }
 
   const targetURL = `http://127.0.0.1:${NEXT_PORT}${targetPath}`;
 
@@ -656,13 +644,13 @@ function buildAppMenu() {
         {
           label: "HammerLock AI Documentation",
           click: () => {
-            shell.openExternal("https://hammerlock.ai/docs");
+            shell.openExternal("https://www.hammerlockai.com/get-app");
           },
         },
         {
           label: "Report an Issue",
           click: () => {
-            shell.openExternal("https://github.com/nicholasychua/hammerlock/issues");
+            shell.openExternal("https://github.com/christopherlhammer11-ai/hammerlock/issues");
           },
         },
         { type: "separator" },
