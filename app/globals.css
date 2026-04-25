@@ -7963,6 +7963,14 @@ footer .trust-badge {
   color: var(--text-secondary);
 }
 
+.integration-featured-path {
+  margin-top: 8px;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
 .integration-empty-state {
   display: flex;
   align-items: center;

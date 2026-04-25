@@ -255,6 +255,54 @@ const SKILL_DISPLAY_NAMES: Record<string, string> = {
   "healthcheck": "System Health",
 };
 
+const SKILL_ACTION_PROMPTS: Record<string, {
+  setup?: string;
+  test?: string;
+  info?: string;
+}> = {
+  "apple-notes": {
+    setup: "Help me set up Apple Notes in HammerLock. Check macOS permissions first, explain exactly what access is needed, then walk me through the quickest way to verify note creation and search are working.",
+    test: "Test Apple Notes. Try a safe read-only check first, then tell me whether note search and note creation appear available on this machine.",
+    info: "Explain what Apple Notes can do inside HammerLock, what macOS permissions it depends on, and the best real-world workflows for using it.",
+  },
+  "apple-reminders": {
+    setup: "Help me set up Apple Reminders in HammerLock. Check whether Reminders permissions are available, explain what to grant, and show me the fastest way to verify reminder creation and listing.",
+    test: "Test Apple Reminders. Check whether reminder lists and reminder creation appear available, and summarize the result clearly.",
+  },
+  "imsg": {
+    setup: "Help me set up iMessage in HammerLock. Check what permissions or disk access are required, explain any limitations, and walk me through a safe verification flow.",
+    test: "Test the iMessage integration with a safe non-destructive check. Tell me if message history access appears available and what still needs to be configured if not.",
+  },
+  "gog": {
+    setup: "Help me connect Google Workspace tools in HammerLock. Check whether Google auth is already configured, and if not, guide me through the exact gog OAuth steps for Gmail, Calendar, Drive, and related tools.",
+    test: "Test Google Workspace in HammerLock. Verify whether Gmail, Calendar, and Drive access appear connected and summarize what is working right now.",
+  },
+  "github": {
+    setup: "Help me set up GitHub in HammerLock. Check whether gh auth is already available, and if not, walk me through the cleanest login flow and repo access verification.",
+    test: "Test the GitHub integration. Verify whether GitHub authentication is active and whether basic repo or issue access appears to be working.",
+  },
+  "wacli": {
+    setup: "Help me set up WhatsApp in HammerLock. Explain the pairing flow, what QR login is needed, and the safest way to confirm the tool is ready.",
+    test: "Test the WhatsApp integration with a safe status check. Tell me whether WhatsApp pairing appears active and what to do next if it is not.",
+  },
+  "openhue": {
+    setup: "Help me set up Philips Hue in HammerLock. Check for bridge discovery requirements, explain the pairing steps, and tell me how to verify lights and scenes are reachable.",
+    test: "Test the Philips Hue integration. Check whether a bridge and lights appear reachable and summarize whether light control is ready.",
+  },
+  "sonoscli": {
+    setup: "Help me set up Sonos in HammerLock. Check whether speakers can be discovered on the network, explain any network requirements, and show how to verify playback control.",
+    test: "Test Sonos in HammerLock. Verify whether speakers are discoverable and whether basic playback control appears available.",
+  },
+  "nano-pdf": {
+    info: "Explain what PDF Tools can do inside HammerLock, including merge, extract, and document processing workflows, and tell me what kinds of tasks are best handled with it.",
+    test: "Test the PDF tools in HammerLock. Confirm whether the PDF processing toolchain appears available and summarize the supported document actions.",
+  },
+  "openai-whisper": {
+    info: "Explain how Whisper Transcription works in HammerLock, whether it runs locally, what kinds of audio it is best for, and how it fits into voice workflows.",
+    test: "Test Whisper Transcription in HammerLock. Confirm whether the transcription toolchain appears available and summarize any missing dependencies or next steps.",
+  },
+};
+
 export interface SkillInfo {
   name: string;
   displayName: string;
@@ -272,6 +320,7 @@ export interface SkillInfo {
   setupNote: string;
   useCases: string[];
   requirements: string[];
+  setupPathLabel: string;
 }
 
 export interface SkillCategory {
@@ -344,6 +393,12 @@ export async function GET() {
           ...(missingEnv.length ? [`Env vars: ${missingEnv.join(", ")}`] : []),
           ...(setup.setupNote ? [setup.setupNote] : []),
         ];
+        const setupPathLabel =
+          setup.setupType === "none" ? "Instant" :
+          setup.setupType === "permission" ? "Permission" :
+          setup.setupType === "oauth" ? "OAuth" :
+          setup.setupType === "api_key" ? "API Key" :
+          "CLI Setup";
 
         catSkills.push({
           name: raw.name,
@@ -362,8 +417,17 @@ export async function GET() {
           setupNote: setup.setupNote,
           useCases: SKILL_USE_CASES[skillName] || [],
           requirements,
+          setupPathLabel,
         });
       }
+
+      catSkills.sort((a, b) => {
+        const score = (skill: SkillInfo) =>
+          (skill.featured ? 100 : 0) +
+          (skill.ready ? 20 : 0) +
+          (skill.status === "needs_permission" ? 5 : 0);
+        return score(b) - score(a) || a.displayName.localeCompare(b.displayName);
+      });
 
       if (catSkills.length > 0) {
         categories.push({
@@ -403,14 +467,15 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const { skill, action } = await req.json();
+    const prompts = SKILL_ACTION_PROMPTS[skill] || {};
 
     let message = "";
     if (action === "setup") {
-      message = `Help me set up the "${skill}" integration. Walk me through the configuration step by step. Check if it's already configured, and if not, tell me exactly what I need to do.`;
+      message = prompts.setup || `Help me set up the "${skill}" integration. Walk me through the configuration step by step. Check if it's already configured, and if not, tell me exactly what I need to do.`;
     } else if (action === "test") {
-      message = `Test the "${skill}" integration. Try a basic operation and tell me if it's working correctly.`;
+      message = prompts.test || `Test the "${skill}" integration. Try a basic operation and tell me if it's working correctly.`;
     } else {
-      message = `Tell me about the "${skill}" skill — what it does, what I can use it for, and what's needed to set it up.`;
+      message = prompts.info || `Tell me about the "${skill}" skill — what it does, what I can use it for, and what's needed to set it up.`;
     }
 
     const escaped = message.replace(/'/g, "'\\''");

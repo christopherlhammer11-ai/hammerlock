@@ -31,6 +31,7 @@ interface SkillInfo {
   setupNote: string;
   useCases: string[];
   requirements: string[];
+  setupPathLabel: string;
 }
 
 interface SkillCategory {
@@ -270,11 +271,12 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                         <div className="integration-featured-top">
                           <span className="integration-skill-emoji">{skill.emoji}</span>
                           <span className={`integration-featured-badge ${skill.ready ? "ready" : "needs-setup"}`}>
-                            {skill.ready ? "Ready" : "Setup"}
+                            {skill.statusLabel}
                           </span>
                         </div>
                         <div className="integration-featured-name">{skill.displayName}</div>
                         <div className="integration-featured-desc">{skill.description}</div>
+                        <div className="integration-featured-path">{skill.setupPathLabel}</div>
                       </button>
                     ))}
                   </div>
