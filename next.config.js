@@ -2,6 +2,11 @@
 const nextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  images: {
+    // Electron serves the app from a read-only bundle in packaged builds.
+    // Disabling optimization avoids runtime cache writes inside the app bundle.
+    unoptimized: true,
+  },
   experimental: {
     optimizePackageImports: ['lucide-react'],
     serverComponentsExternalPackages: [

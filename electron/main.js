@@ -16,7 +16,7 @@
  */
 
 import { app, BrowserWindow, shell, Menu, session, systemPreferences } from "electron";
-import { spawn, exec as execCb } from "child_process";
+import { spawn, execFile as execFileCb } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 import net from "net";
@@ -82,6 +82,12 @@ function getOpenClawBin() {
   }
   // 2. System-installed (dev / fallback)
   return { command: "openclaw", args: [], isBundled: false };
+}
+
+function getOpenClawEnv(ocBin) {
+  return ocBin.isBundled
+    ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
+    : { ...process.env };
 }
 
 let mainWindow = null;
@@ -209,12 +215,14 @@ function ensureHammerlockProfile() {
 async function startBrowser() {
   try {
     const ocBin = getOpenClawBin();
+    const ocEnv = getOpenClawEnv(ocBin);
     // Check if browser is already running
     const checkArgs = [...ocBin.args, "browser", "status", "--json"];
     const status = await new Promise((resolve) => {
-      execCb(
-        `${ocBin.command} ${checkArgs.join(" ")}`,
-        { timeout: 5000 },
+      execFileCb(
+        ocBin.command,
+        checkArgs,
+        { timeout: 5000, env: ocEnv },
         (err, stdout) => {
           if (err) return resolve(null);
           try { resolve(JSON.parse(stdout)); } catch { resolve(null); }
@@ -230,11 +238,12 @@ async function startBrowser() {
     // Start the browser (uses default profile — "openclaw" driver)
     console.log("[hammerlock] Starting OpenClaw browser for web automation...");
     const startArgs = [...ocBin.args, "browser", "start"];
-    await new Promise((resolve, reject) => {
-      execCb(
-        `${ocBin.command} ${startArgs.join(" ")}`,
-        { timeout: 15000 },
-        (err, stdout, stderr) => {
+    await new Promise((resolve) => {
+      execFileCb(
+        ocBin.command,
+        startArgs,
+        { timeout: 15000, env: ocEnv },
+        (err) => {
           if (err) {
             console.warn("[hammerlock] Browser start failed (non-critical):", err.message);
             resolve(); // Non-critical — app works without browser automation
@@ -262,6 +271,7 @@ async function startGateway() {
 
   try {
     const ocBin = getOpenClawBin();
+    const ocEnv = getOpenClawEnv(ocBin);
     console.log(`[hammerlock] Starting OpenClaw gateway on port ${GATEWAY_PORT}...`);
     console.log(`[hammerlock] OpenClaw: ${ocBin.isBundled ? "bundled" : "system"} (${ocBin.command})`);
 
@@ -279,7 +289,7 @@ async function startGateway() {
       cwd: ROOT,
       stdio: "pipe",
       env: {
-        ...process.env,
+        ...ocEnv,
         FORCE_COLOR: "0",
         ...(gatewayToken ? { OPENCLAW_GATEWAY_TOKEN: gatewayToken } : {}),
       },
