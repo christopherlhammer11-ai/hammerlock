@@ -32,6 +32,8 @@ interface SkillInfo {
   useCases: string[];
   requirements: string[];
   setupPathLabel: string;
+  verificationNote?: string;
+  verifiedAt?: string;
 }
 
 interface SkillCategory {
@@ -62,6 +64,16 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
   const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [toolResponses, setToolResponses] = useState<Record<string, { type: "info" | "test"; text: string }>>({});
+  const [lastChecked, setLastChecked] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("hammerlock-tool-last-checked");
+      if (raw) setLastChecked(JSON.parse(raw));
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const fetchSkills = useCallback(async () => {
     setLoading(true);
@@ -110,6 +122,18 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
           text: data.response || data.error || "No response returned.",
         },
       }));
+      if (action === "test") {
+        const now = new Date().toISOString();
+        setLastChecked((prev) => {
+          const next = { ...prev, [skill.name]: now };
+          try {
+            window.localStorage.setItem("hammerlock-tool-last-checked", JSON.stringify(next));
+          } catch {
+            // ignore
+          }
+          return next;
+        });
+      }
     } catch {
       setToolResponses((prev) => ({
         ...prev,
@@ -277,6 +301,9 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                         <div className="integration-featured-name">{skill.displayName}</div>
                         <div className="integration-featured-desc">{skill.description}</div>
                         <div className="integration-featured-path">{skill.setupPathLabel}</div>
+                        {skill.verificationNote && (
+                          <div className="integration-featured-verify">{skill.verificationNote}</div>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -362,6 +389,13 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                             </div>
                           )}
 
+                          {skill.verificationNote && (
+                            <div className="integration-skill-verify">
+                              <CheckCircle size={12} />
+                              <span>{skill.verificationNote}</span>
+                            </div>
+                          )}
+
                           {skill.requirements.length > 0 && (
                             <div className="integration-skill-requirements">
                               <div className="integration-skill-examples-label">Requirements</div>
@@ -427,6 +461,12 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                                 {toolResponses[skill.name].type === "info" ? "Tool brief" : "Test result"}
                               </div>
                               <p>{toolResponses[skill.name].text}</p>
+                            </div>
+                          )}
+
+                          {lastChecked[skill.name] && (
+                            <div className="integration-skill-last-checked">
+                              Last test run: {new Date(lastChecked[skill.name]).toLocaleString()}
                             </div>
                           )}
                         </div>

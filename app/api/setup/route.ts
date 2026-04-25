@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { openclawCommand, isMacOS } from "@/lib/openclaw-paths";
+import os from "os";
 
 const execAsync = promisify(exec);
 
@@ -321,6 +322,8 @@ export interface SkillInfo {
   useCases: string[];
   requirements: string[];
   setupPathLabel: string;
+  verificationNote?: string;
+  verifiedAt?: string;
 }
 
 export interface SkillCategory {
@@ -349,6 +352,8 @@ export async function GET() {
 
     // Build skill lookup
     const skillMap = new Map(rawSkills.map(s => [s.name, s]));
+    const featuredChecks = await runFeaturedHealthChecks(skillMap);
+    const verifiedAt = new Date().toISOString();
 
     // Build categorized response
     const categories: SkillCategory[] = [];
@@ -399,6 +404,7 @@ export async function GET() {
           setup.setupType === "oauth" ? "OAuth" :
           setup.setupType === "api_key" ? "API Key" :
           "CLI Setup";
+        const verificationNote = featuredChecks[raw.name];
 
         catSkills.push({
           name: raw.name,
@@ -418,6 +424,8 @@ export async function GET() {
           useCases: SKILL_USE_CASES[skillName] || [],
           requirements,
           setupPathLabel,
+          verificationNote,
+          verifiedAt: verificationNote ? verifiedAt : undefined,
         });
       }
 
@@ -457,6 +465,83 @@ export async function GET() {
       { status: 500 }
     );
   }
+}
+
+async function runFeaturedHealthChecks(skillMap: Map<string, {
+  name: string;
+  emoji: string;
+  description: string;
+  eligible: boolean;
+  disabled: boolean;
+  missing: { bins: string[]; anyBins: string[]; env: string[]; config: string[]; os: string[] };
+}>): Promise<Record<string, string>> {
+  const notes: Record<string, string> = {};
+  const has = (name: string) => skillMap.has(name);
+
+  const checks = await Promise.all([
+    has("apple-notes") ? checkAppleScriptHealth("apple-notes", "Notes", 'get name of folders') : Promise.resolve(null),
+    has("apple-reminders") ? checkAppleScriptHealth("apple-reminders", "Reminders", 'get name of lists') : Promise.resolve(null),
+    has("imsg") ? checkFullDiskHealth("imsg") : Promise.resolve(null),
+    has("gog") ? checkGoogleHealth() : Promise.resolve(null),
+    has("github") ? checkGitHubHealth() : Promise.resolve(null),
+  ]);
+
+  for (const item of checks) {
+    if (item) notes[item.skill] = item.note;
+  }
+
+  return notes;
+}
+
+async function checkAppleScriptHealth(skill: string, app: string, command: string) {
+  if (!isMacOS) return { skill, note: "macOS-only tool." };
+  try {
+    await execAsync(`osascript -e 'tell application "${app}" to ${command}' 2>/dev/null`, { timeout: 6000 });
+    return { skill, note: `${app} access verified on this Mac.` };
+  } catch {
+    return { skill, note: `${app} permission has not been verified yet.` };
+  }
+}
+
+async function checkFullDiskHealth(skill: string) {
+  if (!isMacOS) return { skill, note: "macOS-only tool." };
+  try {
+    await execAsync(`test -r "${os.homedir()}/Library/Messages/chat.db" && echo ok`, { timeout: 3000 });
+    return { skill, note: "Full Disk Access appears available for message history." };
+  } catch {
+    return { skill, note: "Full Disk Access still needs to be granted for message access." };
+  }
+}
+
+async function checkGoogleHealth() {
+  try {
+    const { stdout } = await execAsync(`gog auth status --json 2>/dev/null`, { timeout: 8000 });
+    const status = JSON.parse(stdout);
+    const email = status.account?.email;
+    if (email) {
+      return { skill: "gog", note: `Google account connected: ${email}` };
+    }
+  } catch {
+    // ignore
+  }
+  return { skill: "gog", note: "Google Workspace connection has not been verified yet." };
+}
+
+async function checkGitHubHealth() {
+  try {
+    const { stdout, stderr } = await execAsync(`gh auth status 2>&1`, { timeout: 8000 });
+    const output = `${stdout}\n${stderr}`;
+    const match = output.match(/Logged in to [^\s]+ as ([^\s]+)/i);
+    if (match?.[1]) {
+      return { skill: "github", note: `GitHub auth verified for ${match[1]}.` };
+    }
+    if (/Logged in to/i.test(output)) {
+      return { skill: "github", note: "GitHub authentication appears active." };
+    }
+  } catch {
+    // ignore
+  }
+  return { skill: "github", note: "GitHub auth has not been verified yet." };
 }
 
 /**

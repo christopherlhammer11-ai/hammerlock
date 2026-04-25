@@ -7971,6 +7971,13 @@ footer .trust-badge {
   color: var(--text-muted);
 }
 
+.integration-featured-verify {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 .integration-empty-state {
   display: flex;
   align-items: center;
@@ -8267,6 +8274,20 @@ footer .trust-badge {
   line-height: 1.5;
 }
 
+.integration-skill-verify {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 7px 10px;
+  background: rgba(0, 255, 136, 0.04);
+  border: 1px solid rgba(0, 255, 136, 0.08);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
 .integration-skill-action {
   display: inline-flex;
   align-items: center;
@@ -8326,6 +8347,12 @@ footer .trust-badge {
   color: var(--text-secondary);
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+.integration-skill-last-checked {
+  margin-top: 8px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
 }
 
 /* Footer */
