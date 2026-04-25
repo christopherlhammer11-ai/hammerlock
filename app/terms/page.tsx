@@ -63,8 +63,8 @@ export default function TermsPage() {
             HammerLock AI provides a privacy-first AI desktop application and complementary web services. The
             desktop application runs locally on your device and includes features such as an encrypted vault,
             AI-powered chat with multiple model providers, document analysis, and agent workflows. Web services
-            include account management, license key provisioning, and optional cloud AI routing for
-            subscription tiers that include bundled credits.
+            include downloads, documentation, optional support contact, and account or activation tooling for
+            users who request managed deployment or custom rollout help.
           </p>
         </section>
 
@@ -74,13 +74,13 @@ export default function TermsPage() {
             3. Accounts and License Keys
           </h2>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem", marginBottom: 12 }}>
-            When you purchase a subscription, you receive a unique license key that activates the desktop
-            application. License keys are tied to your purchase and are non-transferable. You are responsible
-            for keeping your license key secure. Do not share your license key with others.
+            HammerLock AI is available as a free desktop app. In some cases we may issue activation keys or
+            deployment credentials for managed support, enterprise rollout, or custom environments. Those
+            credentials are tied to the recipient and should not be shared outside the intended deployment.
           </p>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem" }}>
-            Each license key is valid for use on a reasonable number of personal devices. We reserve the right
-            to deactivate license keys that show signs of abuse or unauthorized redistribution.
+            We reserve the right to deactivate keys or deployment credentials that show signs of abuse,
+            redistribution, or unauthorized access.
           </p>
         </section>
 
@@ -90,19 +90,16 @@ export default function TermsPage() {
             4. Subscription and Billing
           </h2>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem", marginBottom: 12 }}>
-            HammerLock AI offers subscription plans billed on a recurring basis through Stripe, our payment
-            processor. All prices are displayed at the time of purchase. There are no long-term contracts.
-            You may cancel your subscription at any time from your Stripe customer portal.
+            HammerLock AI may offer optional paid services such as support, deployment assistance, or custom
+            integrations. If you purchase those services, pricing and billing terms will be disclosed at the
+            time of purchase or in a separate written agreement.
           </p>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem", marginBottom: 12 }}>
-            Upon cancellation, you will retain access to your plan features through the end of your current
-            billing period. No refunds are issued for partial billing periods. If your subscription lapses,
-            your license key will revert to free-tier functionality, but your local data and vault remain
-            intact on your device.
+            If a paid service is canceled or expires, any managed or hosted service access tied to that
+            purchase may end, but your locally stored data and vault remain on your own device.
           </p>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem" }}>
-            We reserve the right to change pricing with reasonable notice. Existing subscribers will be
-            notified of any price changes before their next billing cycle.
+            We reserve the right to update pricing for optional paid services with reasonable notice.
           </p>
         </section>
 
@@ -118,9 +115,9 @@ export default function TermsPage() {
           <ul style={{ color: "var(--text-secondary)", lineHeight: 1.9, fontSize: "0.95rem", paddingLeft: 24 }}>
             <li>Use the Service to generate, store, or distribute illegal or harmful content</li>
             <li>Attempt to reverse engineer, decompile, or tamper with the application beyond what is permitted by the applicable open-source license</li>
-            <li>Circumvent or attempt to circumvent license key verification or subscription enforcement</li>
+            <li>Circumvent or attempt to circumvent activation, deployment, or access controls for managed services</li>
             <li>Use the Service to harass, abuse, or harm others</li>
-            <li>Resell, sublicense, or redistribute license keys or access to the Service</li>
+            <li>Resell, sublicense, or redistribute activation keys, managed access, or restricted service access</li>
             <li>Overload or interfere with the Service&apos;s infrastructure or cloud endpoints</li>
           </ul>
         </section>
@@ -170,14 +167,13 @@ export default function TermsPage() {
             8. Termination
           </h2>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem", marginBottom: 12 }}>
-            You may stop using HammerLock AI at any time by canceling your subscription and uninstalling the
-            application. We may suspend or terminate your access to the Service if you violate these Terms of
+            You may stop using HammerLock AI at any time by uninstalling the application. We may suspend or
+            terminate your access to managed or hosted services if you violate these Terms of
             Service, engage in abusive behavior, or if required by law.
           </p>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem" }}>
-            Upon termination, your license key will be deactivated and cloud services will become unavailable.
-            Your locally stored data, vault contents, and encrypted files remain on your device and are not
-            affected by account termination.
+            Upon termination, any managed keys or hosted services may be deactivated. Your locally stored
+            data, vault contents, and encrypted files remain on your device and are not affected by account termination.
           </p>
         </section>
 

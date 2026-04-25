@@ -560,8 +560,8 @@ export default function PitchDeck() {
               marginTop: 24,
             }}>
               {[
-                { icon: <Bot size={20} />, title: "12 AI Agents", desc: "Strategist, Counsel, Analyst, Researcher, Operator, Writer + 6 domain specialists" },
-                { icon: <Wrench size={20} />, title: "28+ Native Skills", desc: "Calendar, Notes, iMessage, GitHub, smart home, WhatsApp, browser automation" },
+                { icon: <Bot size={20} />, title: "11 Built-in Agents", desc: "General, Strategist, Counsel, Analyst, Researcher, Operator, Writer, Coach, Money, Content, and Director" },
+                { icon: <Wrench size={20} />, title: "Local Tools + Connectors", desc: "HammerLock-owned workflows plus OpenClaw-backed integrations for Notes, GitHub, WhatsApp, browser automation, and more" },
                 { icon: <Zap size={20} />, title: "Provider Racing", desc: "Fires requests to all providers simultaneously — first response wins" },
                 { icon: <Mic size={20} />, title: "Voice I/O", desc: "Whisper transcription + text-to-speech" },
                 { icon: <Search size={20} />, title: "Web Search", desc: "Brave Search with cited sources" },

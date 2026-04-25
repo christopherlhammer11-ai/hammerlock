@@ -59,10 +59,10 @@ export default function PrivacyPage() {
             We collect the minimum amount of information necessary to provide the Service:
           </p>
           <ul style={{ color: "var(--text-secondary)", lineHeight: 1.9, fontSize: "0.95rem", paddingLeft: 24 }}>
-            <li><strong>Email address</strong> &mdash; provided at the time of purchase through Stripe, used for license key delivery and essential account communications</li>
-            <li><strong>License key records</strong> &mdash; generated upon purchase to activate your subscription in the desktop application</li>
-            <li><strong>Payment information</strong> &mdash; processed and stored entirely by Stripe; we never see or store your full credit card number</li>
-            <li><strong>Basic purchase metadata</strong> &mdash; subscription tier, purchase date, and billing status for account management</li>
+            <li><strong>Email address</strong> &mdash; only when you contact us, request support, or purchase an optional paid service</li>
+            <li><strong>Activation or deployment records</strong> &mdash; only for managed rollout, support, or custom environments where those records are needed</li>
+            <li><strong>Payment information</strong> &mdash; if you purchase optional paid services, payment is processed by Stripe; we never store your full credit card number</li>
+            <li><strong>Basic billing metadata</strong> &mdash; only when needed to deliver support, deployment, or other optional paid services</li>
           </ul>
         </section>
 
@@ -102,8 +102,7 @@ export default function PrivacyPage() {
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem" }}>
             When you choose to use cloud AI providers (OpenAI, Anthropic, Google, etc.), your prompts are
             sent directly to those providers according to their respective privacy policies. HammerLock AI
-            does not intercept, log, or store these communications. If you use bundled cloud credits through
-            your subscription, requests are routed through our API proxy but are not logged or retained.
+            does not intercept, log, or store these communications in normal use.
           </p>
         </section>
 
@@ -132,7 +131,7 @@ export default function PrivacyPage() {
             HammerLock AI integrates with the following third-party services:
           </p>
           <ul style={{ color: "var(--text-secondary)", lineHeight: 1.9, fontSize: "0.95rem", paddingLeft: 24 }}>
-            <li><strong>Stripe</strong> &mdash; payment processing for subscriptions. Stripe handles all financial data under their own privacy policy. We never store your credit card details.</li>
+            <li><strong>Stripe</strong> &mdash; payment processing for optional paid services. Stripe handles all financial data under their own privacy policy. We never store your credit card details.</li>
             <li><strong>Cloud AI providers (optional)</strong> &mdash; if you choose to use cloud-based AI models (OpenAI, Anthropic, Google, Groq, Mistral, DeepSeek), your prompts are sent to those providers. Each provider has its own privacy policy and data handling practices. Use of cloud providers is entirely optional; local models via Ollama provide a fully private alternative.</li>
           </ul>
         </section>
@@ -162,10 +161,9 @@ export default function PrivacyPage() {
             vault contents, and application data at any time directly from your device.
           </p>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem" }}>
-            For the minimal server-side data we hold (email address, license key records, and billing metadata),
-            we retain this information for as long as your account is active or as needed to provide the Service.
-            If you cancel your subscription and request data deletion, we will remove your information from our
-            systems within 30 days, except where retention is required by law or for legitimate business
+            For the minimal server-side data we hold (such as support email, activation records, or billing metadata),
+            we retain this information only as long as needed to provide the requested service. If you request
+            deletion, we will remove your information from our systems within 30 days, except where retention is required by law or for legitimate business
             purposes such as fraud prevention.
           </p>
         </section>

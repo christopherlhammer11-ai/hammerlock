@@ -91,7 +91,7 @@ function SuccessContent() {
         </div>
         <h1>{t.site_success_title}</h1>
         <p className="success-subtitle">
-          {t.site_success_subtitle}
+          HammerLock AI is ready. Download the app, create your vault, and choose local models, your own API keys, or a managed rollout.
         </p>
         {subscription.active && (
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "rgba(0, 255, 136, 0.1)", border: "1px solid rgba(0, 255, 136, 0.3)", borderRadius: 8, color: "var(--accent)", fontSize: "0.85rem", marginTop: 12 }}>
@@ -129,7 +129,7 @@ function SuccessContent() {
           <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Your License Key</h3>
         </div>
         <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: 16 }}>
-          Enter this key in the desktop app to activate your {licenseTier ? licenseTier.charAt(0).toUpperCase() + licenseTier.slice(1) : ""} plan.
+          If you received a license key for managed rollout, support, or a custom deployment, enter it in the desktop app when prompted.
         </p>
         {licenseLoading ? (
           <div style={{
@@ -199,9 +199,9 @@ function SuccessContent() {
             color: "var(--text-secondary)",
             fontSize: "0.85rem",
           }}>
-            <p style={{ margin: "0 0 8px" }}>Your license key is being generated...</p>
+            <p style={{ margin: "0 0 8px" }}>Your activation details are still syncing...</p>
             <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-muted)" }}>
-              If it doesn&apos;t appear within a minute, refresh the page or contact <strong>info@hammerlockai.com</strong> with your confirmation code.
+              If nothing appears within a minute, refresh the page or contact <strong>info@hammerlockai.com</strong> with your confirmation code.
             </p>
           </div>
         )}
@@ -248,127 +248,36 @@ function SuccessContent() {
       <div className="success-setup">
         <h2><Shield size={20} /> {t.site_success_quick_setup}</h2>
 
-        {/* Tier-specific setup guide */}
-        {(() => {
-          const tier = licenseTier || (planParam?.includes("core") ? "core" : planParam?.includes("teams") ? "teams" : "pro");
-
-          if (tier === "core") {
-            return (
-              <div className="setup-steps">
-                <div className="setup-step">
-                  <div className="step-number">1</div>
-                  <div>
-                    <strong>Download &amp; Install HammerLock AI</strong>
-                    <p>Download the DMG above, drag to Applications, and launch. Create your encryption password on first run.</p>
-                  </div>
-                </div>
-                <div className="setup-step">
-                  <div className="step-number">2</div>
-                  <div>
-                    <strong>Enter Your License Key</strong>
-                    <p>Copy the license key above and paste it when the app prompts you. This unlocks Core features: 11 AI agents, encrypted vault, personas, and chat export.</p>
-                  </div>
-                </div>
-                <div className="setup-step">
-                  <div className="step-number">3</div>
-                  <div>
-                    <strong>Set Up Your AI Engine</strong>
-                    <p>Core uses <strong>your own API keys</strong> (Bring Your Own Key). Go to Settings in the app and enter at least one key from OpenAI, Anthropic, Google, Groq, Mistral, or DeepSeek. Or install <a href="https://ollama.com" target="_blank" rel="noopener noreferrer" style={{color: "var(--accent)"}}>Ollama</a> for free local AI.</p>
-                  </div>
-                </div>
-                <div className="setup-step">
-                  <div className="step-number">4</div>
-                  <div>
-                    <strong>Load Your Persona</strong>
-                    <p>Click the persona icon in chat to tell the AI about yourself — your name, role, industry, and preferences. This makes every response personally tailored to you.</p>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-
-          if (tier === "pro" || tier === "teams") {
-            return (
-              <div className="setup-steps">
-                <div className="setup-step">
-                  <div className="step-number">1</div>
-                  <div>
-                    <strong>Download &amp; Install HammerLock AI</strong>
-                    <p>Download the DMG above, drag to Applications, and launch. Create your encryption password on first run.</p>
-                  </div>
-                </div>
-                <div className="setup-step">
-                  <div className="step-number">2</div>
-                  <div>
-                    <strong>Enter Your License Key</strong>
-                    <p>Copy the license key above and paste it when the app prompts you. This unlocks {tier === "teams" ? "Teams" : "Pro"} features including web search, voice I/O, PDF tools, reports, and <strong>1,000 monthly cloud AI credits</strong>.</p>
-                  </div>
-                </div>
-                <div className="setup-step">
-                  <div className="step-number">3</div>
-                  <div>
-                    <strong>Start Chatting — You&apos;re Ready</strong>
-                    <p>Your Pro plan includes bundled cloud AI (GPT-4o, Claude, Gemini, and more). Just type and go — no API keys needed. Your 1,000 monthly credits reset every billing cycle.</p>
-                  </div>
-                </div>
-                <div className="setup-step">
-                  <div className="step-number">4</div>
-                  <div>
-                    <strong>Optional: Add Local AI for Unlimited Free Use</strong>
-                    <p>Install <a href="https://ollama.com" target="_blank" rel="noopener noreferrer" style={{color: "var(--accent)"}}>Ollama</a> and run <code style={{background: "rgba(0,255,136,0.08)", color: "var(--accent)", padding: "2px 6px", borderRadius: 4, fontSize: "0.85rem"}}>ollama pull llama3.1</code> for unlimited local AI that never uses credits. Great for everyday tasks.</p>
-                  </div>
-                </div>
-                <div className="setup-step">
-                  <div className="step-number">5</div>
-                  <div>
-                    <strong>Optional: Bring Your Own API Keys</strong>
-                    <p>Want unlimited cloud AI? Go to Settings and add your own API keys from OpenAI, Anthropic, etc. When using your own keys, <strong>no credits are deducted</strong> — you pay the providers directly.</p>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-
-          // Default / fallback
-          return (
-            <div className="setup-steps">
-              <div className="setup-step">
-                <div className="step-number">1</div>
-                <div><strong>{t.site_getapp_step1_title}</strong><p>{t.site_getapp_step1_desc}</p></div>
-              </div>
-              <div className="setup-step">
-                <div className="step-number">2</div>
-                <div><strong>{t.site_getapp_step2_title}</strong><p>{t.site_getapp_step2_desc}</p></div>
-              </div>
-              <div className="setup-step">
-                <div className="step-number">3</div>
-                <div><strong>{t.site_success_step3_desc}</strong><p>Enter your license key when prompted to unlock your plan features.</p></div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Credit info callout for Pro/Teams */}
-        {(licenseTier === "pro" || licenseTier === "teams" || planParam?.includes("pro") || planParam?.includes("teams")) && (
-          <div style={{
-            marginTop: 28, padding: "20px 24px", background: "rgba(0,255,136,0.04)",
-            border: "1px solid rgba(0,255,136,0.15)", borderRadius: 12, textAlign: "center",
-          }}>
-            <h4 style={{ margin: "0 0 8px", color: "var(--accent)", fontSize: "0.95rem" }}>
-              Your Monthly Credits
-            </h4>
-            <p style={{ margin: "0 0 12px", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-              Your plan includes <strong>1,000 cloud AI credits/month</strong>. Each chat costs 1-3 credits depending on the model. Credits reset on your billing date.
-            </p>
-            <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-              <span>Local Ollama = <strong style={{color: "var(--accent)"}}>free, unlimited</strong></span>
-              <span>•</span>
-              <span>Your own API keys = <strong style={{color: "var(--accent)"}}>free, unlimited</strong></span>
-              <span>•</span>
-              <span>Need more? <strong>Booster +$10/mo</strong></span>
+        <div className="setup-steps">
+          <div className="setup-step">
+            <div className="step-number">1</div>
+            <div>
+              <strong>Download &amp; Install HammerLock AI</strong>
+              <p>Download the app above, move it into Applications, launch it, and create your vault password on first run.</p>
             </div>
           </div>
-        )}
+          <div className="setup-step">
+            <div className="step-number">2</div>
+            <div>
+              <strong>Pick Your AI Path</strong>
+              <p>Use <a href="https://ollama.com" target="_blank" rel="noopener noreferrer" style={{color: "var(--accent)"}}>Ollama</a> for private local AI, or bring your own provider keys in Settings if you want hosted models.</p>
+            </div>
+          </div>
+          <div className="setup-step">
+            <div className="step-number">3</div>
+            <div>
+              <strong>Open Tool Center</strong>
+              <p>Use Tool Center to connect the workflows you actually want: Notes, Reminders, GitHub, Google Workspace, PDF tools, voice, and more.</p>
+            </div>
+          </div>
+          <div className="setup-step">
+            <div className="step-number">4</div>
+            <div>
+              <strong>Optional: Activate Managed Features</strong>
+              <p>If you received an activation key or support package, enter it in the app. Otherwise you can just use HammerLock for free.</p>
+            </div>
+          </div>
+        </div>
       </div>
       <div className="success-footer">
         <p>{t.site_success_questions} <strong>info@hammerlockai.com</strong></p>
