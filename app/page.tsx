@@ -3,7 +3,7 @@
 // 🔨🔐 HammerLock AI — Landing Page
 // Your AI. Your Data. Your Rules.
 
-import { Check, Globe, Lock, Menu, Smartphone, X } from "lucide-react";
+import { Check, Globe, Menu, Smartphone, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -28,7 +28,6 @@ function isElectron(): boolean {
 
 export default function LandingPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [mobileUrl, setMobileUrl] = useState<string | null>(null);
   const [langOpen, setLangOpen] = useState(false);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
@@ -45,34 +44,34 @@ export default function LandingPage() {
       cta: 'See Security Details', ctaLink: '#why' },
     { icon: '🌐', title: t.site_feat_search_title, body: t.site_feat_search_body,
       detail: 'Real-time web search powered by Brave Search API. Get current information with source citations — all processed locally.',
-      cta: 'Try Pro Free', ctaLink: '#pricing' },
+      cta: 'See Download Options', ctaLink: '/get-app' },
     { icon: '🧠', title: t.site_feat_memory_title, body: t.site_feat_memory_body,
       detail: 'Your personal vault remembers your role, preferences, and context. Every conversation builds on what came before.',
       cta: 'Learn More', ctaLink: '#how' },
     { icon: '🎙️', title: t.site_feat_voice_title, body: t.site_feat_voice_body,
       detail: 'Whisper-powered transcription for voice input. Text-to-speech for hands-free responses. Works offline with Ollama.',
-      cta: 'Get Pro', ctaLink: '#pricing' },
+      cta: 'Download Free', ctaLink: '/get-app' },
     { icon: '🔗', title: '27 Native Skills', body: 'Apple Calendar, Reminders, Notes, iMessage, email, GitHub, smart home, browser automation, WhatsApp, weather, PDF tools — all from your chat. No plugins to install.',
       detail: 'Powered by the OpenClaw gateway: control Philips Hue lights, Sonos speakers, Eight Sleep pods, browse the web with a dedicated browser, send WhatsApp messages, manage GitHub issues, and more. Skills run locally through the gateway.',
       cta: 'See All Skills', ctaLink: '#why' },
     { icon: '🌍', title: t.site_feat_lang_title, body: t.site_feat_lang_body,
       detail: '11 languages supported: English, Spanish, Portuguese, French, German, Chinese, Japanese, Korean, Arabic, Hindi, and Russian.',
-      cta: 'Try It Free', ctaLink: '#pricing' },
+      cta: 'Get the App', ctaLink: '/get-app' },
     { icon: '💳', title: t.site_feat_credits_title, body: t.site_feat_credits_body,
-      detail: 'Pro includes 1,000 monthly credits. Need more? Add a Booster (+1,500) or Power Pack (+5,000). Or bring your own API keys for unlimited.',
-      cta: 'View Plans', ctaLink: '#pricing' },
+      detail: 'Run free with local models through Ollama, or connect your own API keys from OpenAI, Anthropic, Google, Groq, Mistral, or DeepSeek. You stay in control of cost and privacy.',
+      cta: 'Choose Your Setup', ctaLink: '/get-app' },
     { icon: '📄', title: t.site_feat_pdf_title, body: t.site_feat_pdf_body,
       detail: 'Upload any PDF and ask questions about it. Generate formatted reports and export conversations. All processing stays local.',
-      cta: 'Get Pro', ctaLink: '#pricing' },
+      cta: 'Download Free', ctaLink: '/get-app' },
     { icon: '🗄️', title: t.site_feat_vault_title, body: t.site_feat_vault_body,
       detail: 'Encrypted personal vault stores your profile, notes, and preferences. Synced across sessions, never sent to the cloud.',
-      cta: 'Start Free', ctaLink: '#pricing' },
+      cta: 'Get the App', ctaLink: '/get-app' },
     { icon: '🤖', title: t.site_feat_agents_title, body: t.site_feat_agents_body,
       detail: '11 built-in agents plus 27 native skills — Apple Calendar, Reminders, Notes, iMessage, email, GitHub, smart home (Hue, Sonos, Eight Sleep), browser automation, WhatsApp, weather, PDF tools, and more. All controlled from chat.',
       cta: 'Meet the Agents', ctaLink: '#agents' },
     { icon: '⚡', title: t.site_feat_perf_title, body: t.site_feat_perf_body,
       detail: 'Parallel provider racing across 6+ LLMs. Streaming responses start in under 1 second. Token-aware context management.',
-      cta: 'Get Started', ctaLink: '#pricing' },
+      cta: 'Start Here', ctaLink: '/get-app' },
   ];
 
   const steps = [
@@ -107,7 +106,7 @@ export default function LandingPage() {
         'Voice input & TTS',
         'PDF upload & analysis',
       ],
-      ctaLabel: 'Download Free', ctaAction: 'github',
+      ctaLabel: 'Get the App', ctaAction: 'download',
     },
     {
       name: 'Pro', description: 'Full power. All agents, all skills, all providers.', popular: true,
@@ -121,7 +120,7 @@ export default function LandingPage() {
         'Multi-provider racing (6+ LLMs)',
         'Bring your own API keys',
       ],
-      ctaLabel: 'Download Free', ctaAction: 'github',
+      ctaLabel: 'Get the App', ctaAction: 'download',
     },
     {
       name: 'Teams', description: 'For teams that need privacy-first AI. Self-hosted.',
@@ -133,7 +132,7 @@ export default function LandingPage() {
         'Admin dashboard',
         'Priority support',
       ],
-      ctaLabel: 'Download Free', ctaAction: 'github',
+      ctaLabel: 'Talk to Us', ctaAction: 'contact',
     },
     {
       name: 'Enterprise', description: 'Air-gapped deployments, custom integrations, dedicated support.', enterprise: true,
@@ -252,29 +251,6 @@ export default function LandingPage() {
     }, 100);
     return () => clearTimeout(timer);
   }, []);
-
-  const handleCheckout = async (plan: string) => {
-    setCheckoutLoading(plan);
-    track("checkout_initiated", { plan });
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert(data.error || t.site_checkout_error);
-      }
-    } catch {
-      alert(t.site_checkout_error);
-    } finally {
-      setCheckoutLoading(null);
-    }
-  };
-
 
   return (
     <div className="page-wrapper">
@@ -509,22 +485,22 @@ export default function LandingPage() {
           {[
             { icon: '🎯', title: t.site_agent_strategist_title, body: t.site_agent_strategist_body,
               detail: 'Build pitch decks, analyze market positioning, model scenarios, and plan go-to-market strategy. Thinks like a founder.',
-              cta: 'Get Pro', ctaLink: '#pricing' },
+              cta: 'Download Free', ctaLink: '/get-app' },
             { icon: '⚖️', title: t.site_agent_counsel_title, body: t.site_agent_counsel_body,
               detail: 'Review contracts, flag risky clauses, draft NDAs, and summarize legal documents. Not legal advice — but a powerful first pass.',
-              cta: 'Get Pro', ctaLink: '#pricing' },
+              cta: 'Download Free', ctaLink: '/get-app' },
             { icon: '📈', title: t.site_agent_analyst_title, body: t.site_agent_analyst_body,
               detail: 'Financial modeling, revenue projections, expense analysis, and KPI dashboards. Speak in numbers, get answers in context.',
-              cta: 'Get Pro', ctaLink: '#pricing' },
+              cta: 'Download Free', ctaLink: '/get-app' },
             { icon: '📚', title: t.site_agent_researcher_title, body: t.site_agent_researcher_body,
               detail: 'Deep web research with source citations. Competitive analysis, market sizing, industry reports — all summarized for you.',
-              cta: 'Get Pro', ctaLink: '#pricing' },
+              cta: 'Download Free', ctaLink: '/get-app' },
             { icon: '🔧', title: t.site_agent_operator_title, body: t.site_agent_operator_body,
               detail: 'Your default general-purpose agent. Handles everything from quick questions to complex multi-step tasks. Always ready.',
-              cta: 'Try Free', ctaLink: '#pricing' },
+              cta: 'Get the App', ctaLink: '/get-app' },
             { icon: '✍️', title: t.site_agent_writer_title, body: t.site_agent_writer_body,
               detail: 'Blog posts, emails, social media copy, product descriptions — all in your voice. Learns your tone from your vault persona.',
-              cta: 'Get Pro', ctaLink: '#pricing' },
+              cta: 'Download Free', ctaLink: '/get-app' },
           ].map((agent) => (
             <article
               key={agent.title}
@@ -563,7 +539,7 @@ export default function LandingPage() {
         <div className="section-label">100% FREE</div>
         <h2>No subscriptions. No paywalls. Just use it.</h2>
         <p className="section-subtitle">
-          HammerLock AI is free and open source. Bring your own API keys, run local models with Ollama, or use our hosted credits. Your choice.
+          HammerLock AI is free and open source. Download the app, run local models with Ollama, or connect your own API keys if you want cloud models.
         </p>
 
 
@@ -582,7 +558,15 @@ export default function LandingPage() {
                   <span className="price-period">/{plan.pricePeriod}</span>
                 )}
               </div>
-              {plan.ctaAction === 'github' ? (
+              {plan.ctaAction === 'download' ? (
+                <a
+                  href="/get-app"
+                  className="btn-secondary pricing-cta"
+                  style={{ display: 'block', textDecoration: 'none', textAlign: 'center' }}
+                >
+                  {plan.ctaLabel || t.site_cta}
+                </a>
+              ) : plan.ctaAction === 'github' ? (
                 <a
                   href="https://github.com/christopherlhammer11-ai/hammerlock"
                   target="_blank"
@@ -601,13 +585,13 @@ export default function LandingPage() {
                   {plan.ctaLabel || t.site_cta}
                 </a>
               ) : (
-                <button
+                <a
+                  href="/get-app"
                   className="btn-primary pricing-cta"
-                  onClick={() => handleCheckout(plan.ctaAction)}
-                  disabled={checkoutLoading !== null}
+                  style={{ display: 'block', textDecoration: 'none', textAlign: 'center' }}
                 >
-                  {checkoutLoading === plan.ctaAction ? t.site_plan_loading : (plan.ctaLabel || t.site_cta)}
-                </button>
+                  {plan.ctaLabel || t.site_cta}
+                </a>
               )}
               <ul className="pricing-features">
                 {plan.features.map((f) => (
@@ -625,13 +609,13 @@ export default function LandingPage() {
           maxWidth: 680, marginLeft: 'auto', marginRight: 'auto',
         }}>
           <h3 style={{ fontSize: '1.1rem', color: 'var(--accent)', marginBottom: 12 }}>
-            Bring Your Own Keys. Pay nothing to us.
+            Pick your engine. Keep your freedom.
           </h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.6 }}>
-            Use your own API keys from OpenAI, Anthropic, Google, Groq, Mistral, or DeepSeek. Or run 100% local with Ollama — zero cost, zero cloud.
+            Run 100% local with Ollama for the most private setup, or connect your own API keys from OpenAI, Anthropic, Google, Groq, Mistral, or DeepSeek.
           </p>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
-            Questions? Reach us at{' '}
+            Need install help or a team rollout? Reach us at{' '}
             <a href="mailto:info@hammerlockai.com" style={{ color: 'var(--accent)', textDecoration: 'none' }}>info@hammerlockai.com</a>
           </p>
         </div>

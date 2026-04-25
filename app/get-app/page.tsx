@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Download, ExternalLink, Globe, Lock, Mail, Monitor, Shield, Smartphone, Terminal } from "lucide-react";
+import { Download, ExternalLink, Globe, Monitor, Shield, Smartphone, Terminal } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
@@ -18,35 +17,6 @@ const DEB_URL =
 
 export default function GetAppPage() {
   const { t } = useI18n();
-  const [email, setEmail] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleUnlock(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    const trimmed = email.trim();
-    if (!trimmed || !trimmed.includes("@")) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-    setLoading(true);
-    try {
-      await fetch("/api/download-lead", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmed, source: "get-app", platform: "mac" }),
-      });
-      setUnlocked(true);
-      track("download_email_submitted", { source: "get-app" });
-    } catch {
-      // Still unlock even if API fails — don't block the download
-      setUnlocked(true);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <div className="success-page">
@@ -63,35 +33,9 @@ export default function GetAppPage() {
       <div className="success-downloads">
         <h2>{t.site_getapp_heading}</h2>
         <p className="success-hint">{t.site_getapp_choose}</p>
-        {!unlocked ? (
-          <form className="download-email-gate" onSubmit={handleUnlock} style={{ marginBottom: 28 }}>
-            <p className="email-gate-label">
-              <Mail size={14} /> Enter your email to unlock downloads
-            </p>
-            <div className="email-gate-row">
-              <input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="email-gate-input"
-                required
-                autoFocus
-              />
-              <button
-                type="submit"
-                className="btn-primary download-btn"
-                disabled={loading}
-              >
-                {loading ? "..." : <><Download size={16} /> Unlock</>}
-              </button>
-            </div>
-            {error && <p className="email-gate-error">{error}</p>}
-            <p className="email-gate-fine">
-              We&apos;ll only email you about major updates. No spam, ever.
-            </p>
-          </form>
-        ) : null}
+        <p className="success-hint" style={{ marginTop: -8, marginBottom: 28 }}>
+          Direct downloads. No account, no email gate, no paywall.
+        </p>
 
         <div className="download-grid">
           {/* macOS */}
@@ -99,16 +43,10 @@ export default function GetAppPage() {
             <div className="download-card-icon"><Monitor size={28} /></div>
             <h3>macOS</h3>
             <p>Native desktop app for Mac. Drag to Applications and launch.</p>
-            {unlocked ? (
-              <>
-                <a href={DMG_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("download_clicked", { platform: "macos", format: "dmg" })}>
-                  <Download size={16} /> Download DMG
-                </a>
-                <span className="download-meta">macOS 12+ &middot; Apple Silicon &amp; Intel</span>
-              </>
-            ) : (
-              <span className="download-meta" style={{ opacity: 0.5 }}>Enter email above to unlock</span>
-            )}
+            <a href={DMG_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("download_clicked", { platform: "macos", format: "dmg" })}>
+              <Download size={16} /> Download DMG
+            </a>
+            <span className="download-meta">macOS 12+ &middot; Apple Silicon &amp; Intel</span>
           </div>
 
           {/* Windows */}
@@ -116,16 +54,10 @@ export default function GetAppPage() {
             <div className="download-card-icon"><Monitor size={28} /></div>
             <h3>Windows</h3>
             <p>Full desktop installer for Windows. Run the setup wizard and launch.</p>
-            {unlocked ? (
-              <>
-                <a href={EXE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("download_clicked", { platform: "windows", format: "exe" })}>
-                  <Download size={16} /> Download EXE
-                </a>
-                <span className="download-meta">Windows 10+ &middot; 64-bit</span>
-              </>
-            ) : (
-              <span className="download-meta" style={{ opacity: 0.5 }}>Enter email above to unlock</span>
-            )}
+            <a href={EXE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("download_clicked", { platform: "windows", format: "exe" })}>
+              <Download size={16} /> Download EXE
+            </a>
+            <span className="download-meta">Windows 10+ &middot; 64-bit</span>
           </div>
 
           {/* Linux */}
@@ -133,21 +65,15 @@ export default function GetAppPage() {
             <div className="download-card-icon"><Terminal size={28} /></div>
             <h3>Linux</h3>
             <p>Available as AppImage (universal) or .deb package for Debian/Ubuntu.</p>
-            {unlocked ? (
-              <>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <a href={APPIMAGE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }} onClick={() => track("download_clicked", { platform: "linux", format: "appimage" })}>
-                    <Download size={14} /> AppImage
-                  </a>
-                  <a href={DEB_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }} onClick={() => track("download_clicked", { platform: "linux", format: "deb" })}>
-                    <Download size={14} /> .deb
-                  </a>
-                </div>
-                <span className="download-meta">Ubuntu 20.04+ &middot; 64-bit</span>
-              </>
-            ) : (
-              <span className="download-meta" style={{ opacity: 0.5 }}>Enter email above to unlock</span>
-            )}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <a href={APPIMAGE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }} onClick={() => track("download_clicked", { platform: "linux", format: "appimage" })}>
+                <Download size={14} /> AppImage
+              </a>
+              <a href={DEB_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }} onClick={() => track("download_clicked", { platform: "linux", format: "deb" })}>
+                <Download size={14} /> .deb
+              </a>
+            </div>
+            <span className="download-meta">Ubuntu 20.04+ &middot; 64-bit</span>
           </div>
         </div>
 
@@ -237,16 +163,16 @@ export default function GetAppPage() {
 
       {/* SETUP PATH BY PLAN */}
       <div className="success-setup" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <h2><Shield size={20} /> Which Setup Is Right for You?</h2>
+        <h2><Shield size={20} /> Choose Your Setup</h2>
         <p className="success-hint" style={{ marginBottom: 24 }}>
-          Your setup depends on your plan. Here&apos;s a quick guide:
+          HammerLock AI is free. Pick the setup that fits how you want to run it.
         </p>
         <div className="download-grid">
           <div className="download-card" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
             <div className="download-card-icon" style={{ fontSize: '1.2rem' }}>🆓</div>
-            <h3>Free Plan</h3>
+            <h3>Private + Local</h3>
             <p style={{ fontSize: '0.88rem' }}>
-              <strong>You need Ollama.</strong> The free plan runs entirely on local models. Install Ollama, pull a model (see table below), and you&apos;re set. No API keys, no cloud, no cost.
+              <strong>Use Ollama.</strong> Install Ollama, pull a model, and run everything locally on your machine. No API keys, no cloud, no recurring cost.
             </p>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 8 }}>
               <code style={{ background: 'rgba(0,255,136,0.08)', color: 'var(--accent)', padding: '2px 6px', borderRadius: 4 }}>ollama pull llama3.1</code>
@@ -255,9 +181,9 @@ export default function GetAppPage() {
 
           <div className="download-card" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
             <div className="download-card-icon" style={{ fontSize: '1.2rem' }}>🔑</div>
-            <h3>Core ($15 one-time)</h3>
+            <h3>Cloud + BYOK</h3>
             <p style={{ fontSize: '0.88rem' }}>
-              <strong>Bring Your Own Keys (BYOK).</strong> Core unlocks agents, vault, personas, and export. For AI, you provide your own API keys from OpenAI, Anthropic, etc. Or use Ollama for free local AI.
+              <strong>Bring your own keys.</strong> Connect OpenAI, Anthropic, Google, Groq, Mistral, or DeepSeek if you want hosted models while keeping control of spend.
             </p>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 8 }}>
               Go to <strong>Settings → API Keys</strong> in the app
@@ -266,12 +192,12 @@ export default function GetAppPage() {
 
           <div className="download-card" style={{ borderColor: 'rgba(0,255,136,0.2)' }}>
             <div className="download-card-icon" style={{ fontSize: '1.2rem' }}>⚡</div>
-            <h3>Pro ($29/mo)</h3>
+            <h3>Teams + Enterprise</h3>
             <p style={{ fontSize: '0.88rem' }}>
-              <strong>Just type and go.</strong> Pro includes 1,000 monthly cloud AI credits — GPT-4o, Claude, Gemini, and more are built in. No API keys needed. Optionally add Ollama for unlimited free local AI, or your own keys for unlimited cloud.
+              <strong>Need rollout help?</strong> For self-hosting, shared deployments, air-gapped environments, or custom integrations, talk to us and we&apos;ll tailor the install.
             </p>
             <div style={{ fontSize: '0.8rem', color: 'var(--accent)', marginTop: 8 }}>
-              ✓ Cloud AI included &middot; ✓ Web search &middot; ✓ Voice &middot; ✓ PDF &middot; ✓ Reports
+              Contact: info@hammerlockai.com
             </div>
           </div>
         </div>

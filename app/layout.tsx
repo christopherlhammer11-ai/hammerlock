@@ -19,7 +19,7 @@ const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-brand
 export const metadata: Metadata = {
   metadataBase: new URL("https://hammerlockai.com"),
   title: "HammerLock AI — Your AI. Your Data. Your Rules.",
-  description: "Local-first AI with encrypted memory built for operators",
+  description: "Free, local-first AI desktop app with encrypted memory, offline models, and bring-your-own-key support.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "HammerLock AI — Your AI. Your Data. Your Rules.",
-    description: "Local-first AI with encrypted memory built for operators. Privacy-first intelligence — no cloud accounts, no data leakage.",
+    description: "Free, local-first AI desktop app with encrypted memory, offline models, and bring-your-own-key support.",
     images: [{ url: "/brand/hammerlock-og-banner.jpg", width: 1024, height: 1008 }],
     siteName: "HammerLock AI",
     type: "website",
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     site: "@HammerlockAI",
     creator: "@HammerlockAI",
     title: "HammerLock AI — Your AI. Your Data. Your Rules.",
-    description: "Local-first AI with encrypted memory built for operators.",
+    description: "Free, local-first AI desktop app with encrypted memory, offline models, and bring-your-own-key support.",
     images: ["/brand/hammerlock-og-banner.jpg"],
   },
 };
