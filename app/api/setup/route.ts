@@ -304,6 +304,59 @@ const SKILL_ACTION_PROMPTS: Record<string, {
   },
 };
 
+const SKILL_SETUP_TRACKS: Record<string, string[]> = {
+  "apple-notes": [
+    "Grant Notes access when macOS prompts you.",
+    "Open Tool Center again and confirm the permission looks healthy.",
+    "Run a quick note creation or search test from chat.",
+  ],
+  "apple-reminders": [
+    "Grant Reminders access when macOS prompts you.",
+    "Re-open the Tool Center and verify the tool is readable.",
+    "Create a simple reminder from chat to confirm writes work.",
+  ],
+  "imsg": [
+    "Enable Full Disk Access for HammerLock AI in System Settings.",
+    "Re-open the Tool Center and verify message access health.",
+    "Run a safe message-history test before attempting any send flow.",
+  ],
+  "gog": [
+    "Connect your Google account through the gog OAuth flow.",
+    "Verify Gmail, Calendar, and Drive are visible in the test result.",
+    "Try one real command like inbox, calendar, or Drive search.",
+  ],
+  "github": [
+    "Authenticate with GitHub using gh auth login.",
+    "Verify repo or issue access in the Tool Center test.",
+    "Try one real workflow like listing PRs or open issues.",
+  ],
+  "wacli": [
+    "Pair WhatsApp Web by scanning the QR code.",
+    "Confirm the pairing remains active in the Tool Center test.",
+    "Try a safe read or status check before any outbound send flow.",
+  ],
+  "openhue": [
+    "Pair with the Hue Bridge and press the bridge button if prompted.",
+    "Verify that rooms, lights, or scenes are discoverable.",
+    "Run one real command like toggling or dimming a light.",
+  ],
+  "sonoscli": [
+    "Make sure your speakers are on the same network.",
+    "Verify speaker discovery in the Tool Center test.",
+    "Try a safe playback or volume command from chat.",
+  ],
+  "nano-pdf": [
+    "Confirm PDF tooling is present on this machine.",
+    "Run the Tool Center test to verify processing availability.",
+    "Try one real operation like extract, merge, or watermark.",
+  ],
+  "openai-whisper": [
+    "Confirm the Whisper toolchain is installed and reachable.",
+    "Run the Tool Center test to verify transcription readiness.",
+    "Try one real audio transcription from chat.",
+  ],
+};
+
 export interface SkillInfo {
   name: string;
   displayName: string;
@@ -324,6 +377,7 @@ export interface SkillInfo {
   setupPathLabel: string;
   verificationNote?: string;
   verifiedAt?: string;
+  setupTrack: string[];
 }
 
 export interface SkillCategory {
@@ -405,6 +459,7 @@ export async function GET() {
           setup.setupType === "api_key" ? "API Key" :
           "CLI Setup";
         const verificationNote = featuredChecks[raw.name];
+        const setupTrack = SKILL_SETUP_TRACKS[raw.name] || [];
 
         catSkills.push({
           name: raw.name,
@@ -426,6 +481,7 @@ export async function GET() {
           setupPathLabel,
           verificationNote,
           verifiedAt: verificationNote ? verifiedAt : undefined,
+          setupTrack,
         });
       }
 
