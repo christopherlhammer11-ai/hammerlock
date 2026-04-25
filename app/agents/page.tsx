@@ -5,6 +5,20 @@ import Image from "next/image";
 
 const agentGuides = [
   {
+    name: "HammerLock AI",
+    emoji: "🔨",
+    color: "#00ff88",
+    who: "Anyone who wants a general-purpose private assistant",
+    what: "General chat, planning, summaries, research, and day-to-day assistant work with encrypted memory",
+    tips: [
+      "Use it as the default starting point when you're not sure which specialist to pick",
+      "Ask broad questions first, then switch into a specialist agent when the work becomes domain-specific",
+      "Have it summarize a long thread before handing off to a specialist",
+      "Use it to orchestrate notes, PDFs, and follow-up tasks across the rest of your setup",
+    ],
+    example: "\"Summarize what we've discussed so far and tell me the three most important next steps.\"",
+  },
+  {
     name: "Strategist",
     emoji: "\uD83C\uDFAF",
     color: "#ff6b35",
@@ -75,6 +89,62 @@ const agentGuides = [
     example: "\"I'm shipping a product update next Friday. Here's what's left: [list]. Help me prioritize and create a day-by-day execution plan.\"",
   },
   {
+    name: "Coach",
+    emoji: "❤️",
+    color: "#ef4444",
+    who: "People working on habits, fitness, recovery, and practical wellness plans",
+    what: "Workout planning, meal prep, habit building, recovery guidance, and realistic accountability",
+    tips: [
+      "Give it your current level, constraints, injuries, and schedule before asking for a plan",
+      "Ask for plans that fit real life: 20 minutes, no equipment, tight budget, or travel weeks",
+      "Use it for habit systems, not just workouts: sleep, hydration, meal prep, consistency",
+      "Treat it as coaching support, not medical advice",
+    ],
+    example: "\"Build me a 4-day workout plan I can actually stick to with dumbbells and 30 minutes a day.\"",
+  },
+  {
+    name: "Money",
+    emoji: "💸",
+    color: "#84cc16",
+    who: "Anyone budgeting, paying down debt, planning savings, or organizing personal finances",
+    what: "Budgeting, debt payoff plans, savings goals, expense reviews, and plain-English financial breakdowns",
+    tips: [
+      "Bring numbers: income, debt balances, interest rates, recurring bills, and savings goals",
+      "Ask for side-by-side payoff strategies like avalanche vs snowball",
+      "Use it to make spending tradeoffs visible and concrete",
+      "Treat it as analysis and planning help, not licensed financial advice",
+    ],
+    example: "\"I make $6,200 a month, have $14k in credit card debt, and want to save for a move. Build me a realistic plan.\"",
+  },
+  {
+    name: "Content",
+    emoji: "📣",
+    color: "#f97316",
+    who: "Founders, creators, marketers, and anyone publishing regularly",
+    what: "Social copy, content calendars, hooks, captions, post ideas, and platform-specific content planning",
+    tips: [
+      "Tell it the platform, audience, and voice before asking for drafts",
+      "Ask for multiple hooks first if you need stronger top-of-funnel content",
+      "Use it for batch planning: a week, two weeks, or a full month of content",
+      "Have it adapt one idea across X, LinkedIn, Instagram, and email",
+    ],
+    example: "\"Give me 10 LinkedIn hooks for a founder talking about building privacy-first AI software.\"",
+  },
+  {
+    name: "Director",
+    emoji: "🎬",
+    color: "#ec4899",
+    who: "Teams making demos, launch videos, reels, explainers, and scripted marketing content",
+    what: "Video hooks, scripts, shot lists, demo walkthroughs, voiceovers, and content series planning",
+    tips: [
+      "Start with the target platform and the outcome you want from the video",
+      "Ask for a hook plus beat-by-beat shot list, not just a block of copy",
+      "Use it to turn a feature into a demo narrative people can actually follow",
+      "Have it propose multiple hooks before locking the script",
+    ],
+    example: "\"Write a 45-second product demo script for HammerLock AI with the shot list and on-screen text.\"",
+  },
+  {
     name: "Writer",
     emoji: "\u270D\uFE0F",
     color: "#ec4899",
@@ -109,7 +179,7 @@ export default function AgentsPage() {
           Your team, inside the vault.
         </h1>
         <p style={{ fontSize: "1.05rem", color: "var(--text-secondary)", lineHeight: 1.6, maxWidth: 640, marginBottom: 48 }}>
-          HammerLock AI comes with 6 specialized agents, each trained for a specific domain.
+          HammerLock AI comes with 11 built-in agents, ranging from general help to specialist workflows for strategy, legal research, finance, operations, writing, wellness, content, and more.
           Switch between them anytime. Your conversations stay encrypted regardless of which agent you use.
         </p>
 

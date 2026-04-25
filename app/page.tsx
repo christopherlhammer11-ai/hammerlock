@@ -29,6 +29,7 @@ function isElectron(): boolean {
 export default function LandingPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileUrl, setMobileUrl] = useState<string | null>(null);
+  const [integrationCount, setIntegrationCount] = useState<number | null>(null);
   const [langOpen, setLangOpen] = useState(false);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
@@ -51,9 +52,9 @@ export default function LandingPage() {
     { icon: '🎙️', title: t.site_feat_voice_title, body: t.site_feat_voice_body,
       detail: 'Whisper-powered transcription for voice input. Text-to-speech for hands-free responses. Works offline with Ollama.',
       cta: 'Download Free', ctaLink: '/get-app' },
-    { icon: '🔗', title: '27 Native Tools', body: 'Apple Calendar, Reminders, Notes, iMessage, email, GitHub, smart home, browser automation, WhatsApp, weather, PDF tools — all from your chat. No plugins to install.',
-      detail: 'Powered by the OpenClaw gateway: control Philips Hue lights, Sonos speakers, Eight Sleep pods, browse the web with a dedicated browser, send WhatsApp messages, manage GitHub issues, and more. These tools run locally through the gateway.',
-      cta: 'See All Tools', ctaLink: '#why' },
+    { icon: '🔗', title: integrationCount ? `${integrationCount} Local Tools & Integrations` : 'Local Tools & Integrations', body: 'Calendar, notes, messaging, GitHub, smart home, browser automation, weather, PDF utilities, and more — all reachable from chat when configured on your machine.',
+      detail: 'Powered by the OpenClaw gateway: HammerLock can detect and connect to local tools and external services like Philips Hue, Sonos, Eight Sleep, WhatsApp, GitHub, Google apps, and more. Availability depends on your OS, installed apps, permissions, and connected accounts.',
+      cta: 'See Integrations', ctaLink: '#why' },
     { icon: '🌍', title: t.site_feat_lang_title, body: t.site_feat_lang_body,
       detail: '11 languages supported: English, Spanish, Portuguese, French, German, Chinese, Japanese, Korean, Arabic, Hindi, and Russian.',
       cta: 'Get the App', ctaLink: '/get-app' },
@@ -67,7 +68,7 @@ export default function LandingPage() {
       detail: 'Encrypted personal vault stores your profile, notes, and preferences. Synced across sessions, never sent to the cloud.',
       cta: 'Get the App', ctaLink: '/get-app' },
     { icon: '🤖', title: t.site_feat_agents_title, body: t.site_feat_agents_body,
-      detail: '11 built-in agents plus 27 native tools — Apple Calendar, Reminders, Notes, iMessage, email, GitHub, smart home (Hue, Sonos, Eight Sleep), browser automation, WhatsApp, weather, PDF tools, and more. All controlled from chat.',
+      detail: '11 built-in agents work alongside local tools and integrations like notes, calendar, messaging, GitHub, browser automation, PDF utilities, and smart home controls. What is available depends on your setup.',
       cta: 'Meet the Agents', ctaLink: '#agents' },
     { icon: '⚡', title: t.site_feat_perf_title, body: t.site_feat_perf_body,
       detail: 'Parallel provider racing across 6+ LLMs. Streaming responses start in under 1 second. Token-aware context management.',
@@ -87,7 +88,7 @@ export default function LandingPage() {
     [t.site_cmp_pii, '✕', '✓'],
     [t.site_cmp_no_train, '✕', '✓'],
     [t.site_cmp_agents, '✕', t.site_cmp_agents_val],
-    ['Native OS integrations (Calendar, Notes, iMessage)', '✕', '27 tools'],
+    ['Local tools & integrations', 'Limited', integrationCount ? `${integrationCount}+ available to configure` : 'Available based on your setup'],
     ['Browser automation', '✕', '✓'],
     [t.site_cmp_memory, '✕', '✓'],
     [t.site_cmp_search, t.site_cmp_search_typical, '✓'],
@@ -114,7 +115,7 @@ export default function LandingPage() {
       features: [
         'Everything in Personal',
         '11 AI agents',
-        '27 native tools',
+        'Local tools & integrations',
         'Web search with citations',
         'Browser automation',
         'Multi-provider racing (6+ LLMs)',
@@ -206,6 +207,17 @@ export default function LandingPage() {
         })
         .catch(() => {});
     }
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/setup')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('setup unavailable'))))
+      .then((data) => {
+        if (typeof data.totalSkills === 'number') {
+          setIntegrationCount(data.totalSkills);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Nav scroll effect
