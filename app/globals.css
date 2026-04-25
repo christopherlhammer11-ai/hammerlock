@@ -7918,6 +7918,14 @@ footer .trust-badge {
   background: rgba(0, 255, 136, 0.04);
 }
 
+.integration-featured-card.ready {
+  border-color: rgba(0, 255, 136, 0.08);
+}
+
+.integration-featured-card.needs-setup {
+  border-color: rgba(255, 180, 0, 0.08);
+}
+
 .integration-featured-top {
   display: flex;
   align-items: center;
@@ -8144,6 +8152,26 @@ footer .trust-badge {
   background: rgba(255, 180, 0, 0.06);
   color: #ffb400;
 }
+.integration-skill-badge.status-ready {
+  background: rgba(0, 255, 136, 0.06);
+  color: var(--accent, #00ff88);
+}
+.integration-skill-badge.status-needs_permission {
+  background: rgba(79, 140, 255, 0.08);
+  color: #7fb0ff;
+}
+.integration-skill-badge.status-needs_auth {
+  background: rgba(168, 85, 247, 0.08);
+  color: #d0a5ff;
+}
+.integration-skill-badge.status-needs_dependency {
+  background: rgba(255, 180, 0, 0.06);
+  color: #ffb400;
+}
+.integration-skill-badge.status-disabled {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+}
 
 /* Expanded detail */
 .integration-skill-detail {
@@ -8214,6 +8242,23 @@ footer .trust-badge {
   margin-bottom: 8px;
 }
 
+.integration-skill-requirements {
+  margin-bottom: 10px;
+}
+
+.integration-skill-requirement {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
 .integration-skill-action {
   display: inline-flex;
   align-items: center;
@@ -8225,6 +8270,12 @@ footer .trust-badge {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
+}
+.integration-skill-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
 }
 .integration-skill-action.test {
   background: rgba(0, 255, 136, 0.08);
@@ -8240,9 +8291,33 @@ footer .trust-badge {
 .integration-skill-action.setup:hover {
   background: rgba(255, 180, 0, 0.15);
 }
+.integration-skill-action.secondary {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+}
+.integration-skill-action.secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
 .integration-skill-action:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.integration-skill-response {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(0, 255, 136, 0.03);
+  border: 1px solid rgba(0, 255, 136, 0.08);
+  border-radius: 8px;
+}
+
+.integration-skill-response p {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 /* Footer */

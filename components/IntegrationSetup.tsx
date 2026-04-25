@@ -22,11 +22,15 @@ interface SkillInfo {
   featured: boolean;
   ready: boolean;
   disabled: boolean;
+  status: "ready" | "needs_permission" | "needs_auth" | "needs_dependency" | "disabled";
+  statusLabel: string;
+  recommendedAction: "test" | "setup" | "info";
   missingBins: string[];
   missingEnv: string[];
   setupType: string;
   setupNote: string;
   useCases: string[];
+  requirements: string[];
 }
 
 interface SkillCategory {
@@ -55,7 +59,8 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
   const [error, setError] = useState<string | null>(null);
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
-  const [setupInProgress, setSetupInProgress] = useState<string | null>(null);
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [toolResponses, setToolResponses] = useState<Record<string, { type: "info" | "test"; text: string }>>({});
 
   const fetchSkills = useCallback(async () => {
     setLoading(true);
@@ -81,12 +86,40 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
   useEffect(() => { fetchSkills(); }, [fetchSkills]);
 
   const handleSetup = (skill: SkillInfo) => {
-    setSetupInProgress(skill.name);
     // Send a setup message to the chat as if the user typed it
     const message = skill.ready
       ? `Test my ${skill.emoji} ${skill.name} integration — try a basic operation to make sure it's working.`
       : `Help me set up ${skill.emoji} ${skill.name}. ${skill.setupNote}`;
     onSetupSkill(skill.name, message);
+  };
+
+  const handleToolAction = async (skill: SkillInfo, action: "info" | "test") => {
+    setActionInProgress(`${skill.name}:${action}`);
+    try {
+      const res = await fetch("/api/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skill: skill.name, action }),
+      });
+      const data = await res.json();
+      setToolResponses((prev) => ({
+        ...prev,
+        [skill.name]: {
+          type: action,
+          text: data.response || data.error || "No response returned.",
+        },
+      }));
+    } catch {
+      setToolResponses((prev) => ({
+        ...prev,
+        [skill.name]: {
+          type: action,
+          text: "I couldn't reach the setup helper right now. Make sure the OpenClaw gateway is running, then try again.",
+        },
+      }));
+    } finally {
+      setActionInProgress(null);
+    }
   };
 
   const handleTryExample = (example: string) => {
@@ -130,12 +163,12 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
             </div>
             <div>
               <h2 className="integration-setup-title">
-                {mode === "onboarding" ? "Set Up Your Integrations" : "Manage Integrations"}
+                {mode === "onboarding" ? "Set Up Your Tools" : "Tool Center"}
               </h2>
               <p className="integration-setup-subtitle">
                 {loading
                   ? "Discovering what's available..."
-                  : `${totalReady} of ${totalSkills} integrations ready to use`}
+                  : `${totalReady} of ${totalSkills} tools ready to use`}
               </p>
             </div>
           </div>
@@ -149,8 +182,8 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
           <div className="integration-setup-banner">
             <span className="integration-setup-banner-emoji">🤖</span>
             <span>
-              Your AI assistant can help set up each integration.
-              Tap <strong>"Set up"</strong> and it'll walk you through it step by step.
+              Your AI assistant can help set up each tool.
+              Tap <strong>"Set up"</strong> and it&apos;ll walk you through it step by step.
             </span>
           </div>
         )}
@@ -307,15 +340,10 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                           </div>
                         </div>
                         <div className="integration-skill-right">
-                          {skill.ready ? (
-                            <span className="integration-skill-badge ready">
-                              <CheckCircle size={12} /> Ready
-                            </span>
-                          ) : (
-                            <span className="integration-skill-badge needs-setup">
-                              <Settings size={12} /> Setup needed
-                            </span>
-                          )}
+                          <span className={`integration-skill-badge status-${skill.status}`}>
+                            {skill.ready ? <CheckCircle size={12} /> : <Settings size={12} />}
+                            {skill.statusLabel}
+                          </span>
                         </div>
                       </button>
 
@@ -329,6 +357,18 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                                 {skill.setupType === "none" ? "✅" : skill.setupType === "permission" ? "🔐" : skill.setupType === "oauth" ? "🔑" : "⚙️"}
                               </span>
                               {skill.setupNote}
+                            </div>
+                          )}
+
+                          {skill.requirements.length > 0 && (
+                            <div className="integration-skill-requirements">
+                              <div className="integration-skill-examples-label">Requirements</div>
+                              {skill.requirements.map((req) => (
+                                <div key={req} className="integration-skill-requirement">
+                                  <AlertCircle size={12} />
+                                  <span>{req}</span>
+                                </div>
+                              ))}
                             </div>
                           )}
 
@@ -350,32 +390,43 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                           )}
 
                           {/* Missing requirements */}
-                          {skill.missingBins.length > 0 && (
-                            <div className="integration-skill-missing">
-                              <AlertCircle size={12} />
-                              Missing: {skill.missingBins.join(", ")}
-                            </div>
-                          )}
-
-                          {skill.missingEnv.length > 0 && (
-                            <div className="integration-skill-missing">
-                              <AlertCircle size={12} />
-                              Missing env: {skill.missingEnv.join(", ")}
-                            </div>
-                          )}
-
-                          {/* Action button */}
-                          <button
-                            className={`integration-skill-action ${skill.ready ? "test" : "setup"}`}
-                            onClick={(e) => { e.stopPropagation(); handleSetup(skill); }}
-                            disabled={setupInProgress === skill.name}
-                          >
-                            {setupInProgress === skill.name
-                              ? <><RefreshCw size={14} className="spin" /> Setting up...</>
-                              : skill.ready
-                                ? <><Zap size={14} /> Test it</>
+                          <div className="integration-skill-actions">
+                            <button
+                              className={`integration-skill-action ${skill.ready ? "test" : "setup"}`}
+                              onClick={(e) => { e.stopPropagation(); handleSetup(skill); }}
+                            >
+                              {skill.ready
+                                ? <><Zap size={14} /> Open in Chat</>
                                 : <><Settings size={14} /> Set up with AI</>}
-                          </button>
+                            </button>
+                            <button
+                              className="integration-skill-action secondary"
+                              onClick={(e) => { e.stopPropagation(); handleToolAction(skill, "info"); }}
+                              disabled={actionInProgress === `${skill.name}:info`}
+                            >
+                              {actionInProgress === `${skill.name}:info`
+                                ? <><RefreshCw size={14} className="spin" /> Loading...</>
+                                : <>What it does</>}
+                            </button>
+                            <button
+                              className="integration-skill-action secondary"
+                              onClick={(e) => { e.stopPropagation(); handleToolAction(skill, "test"); }}
+                              disabled={actionInProgress === `${skill.name}:test`}
+                            >
+                              {actionInProgress === `${skill.name}:test`
+                                ? <><RefreshCw size={14} className="spin" /> Testing...</>
+                                : <>Run test</>}
+                            </button>
+                          </div>
+
+                          {toolResponses[skill.name] && (
+                            <div className="integration-skill-response">
+                              <div className="integration-skill-examples-label">
+                                {toolResponses[skill.name].type === "info" ? "Tool brief" : "Test result"}
+                              </div>
+                              <p>{toolResponses[skill.name].text}</p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

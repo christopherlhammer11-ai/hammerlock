@@ -40,10 +40,10 @@ export default function SettingsPanel({ open, onClose, onOpenIntegrations, onOpe
 
         {/* Body */}
         <div className="settings-body">
-          {/* ── Integrations ── */}
+          {/* ── Tools ── */}
           {onOpenIntegrations && (
             <div className="settings-section">
-              <div className="settings-section-title">Integrations</div>
+              <div className="settings-section-title">Tools</div>
               <button
                 className="settings-integrations-btn"
                 onClick={() => {
@@ -55,10 +55,10 @@ export default function SettingsPanel({ open, onClose, onOpenIntegrations, onOpe
                   <Zap size={16} style={{ color: "var(--accent)" }} />
                   <div>
                     <div className="settings-row-label" style={{ display: "block" }}>
-                      Manage Integrations
+                      Open Tool Center
                     </div>
                     <div className="settings-row-desc" style={{ padding: 0, marginTop: 2 }}>
-                      Calendar, Reminders, Email, Smart Home, GitHub, and more
+                      Featured tools, setup state, tests, and guided configuration
                     </div>
                   </div>
                 </div>

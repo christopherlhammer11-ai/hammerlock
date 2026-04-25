@@ -263,11 +263,15 @@ export interface SkillInfo {
   featured: boolean;
   ready: boolean;
   disabled: boolean;
+  status: "ready" | "needs_permission" | "needs_auth" | "needs_dependency" | "disabled";
+  statusLabel: string;
+  recommendedAction: "test" | "setup" | "info";
   missingBins: string[];
   missingEnv: string[];
   setupType: string;
   setupNote: string;
   useCases: string[];
+  requirements: string[];
 }
 
 export interface SkillCategory {
@@ -314,6 +318,32 @@ export async function GET() {
         if (!raw) continue; // Skill not in this OpenClaw install
 
         const setup = SKILL_SETUP_INFO[skillName] || { setupType: "none", setupNote: "" };
+        const missingBins = [...(raw.missing?.bins || []), ...(raw.missing?.anyBins || [])];
+        const missingEnv = raw.missing?.env || [];
+        const disabled = raw.disabled;
+        const ready = raw.eligible;
+        const status: SkillInfo["status"] = disabled
+          ? "disabled"
+          : ready
+            ? "ready"
+            : setup.setupType === "permission"
+              ? "needs_permission"
+              : setup.setupType === "oauth" || setup.setupType === "api_key"
+                ? "needs_auth"
+                : missingBins.length > 0 || missingEnv.length > 0
+                  ? "needs_dependency"
+                  : "needs_dependency";
+        const statusLabel =
+          status === "ready" ? "Ready" :
+          status === "needs_permission" ? "Needs Permission" :
+          status === "needs_auth" ? "Needs Account/Auth" :
+          status === "disabled" ? "Disabled" :
+          "Needs Setup";
+        const requirements = [
+          ...(missingBins.length ? [`Install: ${missingBins.join(", ")}`] : []),
+          ...(missingEnv.length ? [`Env vars: ${missingEnv.join(", ")}`] : []),
+          ...(setup.setupNote ? [setup.setupNote] : []),
+        ];
 
         catSkills.push({
           name: raw.name,
@@ -321,13 +351,17 @@ export async function GET() {
           emoji: raw.emoji,
           description: raw.description.split(".")[0] + ".", // First sentence only
           featured: FEATURED_SKILLS.has(raw.name),
-          ready: raw.eligible,
-          disabled: raw.disabled,
-          missingBins: [...(raw.missing?.bins || []), ...(raw.missing?.anyBins || [])],
-          missingEnv: raw.missing?.env || [],
+          ready,
+          disabled,
+          status,
+          statusLabel,
+          recommendedAction: ready ? "test" : "setup",
+          missingBins,
+          missingEnv,
           setupType: setup.setupType,
           setupNote: setup.setupNote,
           useCases: SKILL_USE_CASES[skillName] || [],
+          requirements,
         });
       }
 
