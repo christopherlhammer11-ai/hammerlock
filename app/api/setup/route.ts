@@ -210,10 +210,57 @@ const SKILL_SETUP_INFO: Record<string, {
   "skill-creator": { setupType: "none", setupNote: "Works out of the box" },
 };
 
+const FEATURED_SKILLS = new Set([
+  "apple-notes",
+  "apple-reminders",
+  "imsg",
+  "gog",
+  "github",
+  "wacli",
+  "openhue",
+  "sonoscli",
+  "nano-pdf",
+  "openai-whisper",
+]);
+
+const SKILL_DISPLAY_NAMES: Record<string, string> = {
+  "apple-notes": "Apple Notes",
+  "apple-reminders": "Apple Reminders",
+  "imsg": "iMessage",
+  "peekaboo": "Screen Capture",
+  "bear-notes": "Bear",
+  "obsidian": "Obsidian",
+  "things-mac": "Things",
+  "notion": "Notion",
+  "trello": "Trello",
+  "himalaya": "Email",
+  "gog": "Google Workspace",
+  "wacli": "WhatsApp",
+  "slack": "Slack",
+  "openhue": "Philips Hue",
+  "sonoscli": "Sonos",
+  "eightctl": "Eight Sleep",
+  "camsnap": "Cameras",
+  "github": "GitHub",
+  "coding-agent": "Coding Agent",
+  "skill-creator": "Skill Creator",
+  "summarize": "Summarizer",
+  "nano-pdf": "PDF Tools",
+  "video-frames": "Video Frames",
+  "openai-whisper": "Whisper Transcription",
+  "songsee": "Audio Analysis",
+  "gifgrep": "GIF Search",
+  "blogwatcher": "Blog Watcher",
+  "weather": "Weather",
+  "healthcheck": "System Health",
+};
+
 export interface SkillInfo {
   name: string;
+  displayName: string;
   emoji: string;
   description: string;
+  featured: boolean;
   ready: boolean;
   disabled: boolean;
   missingBins: string[];
@@ -270,8 +317,10 @@ export async function GET() {
 
         catSkills.push({
           name: raw.name,
+          displayName: SKILL_DISPLAY_NAMES[raw.name] || raw.name,
           emoji: raw.emoji,
           description: raw.description.split(".")[0] + ".", // First sentence only
+          featured: FEATURED_SKILLS.has(raw.name),
           ready: raw.eligible,
           disabled: raw.disabled,
           missingBins: [...(raw.missing?.bins || []), ...(raw.missing?.anyBins || [])],

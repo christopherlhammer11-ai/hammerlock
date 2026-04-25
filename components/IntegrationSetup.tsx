@@ -10,14 +10,16 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   ChevronDown, ChevronRight, CheckCircle, AlertCircle, Zap,
-  X, ArrowRight, RefreshCw, Settings,
+  X, ArrowRight, RefreshCw, Settings, Search, Star,
 } from "lucide-react";
 
 // ── Types matching /api/setup response ──
 interface SkillInfo {
   name: string;
+  displayName: string;
   emoji: string;
   description: string;
+  featured: boolean;
   ready: boolean;
   disabled: boolean;
   missingBins: string[];
@@ -47,6 +49,8 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [totalReady, setTotalReady] = useState(0);
   const [totalSkills, setTotalSkills] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "featured" | "ready" | "setup">("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
@@ -90,6 +94,30 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
     const clean = example.replace(/^["']|["']$/g, "");
     onSetupSkill("", clean);
   };
+
+  const matchesFilter = useCallback((skill: SkillInfo) => {
+    const query = searchQuery.trim().toLowerCase();
+    const matchesQuery = !query ||
+      skill.displayName.toLowerCase().includes(query) ||
+      skill.name.toLowerCase().includes(query) ||
+      skill.description.toLowerCase().includes(query);
+
+    const matchesState =
+      filter === "all" ||
+      (filter === "featured" && skill.featured) ||
+      (filter === "ready" && skill.ready) ||
+      (filter === "setup" && !skill.ready);
+
+    return matchesQuery && matchesState;
+  }, [filter, searchQuery]);
+
+  const allSkills = categories.flatMap((cat) => cat.skills);
+  const featuredSkills = allSkills.filter((skill) => skill.featured);
+  const readyNeedsAttention = allSkills.filter((skill) => !skill.ready).length;
+  const visibleCategories = categories
+    .map((cat) => ({ ...cat, skills: cat.skills.filter(matchesFilter) }))
+    .filter((cat) => cat.skills.length > 0);
+  const visibleFeatured = featuredSkills.filter(matchesFilter);
 
   return (
     <div className="integration-setup-overlay">
@@ -144,7 +172,90 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
             </div>
           )}
 
-          {!loading && !error && categories.map(cat => (
+          {!loading && !error && (
+            <>
+              <div className="integration-setup-stats">
+                <div className="integration-setup-stat">
+                  <div className="integration-setup-stat-value">{totalReady}</div>
+                  <div className="integration-setup-stat-label">Ready now</div>
+                </div>
+                <div className="integration-setup-stat">
+                  <div className="integration-setup-stat-value">{readyNeedsAttention}</div>
+                  <div className="integration-setup-stat-label">Need setup</div>
+                </div>
+                <div className="integration-setup-stat">
+                  <div className="integration-setup-stat-value">{featuredSkills.length}</div>
+                  <div className="integration-setup-stat-label">Featured tools</div>
+                </div>
+              </div>
+
+              <div className="integration-setup-toolbar">
+                <label className="integration-search">
+                  <Search size={14} />
+                  <input
+                    type="text"
+                    placeholder="Search tools"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </label>
+                <div className="integration-filter-row">
+                  {[
+                    ["all", "All"],
+                    ["featured", "Featured"],
+                    ["ready", "Ready"],
+                    ["setup", "Needs Setup"],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      className={`integration-filter-chip${filter === value ? " active" : ""}`}
+                      onClick={() => setFilter(value as "all" | "featured" | "ready" | "setup")}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {visibleFeatured.length > 0 && (
+                <div className="integration-featured">
+                  <div className="integration-section-title">
+                    <Star size={14} />
+                    Featured Tools
+                  </div>
+                  <div className="integration-featured-grid">
+                    {visibleFeatured.map((skill) => (
+                      <button
+                        key={skill.name}
+                        className={`integration-featured-card ${skill.ready ? "ready" : "needs-setup"}`}
+                        onClick={() => {
+                          const parent = visibleCategories.find((cat) => cat.skills.some((item) => item.name === skill.name));
+                          if (parent) setExpandedCat(parent.id);
+                          setExpandedSkill(skill.name);
+                        }}
+                      >
+                        <div className="integration-featured-top">
+                          <span className="integration-skill-emoji">{skill.emoji}</span>
+                          <span className={`integration-featured-badge ${skill.ready ? "ready" : "needs-setup"}`}>
+                            {skill.ready ? "Ready" : "Setup"}
+                          </span>
+                        </div>
+                        <div className="integration-featured-name">{skill.displayName}</div>
+                        <div className="integration-featured-desc">{skill.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {visibleCategories.length === 0 && (
+                <div className="integration-empty-state">
+                  <AlertCircle size={16} />
+                  <span>No tools match that filter yet.</span>
+                </div>
+              )}
+
+              {visibleCategories.map(cat => (
             <div key={cat.id} className="integration-cat">
               {/* Category header */}
               <button
@@ -187,8 +298,12 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                         <div className="integration-skill-left">
                           <span className="integration-skill-emoji">{skill.emoji}</span>
                           <div>
-                            <span className="integration-skill-name">{skill.name}</span>
+                            <span className="integration-skill-name">{skill.displayName}</span>
                             <span className="integration-skill-desc">{skill.description}</span>
+                            <span className="integration-skill-meta">
+                              {skill.name}
+                              {skill.featured ? " • featured" : ""}
+                            </span>
                           </div>
                         </div>
                         <div className="integration-skill-right">
@@ -242,6 +357,13 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                             </div>
                           )}
 
+                          {skill.missingEnv.length > 0 && (
+                            <div className="integration-skill-missing">
+                              <AlertCircle size={12} />
+                              Missing env: {skill.missingEnv.join(", ")}
+                            </div>
+                          )}
+
                           {/* Action button */}
                           <button
                             className={`integration-skill-action ${skill.ready ? "test" : "setup"}`}
@@ -261,7 +383,9 @@ export default function IntegrationSetup({ onClose, onSetupSkill, mode = "onboar
                 </div>
               )}
             </div>
-          ))}
+              ))}
+            </>
+          )}
         </div>
 
         {/* Footer */}
