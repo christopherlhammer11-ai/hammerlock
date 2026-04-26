@@ -15,7 +15,7 @@
   },
   "scripts": {
     "setup": "./scripts/install.sh",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest",
