@@ -167,7 +167,6 @@ export default function ChatPage() {
   const [tutorialStep, setTutorialStep] = useState(-1);
   const [onboardingAnswers, setOnboardingAnswers] = useState<Record<string, string>>({});
   const [onboardingInput, setOnboardingInput] = useState("");
-  const [computeUnits, setComputeUnits] = useState<{ remaining: number; total: number; usingOwnKey: boolean; periodEnd?: string; monthlyAllocation?: number; boosterUnits?: number } | null>(null);
   const [ollamaDetected, setOllamaDetected] = useState<boolean | null>(null); // null = unknown/loading
   const [ollamaBannerDismissed, setOllamaBannerDismissed] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
@@ -1111,7 +1110,6 @@ export default function ChatPage() {
         }
         if (data.creditExhausted) {
           setMessages(prev => prev.map(m => m.id===pid ? {...m,content:data.response,pending:false,timestamp:new Date().toISOString()} : m));
-          setComputeUnits(prev => prev ? { ...prev, remaining: 0 } : null);
           return;
         }
         if (data.switchLocale) setLocale(data.switchLocale as Locale);

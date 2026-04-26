@@ -105,20 +105,14 @@ const SubscriptionContext = createContext<SubscriptionContextValue | undefined>(
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [subscription, setSubscription] = useState<SubscriptionStatus>(defaultSubscription());
   const [messageCount, setMessageCount] = useState(0);
-  const [licenseTier, setLicenseTier] = useState<SubscriptionTier>("free");
-  const [licenseLoading, setLicenseLoading] = useState(false);
+  const licenseTier: SubscriptionTier = "free";
+  const licenseLoading = false;
   const [usingOwnKey, setUsingOwnKey] = useState(false);
 
   // Fetch license tier + own-key status from server on mount (Electron desktop only)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (isElectron()) {
-      setLicenseLoading(false);
-      return;
-    }
-
-    setLicenseLoading(true);
-    setLicenseLoading(false);
+    if (isElectron()) return;
   }, []);
 
   useEffect(() => {
