@@ -2343,6 +2343,9 @@ export default function ChatPage() {
             })()}
           </div>
           <div className="topbar-actions">
+            <div className={`topbar-mode-pill${setupBlocked ? " warning" : ""}`}>
+              <span className="topbar-mode-label">{setupBlocked ? "Setup Mode" : "Local Console"}</span>
+            </div>
             <div className="status-badge"><span className={statusDotClass} /><span className="status-label">{statusLabel}</span></div>
           </div>
         </header>
@@ -2614,6 +2617,23 @@ export default function ChatPage() {
                     </h2>
                     <p className="empty-tagline">{(t as any).chat_empty_tagline || "Your AI. Your Data. Your Rules."}</p>
                     <p className="empty-subtitle">{t.chat_empty_subtitle}</p>
+                    <div className="welcome-stats">
+                      <div className="welcome-stat-card">
+                        <span className="welcome-stat-kicker">Agent Layer</span>
+                        <strong>{BUILT_IN_AGENTS.length} Operators</strong>
+                        <span>Specialized built-in modes</span>
+                      </div>
+                      <div className="welcome-stat-card">
+                        <span className="welcome-stat-kicker">Tool Surface</span>
+                        <strong>Tool Center</strong>
+                        <span>Local integrations and setup tracks</span>
+                      </div>
+                      <div className={`welcome-stat-card${setupBlocked ? " warning" : ""}`}>
+                        <span className="welcome-stat-kicker">Runtime</span>
+                        <strong>{setupBlocked ? "Needs model" : "Ready to chat"}</strong>
+                        <span>{setupBlocked ? "Connect Ollama or a provider key" : "Vault, health, and chat are live"}</span>
+                      </div>
+                    </div>
 
                     {/* Agent showcase — color dots */}
                     <div className="agent-showcase">
@@ -2632,6 +2652,7 @@ export default function ChatPage() {
                     </div>
 
                     {/* Quick action cards */}
+                    <div className="welcome-section-label">Jump Into Something Real</div>
                     <div className="suggestion-grid">
                       <button className="suggestion-card" style={{ "--card-delay": "0.1s" } as React.CSSProperties} onClick={() => sendCommand(t.pill_status)}>
                         <span className="suggestion-icon"><Zap size={18} /></span>
