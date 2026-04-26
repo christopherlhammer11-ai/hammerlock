@@ -9,6 +9,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useI18n, LOCALE_LABELS, type Locale } from "@/lib/i18n";
 import { track } from "@vercel/analytics";
+import { BUILT_IN_AGENTS } from "@/lib/agents";
 
 // Features array is built inside the component to access i18n
 const HAMMERLOCK_X_URL = "https://x.com/HammerlockAI";
@@ -96,59 +97,6 @@ export default function LandingPage() {
     [t.site_cmp_no_account, '✕', '✓'],
   ];
 
-  const plans = [
-    {
-      name: 'Personal', tag: 'OPEN SOURCE', description: 'Everything you need to get started. No account required.',
-      price: 0, priceLabel: 'Free', pricePeriod: 'forever',
-      features: [
-        'Unlimited conversations',
-        'AES-256 encryption',
-        'Persistent memory vault',
-        'Voice input & TTS',
-        'PDF upload & analysis',
-      ],
-      ctaLabel: 'Get the App', ctaAction: 'download',
-    },
-    {
-      name: 'Pro', description: 'Full power. All agents, all tools, all providers.', popular: true,
-      price: 0, priceLabel: 'Free', pricePeriod: 'forever',
-      features: [
-        'Everything in Personal',
-        '11 AI agents',
-        'Local tools & integrations',
-        'Web search with citations',
-        'Browser automation',
-        'Multi-provider racing (6+ LLMs)',
-        'Bring your own API keys',
-      ],
-      ctaLabel: 'Get the App', ctaAction: 'download',
-    },
-    {
-      name: 'Teams', description: 'For teams that need privacy-first AI. Self-hosted.',
-      price: 0, priceLabel: 'Free', pricePeriod: 'self-hosted',
-      features: [
-        'Everything in Pro',
-        'Multi-user support',
-        'Shared vault & personas',
-        'Admin dashboard',
-        'Priority support',
-      ],
-      ctaLabel: 'Talk to Us', ctaAction: 'contact',
-    },
-    {
-      name: 'Enterprise', description: 'Air-gapped deployments, custom integrations, dedicated support.', enterprise: true,
-      price: -1, priceLabel: 'Contact Us', pricePeriod: '',
-      features: [
-        'Everything in Teams',
-        'Air-gapped deployment',
-        'Custom integrations',
-        'SLA & dedicated support',
-        'On-premise installation',
-      ],
-      ctaLabel: 'Get In Touch', ctaAction: 'contact',
-    },
-  ];
-
   const testimonials = [
     {
       emoji: "🚀", name: "Sarah M.", role: "CEO, Early-Stage Startup", category: "Startup",
@@ -173,6 +121,67 @@ export default function LandingPage() {
     {
       emoji: "🏪", name: "James L.", role: "Small Business Owner", category: "Small Biz",
       quote: "Customer emails, inventory reminders, daily task lists — all managed from one place. The encryption means I don't worry about my business data ending up in someone's training set.",
+    },
+  ];
+
+  const landingAgents = BUILT_IN_AGENTS.map((agent) => ({
+    ...agent,
+    iconEmoji:
+      agent.id === "general" ? "🔧" :
+      agent.id === "strategist" ? "🎯" :
+      agent.id === "counsel" ? "⚖️" :
+      agent.id === "analyst" ? "📈" :
+      agent.id === "researcher" ? "📚" :
+      agent.id === "operator" ? "🛠️" :
+      agent.id === "writer" ? "✍️" :
+      agent.id === "coach" ? "❤️" :
+      agent.id === "money" ? "💸" :
+      agent.id === "content" ? "📣" :
+      "🎬",
+  }));
+
+  const setupPaths = [
+    {
+      name: "Local-First",
+      tag: "RECOMMENDED",
+      setup: "Run Ollama on your machine",
+      description: "Best for privacy, zero recurring cost, and unlimited local use.",
+      points: [
+        "Private local models with Ollama",
+        "Encrypted vault and memory",
+        "Voice, PDF, agents, and local tools",
+        "No cloud account required",
+      ],
+      ctaLabel: "Download for Mac",
+      ctaHref: "/get-app",
+    },
+    {
+      name: "Bring Your Own Keys",
+      tag: "FLEXIBLE",
+      setup: "Connect OpenAI, Anthropic, Google, Groq, Mistral, or DeepSeek",
+      description: "Best when you want cloud models but still want HammerLock owning the UX and encrypted local context.",
+      points: [
+        "Use your own provider accounts",
+        "Pick the models you trust",
+        "No HammerLock markup on usage",
+        "Mix local and cloud when needed",
+      ],
+      ctaLabel: "See Setup Guide",
+      ctaHref: "/get-app",
+    },
+    {
+      name: "Team Rollout",
+      tag: "SELF-HOSTED",
+      setup: "For teams that want a private shared deployment",
+      description: "Best for companies that need a defensible internal AI surface without sending work product into third-party chat history.",
+      points: [
+        "Shared deployment patterns",
+        "Private internal workflows",
+        "Custom integrations",
+        "Support for rollout planning",
+      ],
+      ctaLabel: "Talk to Us",
+      ctaHref: "mailto:info@hammerlockai.com",
     },
   ];
 
@@ -274,7 +283,7 @@ export default function LandingPage() {
         <ul>
           <li><a href="#features">{t.site_nav_features}</a></li>
           <li><a href="#agents">{t.site_nav_agents}</a></li>
-          <li><a href="#pricing">{t.site_nav_pricing}</a></li>
+          <li><a href="#setup">Setup</a></li>
           <li><a href="#how">{t.site_nav_how}</a></li>
           <li><a href="#why">{t.site_nav_why}</a></li>
           <li><a href="/blog/blog-index.html">Research</a></li>
@@ -323,7 +332,7 @@ export default function LandingPage() {
         <button className="nav-hamburger" onClick={() => setMobileNavOpen(true)} aria-label="Open menu">
           <Menu size={20} />
         </button>
-        <a href="#pricing" className="btn-primary" onClick={() => track("cta_click", { location: "nav", label: "get_started" })}>{t.site_cta}</a>
+        <a href="/get-app" className="btn-primary" onClick={() => track("cta_click", { location: "nav", label: "download_app" })}>{t.site_cta}</a>
       </nav>
 
       {mobileNavOpen && (
@@ -335,12 +344,12 @@ export default function LandingPage() {
             </button>
             <a href="#features" onClick={() => setMobileNavOpen(false)}>{t.site_nav_features}</a>
             <a href="#agents" onClick={() => setMobileNavOpen(false)}>{t.site_nav_agents}</a>
-            <a href="#pricing" onClick={() => setMobileNavOpen(false)}>{t.site_nav_pricing}</a>
+            <a href="#setup" onClick={() => setMobileNavOpen(false)}>Setup</a>
             <a href="#how" onClick={() => setMobileNavOpen(false)}>{t.site_nav_how}</a>
             <a href="#why" onClick={() => setMobileNavOpen(false)}>{t.site_nav_why}</a>
             <a href="/blog" onClick={() => setMobileNavOpen(false)}>Research</a>
             <a href={HAMMERLOCK_X_URL} target="_blank" rel="noopener noreferrer" onClick={() => setMobileNavOpen(false)}>X / @HammerlockAI</a>
-            <a href="#pricing" className="btn-primary" style={{ textAlign: 'center' }} onClick={() => setMobileNavOpen(false)}>{t.site_cta}</a>
+            <a href="/get-app" className="btn-primary" style={{ textAlign: 'center' }} onClick={() => setMobileNavOpen(false)}>{t.site_cta}</a>
           </div>
         </>
       )}
@@ -358,8 +367,14 @@ export default function LandingPage() {
           {t.site_hero_sub}
         </p>
         <div className="hero-cta">
-          <a href="#pricing" className="btn-primary" onClick={() => track("cta_click", { location: "hero", label: "get_started" })}>{t.site_cta_trial}</a>
-          <a href="#how" className="btn-secondary" onClick={() => track("cta_click", { location: "hero", label: "how_it_works" })}>{t.site_cta_how}</a>
+          <a href="/get-app" className="btn-primary" onClick={() => track("cta_click", { location: "hero", label: "download_app" })}>{t.site_cta_trial}</a>
+          <a href="#setup" className="btn-secondary" onClick={() => track("cta_click", { location: "hero", label: "see_setup" })}>{t.site_cta_how}</a>
+        </div>
+        <div className="hero-proof-strip">
+          <span>Free and open source</span>
+          <span>11 built-in agents</span>
+          <span>Encrypted local memory</span>
+          <span>Run local or BYOK</span>
         </div>
       </main>
 
@@ -442,7 +457,7 @@ export default function LandingPage() {
                   </p>
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     <a href="#agents" onClick={(e) => e.stopPropagation()} className="btn-secondary" style={{ textDecoration: 'none', padding: '8px 16px', fontSize: '0.85rem', borderRadius: 8 }}>Meet the Agents &rarr;</a>
-                    <a href="#pricing" onClick={(e) => e.stopPropagation()} className="cta-main" style={{ display: 'inline-block', padding: '8px 20px', fontSize: '0.85rem', textDecoration: 'none', borderRadius: 8 }}>Get Started &rarr;</a>
+                    <a href="/get-app" onClick={(e) => e.stopPropagation()} className="cta-main" style={{ display: 'inline-block', padding: '8px 20px', fontSize: '0.85rem', textDecoration: 'none', borderRadius: 8 }}>Download the App &rarr;</a>
                   </div>
                 </div>
               )}
@@ -489,50 +504,33 @@ export default function LandingPage() {
       {/* AGENTS */}
       <section id="agents" className="features fade-in-section" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
         <div className="section-label">{t.site_section_agents}</div>
-        <h2>{t.site_agents_h2}</h2>
+        <h2>Eleven built-in agents. One encrypted console.</h2>
         <p className="section-subtitle">
           {t.site_sub_agents}
         </p>
         <div className="features-grid">
-          {[
-            { icon: '🎯', title: t.site_agent_strategist_title, body: t.site_agent_strategist_body,
-              detail: 'Build pitch decks, analyze market positioning, model scenarios, and plan go-to-market strategy. Thinks like a founder.',
-              cta: 'Download Free', ctaLink: '/get-app' },
-            { icon: '⚖️', title: t.site_agent_counsel_title, body: t.site_agent_counsel_body,
-              detail: 'Review contracts, flag risky clauses, draft NDAs, and summarize legal documents. Not legal advice — but a powerful first pass.',
-              cta: 'Download Free', ctaLink: '/get-app' },
-            { icon: '📈', title: t.site_agent_analyst_title, body: t.site_agent_analyst_body,
-              detail: 'Financial modeling, revenue projections, expense analysis, and KPI dashboards. Speak in numbers, get answers in context.',
-              cta: 'Download Free', ctaLink: '/get-app' },
-            { icon: '📚', title: t.site_agent_researcher_title, body: t.site_agent_researcher_body,
-              detail: 'Deep web research with source citations. Competitive analysis, market sizing, industry reports — all summarized for you.',
-              cta: 'Download Free', ctaLink: '/get-app' },
-            { icon: '🔧', title: t.site_agent_operator_title, body: t.site_agent_operator_body,
-              detail: 'Your default general-purpose agent. Handles everything from quick questions to complex multi-step tasks. Always ready.',
-              cta: 'Get the App', ctaLink: '/get-app' },
-            { icon: '✍️', title: t.site_agent_writer_title, body: t.site_agent_writer_body,
-              detail: 'Blog posts, emails, social media copy, product descriptions — all in your voice. Learns your tone from your vault persona.',
-              cta: 'Download Free', ctaLink: '/get-app' },
-          ].map((agent) => (
+          {landingAgents.map((agent) => (
             <article
-              key={agent.title}
-              className={`feature-card${expandedAgent === agent.title ? ' expanded' : ''}`}
-              onClick={() => setExpandedAgent(expandedAgent === agent.title ? null : agent.title)}
+              key={agent.id}
+              className={`feature-card${expandedAgent === agent.name ? ' expanded' : ''}`}
+              onClick={() => setExpandedAgent(expandedAgent === agent.name ? null : agent.name)}
               style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
             >
-              <div style={{ fontSize: '1.75rem' }}>{agent.icon}</div>
-              <h3>{agent.title}</h3>
-              <p>{agent.body}</p>
-              {expandedAgent === agent.title && (
+              <div style={{ fontSize: '1.75rem' }}>{agent.iconEmoji}</div>
+              <h3>{agent.name}</h3>
+              <p>{agent.tagline}</p>
+              {expandedAgent === agent.name && (
                 <div className="card-expand" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,255,136,0.15)' }}>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>{agent.detail}</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
+                    {agent.systemPrompt.split("\n").slice(0, 3).join(" ")}
+                  </p>
                   <a
-                    href={agent.ctaLink}
+                    href="/get-app"
                     onClick={(e) => e.stopPropagation()}
                     className="cta-main"
                     style={{ display: 'inline-block', padding: '8px 20px', fontSize: '0.85rem', textDecoration: 'none', borderRadius: 8 }}
                   >
-                    {agent.cta} &rarr;
+                    Download Free &rarr;
                   </a>
                 </div>
               )}
@@ -546,67 +544,46 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* PRICING */}
-      <section id="pricing" className="pricing-section fade-in-section">
-        <div className="section-label">100% FREE</div>
-        <h2>No subscriptions. No paywalls. Just use it.</h2>
+      {/* SETUP */}
+      <section id="setup" className="pricing-section fade-in-section">
+        <div className="section-label">CHOOSE YOUR SETUP</div>
+        <h2>Start local. Add cloud only if you want it.</h2>
         <p className="section-subtitle">
-          HammerLock AI is free and open source. Download the app, run local models with Ollama, or connect your own API keys if you want cloud models.
+          HammerLock AI is free and open source. The real choice is not pricing. It&apos;s how you want to run the intelligence layer behind the app.
         </p>
 
 
         <div className="pricing-grid">
-          {plans.map((plan) => (
-            <div key={plan.name} className={`pricing-card${plan.popular ? ' popular' : ''}${plan.enterprise ? ' enterprise' : ''}`}>
-              {plan.popular && <div className="pricing-badge">MOST POPULAR</div>}
+          {setupPaths.map((path) => (
+            <div key={path.name} className={`pricing-card${path.tag === 'RECOMMENDED' ? ' popular' : ''}`}>
+              {path.tag === 'RECOMMENDED' && <div className="pricing-badge">BEST DEFAULT</div>}
               <div className="pricing-tag-row">
-                {plan.tag && <span className="pricing-tag">{plan.tag}</span>}
+                <span className="pricing-tag">{path.tag}</span>
               </div>
-              <h3>{plan.name}</h3>
-              <p className="pricing-description">{plan.description}</p>
+              <h3>{path.name}</h3>
+              <p className="pricing-description">{path.description}</p>
               <div className="pricing-price">
-                <span className="price-amount">{plan.priceLabel}</span>
-                {plan.pricePeriod && (
-                  <span className="price-period">/{plan.pricePeriod}</span>
-                )}
+                <span className="price-amount" style={{ fontSize: '1.15rem' }}>{path.setup}</span>
               </div>
-              {plan.ctaAction === 'download' ? (
+              {path.ctaHref.startsWith('mailto:') ? (
                 <a
-                  href="/get-app"
+                  href={path.ctaHref}
                   className="btn-secondary pricing-cta"
                   style={{ display: 'block', textDecoration: 'none', textAlign: 'center' }}
                 >
-                  {plan.ctaLabel || t.site_cta}
-                </a>
-              ) : plan.ctaAction === 'github' ? (
-                <a
-                  href="https://github.com/christopherlhammer11-ai/hammerlock"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-secondary pricing-cta"
-                  style={{ display: 'block', textDecoration: 'none', textAlign: 'center' }}
-                >
-                  {plan.ctaLabel || t.site_cta}
-                </a>
-              ) : plan.ctaAction === 'contact' ? (
-                <a
-                  href="mailto:info@hammerlockai.com"
-                  className="btn-secondary pricing-cta"
-                  style={{ display: 'block', textDecoration: 'none', textAlign: 'center' }}
-                >
-                  {plan.ctaLabel || t.site_cta}
+                  {path.ctaLabel}
                 </a>
               ) : (
                 <a
-                  href="/get-app"
+                  href={path.ctaHref}
                   className="btn-primary pricing-cta"
                   style={{ display: 'block', textDecoration: 'none', textAlign: 'center' }}
                 >
-                  {plan.ctaLabel || t.site_cta}
+                  {path.ctaLabel}
                 </a>
               )}
               <ul className="pricing-features">
-                {plan.features.map((f) => (
+                {path.points.map((f) => (
                   <li key={f}><Check size={14} /> {f}</li>
                 ))}
               </ul>
@@ -621,10 +598,10 @@ export default function LandingPage() {
           maxWidth: 680, marginLeft: 'auto', marginRight: 'auto',
         }}>
           <h3 style={{ fontSize: '1.1rem', color: 'var(--accent)', marginBottom: 12 }}>
-            Pick your engine. Keep your freedom.
+            Pick your runtime. Keep your freedom.
           </h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.6 }}>
-            Run 100% local with Ollama for the most private setup, or connect your own API keys from OpenAI, Anthropic, Google, Groq, Mistral, or DeepSeek.
+            Run 100% local with Ollama for the most private setup, or connect your own API keys from OpenAI, Anthropic, Google, Groq, Mistral, or DeepSeek when you want cloud models.
           </p>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
             Need install help or a team rollout? Reach us at{' '}
@@ -797,8 +774,8 @@ export default function LandingPage() {
               { icon: '🌊', title: 'Real-Time Streaming', desc: 'Tokens stream to your screen as they generate. No more staring at loading spinners — see the AI think in real time.', blogLabel: 'Speed benchmarks →', blogHref: '/blog/token-streaming.html' },
               { icon: '🔑', title: 'Bring Your Own Keys', desc: 'Use your own API keys from any provider. Pay the providers directly at their rates. No markup, no middleman, no data routing through us.', blogLabel: 'API key guide →', blogHref: '/blog/byok-guide.html' },
               { icon: '🛡️', title: 'PII Anonymization', desc: 'Built-in anonymizer strips personal data before it reaches any cloud API. Names, emails, phone numbers — automatically redacted and restored.', blogLabel: 'Privacy architecture →', blogHref: '/blog/privacy-architecture.html' },
-              { icon: '🌐', title: 'Browser Automation & Grok', desc: 'Dedicated browser instance controlled from chat. Navigate websites, automate tasks, and use SuperGrok/ChatGPT/Perplexity directly through HammerLock.' },
-              { icon: '📱', title: '28 Native Skills', desc: 'Apple Calendar, Reminders, Notes, iMessage, email, GitHub, smart home (Hue, Sonos), WhatsApp, weather, PDF tools — all running through the local OpenClaw gateway.' },
+              { icon: '🌐', title: 'Browser Automation & Web Tools', desc: 'Dedicated browser instance controlled from chat. Navigate sites, automate repetitive flows, and route into your local tool stack when your setup allows it.' },
+              { icon: '📱', title: integrationCount ? `${integrationCount} Local Tools & Integrations` : 'Local Tools & Integrations', desc: 'Notes, calendar, messaging, GitHub, smart home, weather, PDF helpers, and more — all discoverable through the local tool gateway when configured on your machine.' },
             ].map((item) => (
               <div key={item.title} style={{
                 padding: '20px 24px', background: 'rgba(17,17,17,0.6)',
@@ -870,7 +847,7 @@ export default function LandingPage() {
 
         {/* CTA */}
         <div style={{ textAlign: 'center', marginTop: 48 }}>
-          <a href="#pricing" className="cta-main" style={{ display: 'inline-block', padding: '12px 32px', fontSize: '1rem', textDecoration: 'none', borderRadius: 10 }}>
+          <a href="/get-app" className="cta-main" style={{ display: 'inline-block', padding: '12px 32px', fontSize: '1rem', textDecoration: 'none', borderRadius: 10 }}>
             Get Started with OpenClaw &rarr;
           </a>
           <div style={{ marginTop: 12 }}>
@@ -988,7 +965,7 @@ export default function LandingPage() {
             {t.site_cta_final_sub}
           </p>
           <div className="cta-buttons">
-            <a href="#pricing" className="btn-primary" onClick={() => track("cta_click", { location: "footer_cta", label: "get_started" })}>{t.site_cta}</a>
+            <a href="/get-app" className="btn-primary" onClick={() => track("cta_click", { location: "footer_cta", label: "download_app" })}>{t.site_cta}</a>
             <a href="https://github.com/christopherlhammer11-ai/hammerlock" target="_blank" rel="noreferrer" className="btn-secondary" onClick={() => track("cta_click", { location: "footer_cta", label: "github" })}>{t.site_github}</a>
           </div>
           <p className="contact-line">{t.site_footer_contact} <a href="mailto:info@hammerlockai.com">info@hammerlockai.com</a></p>
@@ -1018,7 +995,7 @@ export default function LandingPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <a href="#features" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.82rem' }}>Features</a>
               <a href="#agents" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.82rem' }}>AI Agents</a>
-              <a href="#pricing" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.82rem' }}>Pricing</a>
+              <a href="#setup" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.82rem' }}>Setup</a>
               <a href="/get-app" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.82rem' }}>Download App</a>
               <a href="/blog/blog-index.html" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.82rem' }}>Blog &amp; Guides</a>
             </div>

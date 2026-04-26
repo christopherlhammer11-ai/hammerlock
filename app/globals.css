@@ -436,6 +436,26 @@ main.hero {
   margin-top: var(--space-sm);
 }
 
+.hero-proof-strip {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-proof-strip span {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
 /* ── Hero Video Section ── */
 .hero-video-section {
   padding: 0 8vw 100px;
@@ -4292,10 +4312,10 @@ a.action-badge-link:hover .action-badge-open {
 
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-md);
   width: 100%;
-  max-width: 1500px;
+  max-width: 1180px;
   margin: 0 auto;
 }
 
