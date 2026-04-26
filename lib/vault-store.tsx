@@ -303,7 +303,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount only
 
   const persistEncrypted = useCallback(async (data: VaultData) => {

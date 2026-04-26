@@ -210,7 +210,6 @@ export function PersonalVaultProvider({ children }: { children: ReactNode }) {
       }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Start auto-lock timer when unlocked

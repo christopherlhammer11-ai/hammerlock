@@ -1,0 +1,46 @@
+import { NextResponse } from "next/server";
+import { openclawCommand } from "@/lib/openclaw-paths";
+
+export async function GET() {
+  const hasGemini = !!process.env.GEMINI_API_KEY;
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+
+  let ollamaUp = false;
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+  if (!isServerless) {
+    const ollamaBase = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+    try {
+      const ollamaRes = await fetch(`${ollamaBase}/api/tags`, { signal: AbortSignal.timeout(3000) });
+      ollamaUp = ollamaRes.ok;
+    } catch {
+      // Ollama not running
+    }
+  }
+
+  let gatewayUp = false;
+  if (!isServerless) {
+    const { exec } = await import("child_process");
+    const { promisify } = await import("util");
+    const execAsync = promisify(exec);
+    try {
+      await execAsync(openclawCommand("health --json") + " 2>/dev/null", { timeout: 5000 });
+      gatewayUp = true;
+    } catch {
+      // Gateway not available
+    }
+  }
+
+  const hasLLM = hasGemini || hasOpenAI || hasAnthropic || ollamaUp;
+
+  return NextResponse.json({
+    status: hasLLM || gatewayUp ? "ready" : "no_provider",
+    gateway: gatewayUp ? "connected" : "offline",
+    providers: {
+      gemini: hasGemini,
+      ollama: ollamaUp,
+      openai: hasOpenAI,
+      anthropic: hasAnthropic,
+    },
+  });
+}

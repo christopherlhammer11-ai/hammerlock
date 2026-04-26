@@ -1215,7 +1215,7 @@ function normalizeTime(t: string): string {
 function parseNoteFromMessage(msg: string): { title: string; body: string } | null {
   // Strip the command prefix — handles: "create note in Apple Notes: Title",
   // "create a note called My Note", "save a note about X", etc.
-  let content = msg
+  const content = msg
     .replace(/^(?:create\s+(?:a\s+)?note\s+(?:in\s+(?:apple\s+)?notes?[\s:]*)?(?:called|titled|named|about)?\s*|(?:make|save|write)\s+(?:a\s+)?note\s+(?:in\s+(?:apple\s+)?notes?[\s:]*)?(?:called|titled|named|about)?\s*|add\s+to\s+(?:my\s+)?(?:apple\s+)?notes?\s+app[\s:]*)/i, "")
     .trim();
 

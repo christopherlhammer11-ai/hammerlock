@@ -572,14 +572,15 @@ export default function ChatPage() {
     fetch("/api/health", { signal: AbortSignal.timeout(5000) })
       .then(res => res.json())
       .then(data => {
-        if (data.status === "no_provider" && !isElectron()) {
-          // Web users with no provider need to add keys
+        if (data.status === "no_provider") {
+          // First launch should never strand the user in a dead-end state.
+          // If no local or cloud model is configured yet, show the setup flow
+          // for both web and desktop.
           setNeedsApiKeys(true);
           setShowApiKeyModal(true);
         }
         // Track Ollama status for setup banner
         if (data.providers) setOllamaDetected(!!data.providers.ollama);
-        // Desktop users: bundled key from .env.local handles it — no modal needed
       })
       .catch(() => {});
   }, [isUnlocked]);
@@ -663,7 +664,6 @@ export default function ChatPage() {
         setTimeout(() => inputRef.current?.focus(), 100);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingStep, onboardingInput, onboardingAnswers, updateVaultData, activeConvoId]);
 
   // Load custom agents from vault
@@ -1529,7 +1529,6 @@ export default function ChatPage() {
       sendCommand(command);
     }
     setActiveNudge(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [vaultSaved, setVaultSaved] = useState(false);
@@ -1924,6 +1923,7 @@ export default function ChatPage() {
 
   const statusDotClass = gatewayStatus === "connected" ? "dot connected" : gatewayStatus === "connecting" ? "dot connecting" : "dot offline";
   const statusLabel = gatewayStatus === "connected" ? t.topbar_connected : gatewayStatus === "connecting" ? t.topbar_connecting : t.topbar_offline;
+  const setupBlocked = gatewayStatus === "offline";
   const hasMessages = messages.length > 0;
 
   // Date bucket helper for sidebar section headers
@@ -2927,11 +2927,15 @@ export default function ChatPage() {
                 <div style={{ textAlign: "center", marginBottom: 20 }}>
                   <Lock size={36} strokeWidth={1.5} style={{ color: "var(--accent)", marginBottom: 12 }} />
                   <h2 style={{ fontSize: "1.3rem", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 6px" }}>
-                    {t.apikeys_welcome_title}
+                    {desktop ? "Connect a model to start chatting" : t.apikeys_welcome_title}
                   </h2>
                   <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}>
-                    {t.apikeys_welcome_subtitle}
-                    <br />{t.apikeys_welcome_keys_note}
+                    {desktop
+                      ? "HammerLock is installed, but this Mac does not have a local model or cloud key connected yet."
+                      : t.apikeys_welcome_subtitle}
+                    <br />{desktop
+                      ? "Use Ollama for free local AI, or add your own provider key below."
+                      : t.apikeys_welcome_keys_note}
                   </p>
                 </div>
               )}
@@ -2946,6 +2950,24 @@ export default function ChatPage() {
               {!needsApiKeys && <p className="onboarding-subtitle" style={{marginBottom:16}}>{t.apikeys_subtitle}</p>}
 
               <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                {needsApiKeys && desktop && (
+                  <div style={{
+                    padding: "14px 16px",
+                    borderRadius: "var(--radius-md)",
+                    background: "rgba(0,255,136,0.04)",
+                    border: "1px solid rgba(0,255,136,0.12)",
+                    color: "var(--text-secondary)",
+                    fontSize: "0.8rem",
+                    lineHeight: 1.55,
+                  }}>
+                    <div style={{ fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>
+                      Fastest path: local Ollama
+                    </div>
+                    <div style={{ marginBottom: 6 }}>1. Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>ollama.com/download</a></div>
+                    <div style={{ marginBottom: 6 }}>2. Run <code style={{ background: "rgba(0,255,136,0.08)", color: "var(--accent)", padding: "2px 6px", borderRadius: 4 }}>ollama pull llama3.1</code></div>
+                    <div>3. Reopen HammerLock and it will detect the model automatically</div>
+                  </div>
+                )}
                 <div>
                   <label style={{display:"block",fontSize:"0.8rem",color:"var(--text-secondary)",marginBottom:4,fontWeight:600}}>
                     {t.apikeys_openai_label} <span style={{color:"var(--accent)",fontSize:"0.7rem"}}>{t.apikeys_openai_rec}</span>
@@ -3014,7 +3036,7 @@ export default function ChatPage() {
               <div style={{display:"flex",gap:12,marginTop:18}}>
                 <button className="share-create-btn" onClick={handleSaveApiKeys} style={{flex:1, padding: needsApiKeys ? "12px 0" : undefined, fontSize: needsApiKeys ? "0.95rem" : undefined}}
                   disabled={!apiKeys.openai.trim() && !apiKeys.anthropic.trim() && !apiKeys.gemini.trim() && !apiKeys.groq.trim() && !apiKeys.mistral.trim() && !apiKeys.deepseek.trim()}>
-                  {needsApiKeys ? t.apikeys_connect_start : t.apikeys_save}
+                  {needsApiKeys ? (desktop ? "Connect provider key" : t.apikeys_connect_start) : t.apikeys_save}
                 </button>
                 {!needsApiKeys && (
                   <button className="ghost-btn" onClick={() => setShowApiKeyModal(false)} style={{flex:1}}>
@@ -3403,7 +3425,7 @@ export default function ChatPage() {
           <div className="console-footer">
             <span className="dot" /> {t.chat_footer_encrypted}
             {desktop
-              ? <span style={{ marginLeft: 12, color: "var(--accent)" }}>Tool Center Ready</span>
+              ? <span style={{ marginLeft: 12, color: setupBlocked ? "var(--warning, #ffb84d)" : "var(--accent)" }}>{setupBlocked ? "Model setup needed" : "Local AI ready"}</span>
               : subscription.active
                 ? <span style={{marginLeft:12,color:"var(--accent)"}}>{` ${subscription.tier.charAt(0).toUpperCase() + subscription.tier.slice(1)}`}</span>
                 : FREE_MESSAGE_LIMIT > 9999 ? null : <span style={{marginLeft:12}}>{freeLeft > 0 ? t.chat_footer_free_left(freeLeft) : t.chat_footer_free_limit}</span>
