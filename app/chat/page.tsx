@@ -161,6 +161,7 @@ export default function ChatPage() {
   const [chainTotal, setChainTotal] = useState(0);
   const [workflowToast, setWorkflowToast] = useState<string | null>(null);
   const [activeNudge, setActiveNudge] = useState<NudgeDef | null>(null);
+  const [isDesktopClient, setIsDesktopClient] = useState(false);
   const nudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { shouldShow: shouldShowNudge, dismissNudge, disableAll: disableAllNudges } = useNudges();
   const [tutorialStep, setTutorialStep] = useState(-1);
@@ -203,7 +204,10 @@ export default function ChatPage() {
     : [];
 
   // Auto-focus input on mount
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    inputRef.current?.focus();
+    setIsDesktopClient(isElectron());
+  }, []);
 
   // ---- VAULT GATE: redirect to /vault if not unlocked ----
   // This prevents the chat UI from being used in a broken state when
@@ -559,24 +563,6 @@ export default function ChatPage() {
     }
   }, [isUnlocked, vaultData]);
 
-  // Fetch compute unit balance on launch (desktop only)
-  const creditsChecked = useRef(false);
-  useEffect(() => {
-    if (!isUnlocked || creditsChecked.current) return;
-    creditsChecked.current = true;
-    if (isElectron()) {
-      fetch("/api/credits", { signal: AbortSignal.timeout(5000) })
-        .then(res => res.json())
-        .then(data => {
-          if (data.remainingUnits !== undefined) {
-            setComputeUnits({ remaining: data.remainingUnits, total: data.totalUnits, usingOwnKey: data.usingOwnKey, periodEnd: data.periodEnd, monthlyAllocation: data.monthlyAllocation, boosterUnits: data.boosterUnits });
-          }
-          if (data.usingOwnKey) setUsingOwnKey(true);
-        })
-        .catch(() => {});
-    }
-  }, [isUnlocked]);
-
   // For non-desktop (web) users without a provider, show API key setup
   // Desktop premium users get bundled key + compute units, so no key entry needed
   const setupPromptShown = useRef(false);
@@ -713,7 +699,7 @@ export default function ChatPage() {
   }, [conversations, groups, customAgents, activeAgentId, isUnlocked, updateVaultData]);
 
   const freeLeft = FREE_MESSAGE_LIMIT - messageCount;
-  const desktop = isElectron();
+  const desktop = isDesktopClient;
 
   // Gateway status polling
   useEffect(() => {
@@ -1194,18 +1180,6 @@ export default function ChatPage() {
         setTimeout(() => handleReadAloud(pid, reply), 300);
       }
 
-      // Refresh compute units balance (desktop only, non-blocking)
-      if (isElectron()) {
-        fetch("/api/credits", { signal: AbortSignal.timeout(3000) })
-          .then(r => r.json())
-          .then(d => {
-            if (d.remainingUnits !== undefined) {
-              setComputeUnits({ remaining: d.remainingUnits, total: d.totalUnits, usingOwnKey: d.usingOwnKey });
-            }
-            if (d.usingOwnKey) setUsingOwnKey(true);
-          })
-          .catch(() => {});
-      }
     } catch(e) {
       if (abortController.signal.aborted) {
         // User cancelled or stream timed out — keep whatever we streamed so far
@@ -3431,35 +3405,7 @@ export default function ChatPage() {
           <div className="console-footer">
             <span className="dot" /> {t.chat_footer_encrypted}
             {desktop
-              ? <>
-                  <span style={{marginLeft:12,color:"var(--accent)"}}>{t.chat_footer_premium}</span>
-                  {computeUnits && !computeUnits.usingOwnKey && (
-                    <span style={{
-                      marginLeft: 12,
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      color: computeUnits.remaining <= 50 ? "var(--danger, #ff4444)" : "var(--text-secondary)",
-                    }}>
-                      <span style={{
-                        display: 'inline-block', width: 48, height: 4, borderRadius: 2,
-                        background: 'rgba(255,255,255,0.08)', overflow: 'hidden', verticalAlign: 'middle',
-                      }}>
-                        <span style={{
-                          display: 'block', height: '100%', borderRadius: 2,
-                          width: `${Math.min(100, Math.round((computeUnits.remaining / Math.max(computeUnits.total, 1)) * 100))}%`,
-                          background: computeUnits.remaining / computeUnits.total > 0.5 ? 'var(--accent, #00ff88)'
-                            : computeUnits.remaining / computeUnits.total > 0.2 ? '#f59e0b' : '#ff4444',
-                          transition: 'width 0.3s ease',
-                        }} />
-                      </span>
-                      {computeUnits.remaining} / {computeUnits.total} {t.compute_units}
-                      {computeUnits.remaining <= 50 && computeUnits.remaining > 0 && ` — ${t.compute_running_low}`}
-                      {computeUnits.remaining <= 0 && ` — ${t.compute_add_key}`}
-                    </span>
-                  )}
-                  {computeUnits?.usingOwnKey && (
-                    <span style={{ marginLeft: 12, color: 'var(--accent)' }}>{t.compute_own_key}</span>
-                  )}
-                </>
+              ? <span style={{ marginLeft: 12, color: "var(--accent)" }}>Tool Center Ready</span>
               : subscription.active
                 ? <span style={{marginLeft:12,color:"var(--accent)"}}>{` ${subscription.tier.charAt(0).toUpperCase() + subscription.tier.slice(1)}`}</span>
                 : FREE_MESSAGE_LIMIT > 9999 ? null : <span style={{marginLeft:12}}>{freeLeft > 0 ? t.chat_footer_free_left(freeLeft) : t.chat_footer_free_limit}</span>

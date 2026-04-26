@@ -103,8 +103,14 @@ export default function RootLayout({
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
-              if ('serviceWorker' in navigator) {
+              const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+              const isElectron = navigator.userAgent.includes('Electron') || !!window.electron;
+              if ('serviceWorker' in navigator && !isLocalHost && !isElectron) {
                 navigator.serviceWorker.register('/sw.js').catch(() => {});
+              } else if ('serviceWorker' in navigator && (isLocalHost || isElectron)) {
+                navigator.serviceWorker.getRegistrations().then((regs) => {
+                  regs.forEach((reg) => reg.unregister().catch(() => {}));
+                }).catch(() => {});
               }
             `,
           }}

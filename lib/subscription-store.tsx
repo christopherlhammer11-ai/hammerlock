@@ -112,40 +112,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   // Fetch license tier + own-key status from server on mount (Electron desktop only)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!isElectron()) return;
+    if (isElectron()) {
+      setLicenseLoading(false);
+      return;
+    }
 
     setLicenseLoading(true);
-
-    // Check license tier
-    fetch("/api/license/check")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.tier) {
-          const tier = data.tier as SubscriptionTier;
-          setLicenseTier(tier);
-          if (TIER_RANK[tier] > 0) {
-            setSubscription((prev) => ({
-              ...prev,
-              tier,
-              active: true,
-            }));
-          }
-        }
-      })
-      .catch(() => {
-        console.warn("[subscription-store] Failed to check license, defaulting to free");
-      })
-      .finally(() => {
-        setLicenseLoading(false);
-      });
-
-    // Check if user has their own API keys configured → bypass message limit
-    fetch("/api/credits", { signal: AbortSignal.timeout(5000) })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.usingOwnKey) setUsingOwnKey(true);
-      })
-      .catch(() => {});
+    setLicenseLoading(false);
   }, []);
 
   useEffect(() => {
@@ -207,15 +180,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const canSendMessage = useMemo(() => {
+    // Desktop app is now free/local-first — no paywall gating here.
+    if (isElectron()) return true;
     // Using own API key → unlimited messages (no credits consumed)
     if (usingOwnKey) return true;
-    // Desktop app: check license tier from server
-    if (isElectron()) {
-      // Core or higher → unlimited messages
-      if (TIER_RANK[licenseTier] >= TIER_RANK["core"]) return true;
-      // Free tier on desktop → same message limit
-      return messageCount < FREE_MESSAGE_LIMIT;
-    }
     // Web: check subscription status
     if (isSubscriptionActive(subscription)) return true;
     return messageCount < FREE_MESSAGE_LIMIT;
@@ -223,11 +191,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const isFeatureAvailable = useCallback(
     (feature: PremiumFeature) => {
-      // Desktop app: use server-verified license tier
-      if (isElectron()) {
-        const requiredTier = FEATURE_TIERS[feature];
-        return TIER_RANK[licenseTier] >= TIER_RANK[requiredTier];
-      }
+      // Desktop app is now free/local-first — features are controlled by setup,
+      // permissions, and provider availability rather than subscription tiers.
+      if (isElectron()) return true;
       // Web: use subscription status
       if (!isSubscriptionActive(subscription)) return false;
       const requiredTier = FEATURE_TIERS[feature];
