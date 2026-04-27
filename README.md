@@ -2,8 +2,8 @@
 
 **Privacy-first local AI assistant for sensitive work.** HammerLock keeps documents, memory, and workflows encrypted on the user's device, with cloud APIs used only when the user chooses to bring their own key.
 
-Demo: **Watch the demo:** [HammerLock Research Run](https://christopherhammer.dev/assets/videos/narrated/project-demos/hammerlock-research-run-narrated.mp4)  
-Portfolio: **Portfolio context:** [https://christopherhammer.dev#use-cases](https://christopherhammer.dev#use-cases)
+**Demo:** [HammerLock Research Run](https://christopherhammer.dev/assets/videos/narrated/project-demos/hammerlock-research-run-narrated.mp4)  
+**Portfolio context:** [https://christopherhammer.dev#use-cases](https://christopherhammer.dev#use-cases)
 
 ## Core Features
 
