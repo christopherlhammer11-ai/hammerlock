@@ -50,6 +50,13 @@ The same pattern applies to compliance documents, financial analysis, legal revi
 - Local/provider model configuration
 - Vitest / CI checks
 
+## Security and Privacy Docs
+
+- [Architecture](./ARCHITECTURE.md) - local-first app layers, provider boundary, and agent workflow
+- [Privacy Model](./PRIVACY.md) - what stays local, what may leave the device, and user-controlled provider tradeoffs
+- [Security Policy](./SECURITY.md) - vulnerability reporting, current posture, and known limitations
+- [Detailed Security Notes](./docs/SECURITY.md) - encryption primitives and vault behavior
+
 ## Quick Start
 
 ```bash
@@ -83,4 +90,3 @@ Built by **Christopher L. Hammer** - self-taught AI/product builder shipping loc
 - Portfolio: [christopherhammer.dev](https://christopherhammer.dev)
 - Proof demos: [https://christopherhammer.dev#proof](https://christopherhammer.dev#proof)
 - GitHub: [christopherlhammer11-ai](https://github.com/christopherlhammer11-ai)
-
