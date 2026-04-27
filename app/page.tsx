@@ -283,6 +283,7 @@ export default function LandingPage() {
         <ul>
           <li><a href="#features">{t.site_nav_features}</a></li>
           <li><a href="#agents">{t.site_nav_agents}</a></li>
+          <li><a href="#demo">Demo</a></li>
           <li><a href="#setup">Setup</a></li>
           <li><a href="#how">{t.site_nav_how}</a></li>
           <li><a href="#why">{t.site_nav_why}</a></li>
@@ -344,6 +345,7 @@ export default function LandingPage() {
             </button>
             <a href="#features" onClick={() => setMobileNavOpen(false)}>{t.site_nav_features}</a>
             <a href="#agents" onClick={() => setMobileNavOpen(false)}>{t.site_nav_agents}</a>
+            <a href="#demo" onClick={() => setMobileNavOpen(false)}>Demo</a>
             <a href="#setup" onClick={() => setMobileNavOpen(false)}>Setup</a>
             <a href="#how" onClick={() => setMobileNavOpen(false)}>{t.site_nav_how}</a>
             <a href="#why" onClick={() => setMobileNavOpen(false)}>{t.site_nav_why}</a>
@@ -394,6 +396,40 @@ export default function LandingPage() {
           <div className="hero-video-overlay">
             <span className="hero-video-badge">See it in action</span>
           </div>
+        </div>
+      </section>
+
+      <section id="demo" className="demo-library fade-in-section">
+        <div className="section-label">WATCH HAMMERLOCK WORK</div>
+        <h2>From setup to sensitive research, see the workflow.</h2>
+        <p className="section-subtitle">
+          The short clip shows a real research pattern. The longer walkthrough explains how HammerLock is meant to be used: choose your runtime, create the encrypted vault, pick an agent, run the workflow, and save the result.
+        </p>
+        <div className="demo-video-grid">
+          <article className="demo-video-card demo-video-card-featured">
+            <div className="demo-video-copy">
+              <span className="demo-kicker">Full tutorial · 2 min</span>
+              <h3>HammerLock AI walkthrough</h3>
+              <p>Setup choices, encrypted vault, agent routing, research flow, local tools, memory, and output review.</p>
+            </div>
+            <video controls preload="metadata" poster="/brand/hammerlock-og-banner.jpg" className="demo-player">
+              <source src="/videos/hammerlock-full-walkthrough.mp4" type="video/mp4" />
+            </video>
+          </article>
+          <article className="demo-video-card">
+            <div className="demo-video-copy">
+              <span className="demo-kicker">Quick proof · 20 sec</span>
+              <h3>Private research run</h3>
+              <p>A founder, lawyer, analyst, or operator can research and draft without turning sensitive context into cloud-chat exhaust.</p>
+            </div>
+            <video controls preload="metadata" poster="/brand/hammerlock-og-banner.jpg" className="demo-player">
+              <source src="/videos/hammerlock-research-run-narrated.mp4" type="video/mp4" />
+            </video>
+          </article>
+        </div>
+        <div className="demo-actions">
+          <a href="/get-app" className="btn-primary" onClick={() => track("cta_click", { location: "demo", label: "download_app" })}>Download HammerLock</a>
+          <a href="#agents" className="btn-secondary" onClick={() => track("cta_click", { location: "demo", label: "meet_agents" })}>Meet the agents</a>
         </div>
       </section>
 
