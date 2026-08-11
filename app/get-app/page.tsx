@@ -1,13 +1,11 @@
 "use client";
 
-import { Download, ExternalLink, Globe, Monitor, Shield, Smartphone, Terminal } from "lucide-react";
+import { ExternalLink, Globe, Monitor, Shield, Smartphone, Terminal } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { track } from "@vercel/analytics";
 
-const DMG_URL =
-  "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest/download/HammerLock-AI.dmg";
 const RELEASES_URL = "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest";
 
 export default function GetAppPage() {
@@ -38,10 +36,10 @@ export default function GetAppPage() {
             <div className="download-card-icon"><Monitor size={28} /></div>
             <h3>macOS</h3>
             <p>Native desktop app for Mac. Drag to Applications and launch.</p>
-            <a href={DMG_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("download_clicked", { platform: "macos", format: "dmg" })}>
-              <Download size={16} /> Download DMG
+            <a href={RELEASES_URL} className="btn-secondary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("release_checked", { platform: "macos" })}>
+              <ExternalLink size={16} /> Check release files
             </a>
-            <span className="download-meta">Check GitHub Releases for the published version and architecture</span>
+            <span className="download-meta">The free v0.4 DMG will appear after signing and notarization</span>
           </div>
 
           {/* Windows */}
