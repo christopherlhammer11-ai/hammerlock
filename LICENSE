@@ -1,77 +1,60 @@
-PROPRIETARY SOFTWARE LICENSE
+HAMMERLOCK AI FREEWARE LICENSE
 
 Copyright (c) 2024-2026 HammerLock AI. All rights reserved.
 
-This software and associated documentation files (the "Software") are the
-proprietary property of HammerLock AI and are protected by copyright law
-and international treaties.
+HammerLock AI is free of charge for personal and internal business use. No
+purchase, subscription, license key, or device activation is required.
 
 GRANT OF LICENSE
 
-Subject to the terms of this license and upon purchase of a valid license key,
-the licensor grants you a limited, non-exclusive, non-transferable,
-non-sublicensable license to:
+The licensor grants you a non-exclusive, worldwide, royalty-free license to:
 
-  1. Install and use the Software on ONE (1) device per license key.
-  2. Use the Software for personal or internal business purposes.
+1. Install and use the Software on any number of devices you own or control.
+2. Use the Software for personal or internal business purposes.
+3. Make reasonable backup copies of the Software.
 
 RESTRICTIONS
 
-You may NOT:
+This is freeware, not an open-source license. Unless applicable law gives you
+additional rights, you may not sell, sublicense, redistribute, modify, create
+derivative works from, reverse engineer, decompile, or disassemble the
+HammerLock AI application. Components distributed under their own licenses,
+including OpenClaw, remain governed by those licenses.
 
-  1. Copy, modify, merge, or create derivative works of the Software.
-  2. Distribute, sublicense, lease, rent, or lend the Software to any
-     third party.
-  3. Reverse engineer, decompile, disassemble, or attempt to derive the
-     source code of the Software, except to the extent permitted by
-     applicable law.
-  4. Remove, alter, or obscure any proprietary notices, labels, or marks
-     on the Software.
-  5. Use the Software to build a competing product or service.
-  6. Share, publish, or transfer your license key to another person or
-     entity.
+THIRD-PARTY SERVICES
+
+The Software can use local models and third-party services that you choose to
+configure. Local model downloads, cloud AI providers, search providers, and
+other integrations are governed by their own terms and may impose separate
+costs. HammerLock AI does not include or resell cloud model usage.
 
 DATA PRIVACY
 
-The Software is designed with a local-first, privacy-first architecture.
-Your data is processed and stored locally on your device. The Software does
-not transmit personal data to external servers except as explicitly required
-for features you activate (e.g., third-party AI provider API calls, license
-validation).
+The Software is designed around local storage and local processing. Features
+that you explicitly connect to third-party services may transmit the data
+needed to perform your request. Review each provider's terms and privacy policy
+before connecting it.
 
 DISCLAIMER OF WARRANTIES
 
 THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. THE LICENSOR DOES
-NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE OR UNINTERRUPTED.
+IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, AND NONINFRINGEMENT. THE LICENSOR DOES NOT WARRANT THAT THE SOFTWARE
+WILL BE ERROR-FREE, SECURE, OR UNINTERRUPTED.
 
 LIMITATION OF LIABILITY
 
-IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL,
-SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING OUT OF OR RELATED TO
-YOUR USE OF THE SOFTWARE, REGARDLESS OF THE THEORY OF LIABILITY, EVEN IF
-THE LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
-
-THE LICENSOR'S TOTAL AGGREGATE LIABILITY SHALL NOT EXCEED THE AMOUNT YOU
-PAID FOR THE SOFTWARE LICENSE IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM.
-
-TERMINATION
-
-This license is effective until terminated. It will terminate automatically
-if you fail to comply with any term of this license. Upon termination, you
-must destroy all copies of the Software in your possession.
-
-The licensor may also terminate this license by disabling your license key
-if a violation of these terms is detected.
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE LICENSOR SHALL NOT BE LIABLE FOR
+INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING FROM
+OR RELATED TO THE SOFTWARE. THE LICENSOR'S TOTAL LIABILITY SHALL NOT EXCEED
+US$100.
 
 GOVERNING LAW
 
-This license shall be governed by and construed in accordance with the laws
-of the State of California, United States, without regard to its conflict
-of law provisions.
+This license is governed by the laws of the State of California, United States,
+without regard to conflict-of-law rules.
 
 CONTACT
 
-For licensing inquiries: support@hammerlockai.com
-Website: https://hammerlockai.com
+support@hammerlockai.com
+https://hammerlockai.com

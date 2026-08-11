@@ -1,14 +1,17 @@
 {
   "name": "hammerlock",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "🔨🔐 HammerLock AI — your AI, your data, your rules. Privacy-first intelligence with local encryption and zero cloud dependency.",
   "type": "module",
   "author": {
     "name": "HammerLock AI",
     "email": "support@hammerlockai.com"
   },
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "private": true,
+  "engines": {
+    "node": ">=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0"
+  },
   "main": "electron/main.js",
   "bin": {
     "hammerlock": "bin/hammerlock.js"
@@ -19,50 +22,46 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "prisma:generate": "prisma generate",
-    "prisma:push": "prisma db push",
-    "prisma:studio": "prisma studio",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
+    "start": "node .next/standalone/server.js",
     "electron:dev": "electron .",
-    "electron:build": "prisma generate && next build && electron-builder --mac --win --linux",
-    "electron:build:mac": "prisma generate && next build && electron-builder --mac",
-    "electron:build:win": "prisma generate && next build && electron-builder --win",
-    "electron:build:linux": "prisma generate && next build && electron-builder --linux"
+    "electron:build": "npm run build && electron-builder --mac --win --linux",
+    "electron:build:mac": "npm run build && electron-builder --mac",
+    "electron:build:win": "npm run build && electron-builder --win",
+    "electron:build:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
     "@noble/hashes": "^1.8.0",
-    "@prisma/client": "^5.15.0",
     "@vercel/analytics": "^1.6.1",
     "@vercel/speed-insights": "^1.3.1",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
     "lucide-react": "^0.400.0",
-    "next": "^14.1.0",
+    "next": "16.3.0",
     "openai": "^6.19.0",
-    "openclaw": "^2026.2.23",
+    "openclaw": "2026.8.1-beta.1",
     "pdf-parse": "^2.4.5",
     "qrcode.react": "^4.2.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "resend": "^6.9.2",
-    "stripe": "^20.3.1",
+    "undici": "8.10.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.2.2",
-    "@types/react": "19.2.13",
-    "electron": "^40.4.0",
+    "@types/react": "19.2.18",
+    "electron": "^43.3.0",
     "electron-builder": "^26.7.0",
     "eslint": "^10.0.2",
-    "prisma": "^5.15.0",
+    "eslint-config-next": "^16.3.0",
     "typescript": "^5.4.2",
     "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
@@ -78,7 +77,6 @@
       "electron/**/*",
       "app/**/*",
       "lib/**/*",
-      "prisma/schema.prisma",
       "public/**/*",
       "bin/**/*",
       "templates/**/*",
@@ -172,5 +170,8 @@
       "synopsis": "Local-first AI with encrypted memory",
       "description": "HammerLock AI — Your AI. Your Data. Your Rules."
     }
+  },
+  "overrides": {
+    "@types/react": "19.2.18"
   }
 }

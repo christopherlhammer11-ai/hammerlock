@@ -2704,7 +2704,7 @@ export default function ChatPage() {
                           </strong>
                         </div>
                         <p style={{ margin: "0 0 12px", color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: 1.5 }}>
-                          Install <strong>Ollama</strong> to run AI models directly on your Mac — no cloud, no credits, completely private. It takes 2 minutes:
+                          Install <strong>Ollama</strong> to run compatible AI models directly on your Mac without a HammerLock usage meter or cloud-model request. Review local access and device security for sensitive work. It takes about 2 minutes:
                         </p>
                         <div style={{
                           display: "flex", flexDirection: "column", gap: 8,

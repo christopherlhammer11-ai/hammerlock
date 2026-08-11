@@ -38,7 +38,7 @@ export default function PrivacyPage() {
           fontSize: "0.85rem",
           marginBottom: 48,
         }}>
-          Last updated: February 2026
+          Last updated: August 11, 2026
         </p>
 
         {/* Introduction */}
@@ -59,10 +59,9 @@ export default function PrivacyPage() {
             We collect the minimum amount of information necessary to provide the Service:
           </p>
           <ul style={{ color: "var(--text-secondary)", lineHeight: 1.9, fontSize: "0.95rem", paddingLeft: 24 }}>
-            <li><strong>Email address</strong> &mdash; only when you contact us, request support, or purchase an optional paid service</li>
-            <li><strong>Activation or deployment records</strong> &mdash; only for managed rollout, support, or custom environments where those records are needed</li>
-            <li><strong>Payment information</strong> &mdash; if you purchase optional paid services, payment is processed by Stripe; we never store your full credit card number</li>
-            <li><strong>Basic billing metadata</strong> &mdash; only when needed to deliver support, deployment, or other optional paid services</li>
+            <li><strong>Email address</strong> &mdash; only when you contact us, request support, or subscribe to product updates</li>
+            <li><strong>Deployment records</strong> &mdash; only for managed support or custom environments where those records are needed</li>
+            <li><strong>Website analytics</strong> &mdash; the public website may use Vercel Analytics and Speed Insights; the Electron app does not load them</li>
           </ul>
         </section>
 
@@ -75,11 +74,10 @@ export default function PrivacyPage() {
             This is the most important section of our privacy policy. HammerLock AI does <strong>not</strong> collect:
           </p>
           <ul style={{ color: "var(--text-secondary)", lineHeight: 1.9, fontSize: "0.95rem", paddingLeft: 24 }}>
-            <li><strong>Your chat conversations</strong> &mdash; all chats are stored locally on your device and never leave it</li>
+            <li><strong>Your stored chat history</strong> &mdash; HammerLock does not upload a copy of your local vault or history to a HammerLock account</li>
             <li><strong>Your vault data</strong> &mdash; all encrypted vault contents remain on your machine</li>
-            <li><strong>Your documents or files</strong> &mdash; files you analyze or import stay on-device</li>
-            <li><strong>Browsing or usage telemetry</strong> &mdash; we do not track how you use the application</li>
-            <li><strong>Analytics or tracking data</strong> &mdash; no third-party analytics, no cookies for tracking, no fingerprinting</li>
+            <li><strong>Your full local document library</strong> &mdash; documents remain local unless you explicitly send document content to a connected provider</li>
+            <li><strong>Desktop usage telemetry</strong> &mdash; the Electron app does not load Vercel Analytics or Speed Insights</li>
             <li><strong>Keystrokes, clipboard data, or screen content</strong> &mdash; the application does not monitor your system activity</li>
             <li><strong>IP-based location tracking</strong> &mdash; we do not log or store IP addresses for profiling</li>
           </ul>
@@ -100,9 +98,9 @@ export default function PrivacyPage() {
             <li>No data is sent to our servers during normal application use</li>
           </ul>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem" }}>
-            When you choose to use cloud AI providers (OpenAI, Anthropic, Google, etc.), your prompts are
-            sent directly to those providers according to their respective privacy policies. HammerLock AI
-            does not intercept, log, or store these communications in normal use.
+            When you choose a cloud AI provider (OpenAI, Anthropic, Google, etc.), the prompt, relevant
+            conversation context, and any document text included in the request are sent to that provider
+            under its privacy policy. HammerLock does not operate a hosted model proxy for those requests.
           </p>
         </section>
 
@@ -131,8 +129,8 @@ export default function PrivacyPage() {
             HammerLock AI integrates with the following third-party services:
           </p>
           <ul style={{ color: "var(--text-secondary)", lineHeight: 1.9, fontSize: "0.95rem", paddingLeft: 24 }}>
-            <li><strong>Stripe</strong> &mdash; payment processing for optional paid services. Stripe handles all financial data under their own privacy policy. We never store your credit card details.</li>
             <li><strong>Cloud AI providers (optional)</strong> &mdash; if you choose to use cloud-based AI models (OpenAI, Anthropic, Google, Groq, Mistral, DeepSeek), your prompts are sent to those providers. Each provider has its own privacy policy and data handling practices. Use of cloud providers is entirely optional; local models via Ollama provide a fully private alternative.</li>
+            <li><strong>Vercel (website only)</strong> &mdash; hosts the public website and may provide aggregate web performance and traffic analytics. These scripts are disabled in the Electron app.</li>
           </ul>
         </section>
 
@@ -145,9 +143,8 @@ export default function PrivacyPage() {
             HammerLock AI includes a built-in PII (Personally Identifiable Information) anonymization feature.
             When enabled, this feature automatically detects and redacts sensitive information &mdash; such as
             names, email addresses, phone numbers, social security numbers, and other personal data &mdash;
-            before it is sent to any cloud AI provider. This adds an extra layer of privacy protection when
-            using external AI services, ensuring that your personal information is never exposed to third
-            parties even during cloud-based AI interactions.
+            before it is sent to a cloud AI provider. Automated redaction is a risk-reduction feature, not a
+            guarantee: review sensitive prompts and provider settings before sending them.
           </p>
         </section>
 
@@ -161,7 +158,7 @@ export default function PrivacyPage() {
             vault contents, and application data at any time directly from your device.
           </p>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem" }}>
-            For the minimal server-side data we hold (such as support email, activation records, or billing metadata),
+            For the minimal server-side data we hold (such as support email or managed-deployment records),
             we retain this information only as long as needed to provide the requested service. If you request
             deletion, we will remove your information from our systems within 30 days, except where retention is required by law or for legitimate business
             purposes such as fraud prevention.

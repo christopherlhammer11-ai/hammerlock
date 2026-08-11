@@ -1,6 +1,6 @@
 # HammerLock AI Regression Matrix
 
-_Last updated: 2026-02-14_
+_Last updated: 2026-08-11_
 
 This matrix tracks the manual/automated coverage for the current HammerLock AI surface (Next.js web console + Electron desktop wrapper).
 
@@ -10,7 +10,7 @@ This matrix tracks the manual/automated coverage for the current HammerLock AI s
 | --- | --- | --- |
 | Desktop (Electron) | `npm run electron:dev` / `electron:build` dmg | Primary surface. Must include Brave key + bundled gateway. |
 | Web (Next dev) | `npm run dev` | Used for quick UI validation; Brave search disabled unless API key injected. |
-| API | `npm run dev` + REST | Used for credit, persona, transcription endpoints. |
+| API | `npm run dev` + REST | Used for persona, transcription, search, and model endpoints. |
 
 ## Feature Coverage
 
@@ -23,7 +23,7 @@ This matrix tracks the manual/automated coverage for the current HammerLock AI s
 |  | Voice input (mic permissions, Whisper fallback) | ✅ | ⚠️ | Partial – desktop pass, web blocked by missing key | Web requires OPENAI key; show actionable error when missing. |
 |  | PDF upload + parse | ✅ | ✅ | Pass (sample PDF) | Enforce 10 MB limit + error toast. |
 | **Brave search** | Search command with citations | ✅ | ⚠️ | Partial – desktop pass, web blocked pending BYOK | Desktop uses bundled key; web requires manual config. Check exhaustion path. |
-| **Credits system** | Consume chat/search units, show paywall | ✅ | ⚠️ | Partial – desktop meter drops, corruption test pending | Confirm `/api/credits` matches local count; handle `credits.json` corruption. |
+| **Free-use mode** | Chat and product features work without activation, subscription, or HammerLock usage meter | ✅ | ✅ | Pass (automated gates + browser smoke, 2026-08-11) | Users supply provider keys or use a compatible local model; provider charges remain external. |
 | **Desktop shell** | Gateway + Next autostart, quit handling | ✅ | ❌ | Pass (ports freed after quit) | Only desktop. Verify ports 3100/18789 freed on exit. |
 | **Electron updates** | dmg signing + notarization script | 🚧 | ❌ | Blocked – waiting for Infra automation | Infra pipeline pending. Manual smoke for now. |
 | **Landing page** | Feature list, CTA links, downloads | ✅ | ✅ | Pass (copy reviewed) | Ensure new copy matches Brave/search/credit story. |
@@ -34,8 +34,7 @@ Legend: ✅ covered | ⚠️ partial coverage | 🚧 not started | ❌ not appli
 ## Open QA Blockers
 
 1. **Argon2 upgrade validation** – need deterministic test plan once locksmith/vaultie land final migration code.
-2. **Credits ledger corruption handling** – force-quit desktop while `credits.json` updating to ensure UI recovers.
-3. **Voice transcription fallback** – add test verifying error copy when no OpenAI key is configured.
+2. **Voice transcription fallback** – add test verifying error copy when no OpenAI key is configured.
 
 ## Next Steps
 

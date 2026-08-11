@@ -7,15 +7,21 @@ const nextConfig = {
     // Disabling optimization avoids runtime cache writes inside the app bundle.
     unoptimized: true,
   },
-  experimental: {
-    optimizePackageImports: ['lucide-react'],
-    serverComponentsExternalPackages: [
-      'pdf-parse',
-      '@napi-rs/canvas',
-      'pdfjs-dist',
-    ],
-  },
+  serverExternalPackages: [
+    'pdf-parse',
+    '@napi-rs/canvas',
+    'pdfjs-dist',
+  ],
   output: 'standalone',
+  async redirects() {
+    return [
+      {
+        source: '/blog/:legacy*.html',
+        destination: '/blog',
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {

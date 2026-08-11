@@ -12,7 +12,7 @@ const UTM_PARAMS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "
 const UTM_COOKIE = "hlk_utm";
 const UTM_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
   // Build response — default pass-through

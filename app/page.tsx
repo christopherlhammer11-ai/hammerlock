@@ -42,16 +42,16 @@ export default function LandingPage() {
 
   const features = [
     { icon: '🔐', title: t.site_feat_encrypt_title, body: t.site_feat_encrypt_body,
-      detail: 'AES-256-GCM encryption with PBKDF2 key derivation. Your data never leaves your device unencrypted — not even metadata.',
+      detail: 'AES-256-GCM protects supported vault data at rest. Content you send to a cloud model is transmitted to that provider under its terms.',
       cta: 'See Security Details', ctaLink: '#why' },
     { icon: '🌐', title: t.site_feat_search_title, body: t.site_feat_search_body,
-      detail: 'Real-time web search powered by Brave Search API. Get current information with source citations — all processed locally.',
+      detail: 'Real-time web search powered by Brave Search API. Queries use your configured service and results can include source links.',
       cta: 'See Download Options', ctaLink: '/get-app' },
     { icon: '🧠', title: t.site_feat_memory_title, body: t.site_feat_memory_body,
       detail: 'Your personal vault remembers your role, preferences, and context. Every conversation builds on what came before.',
       cta: 'Learn More', ctaLink: '#how' },
     { icon: '🎙️', title: t.site_feat_voice_title, body: t.site_feat_voice_body,
-      detail: 'Whisper-powered transcription for voice input. Text-to-speech for hands-free responses. Works offline with Ollama.',
+      detail: 'Voice input and text-to-speech are available when the required browser or provider capabilities are configured.',
       cta: 'Download Free', ctaLink: '/get-app' },
     { icon: '🔗', title: integrationCount ? `${integrationCount} Local Tools & Integrations` : 'Local Tools & Integrations', body: 'Calendar, notes, messaging, GitHub, smart home, browser automation, weather, PDF utilities, and more — all reachable from chat when configured on your machine.',
       detail: 'Powered by the OpenClaw gateway: HammerLock can detect and connect to local tools and external services like Philips Hue, Sonos, Eight Sleep, WhatsApp, GitHub, Google apps, and more. Availability depends on your OS, installed apps, permissions, and connected accounts.',
@@ -59,20 +59,20 @@ export default function LandingPage() {
     { icon: '🌍', title: t.site_feat_lang_title, body: t.site_feat_lang_body,
       detail: '11 languages supported: English, Spanish, Portuguese, French, German, Chinese, Japanese, Korean, Arabic, Hindi, and Russian.',
       cta: 'Get the App', ctaLink: '/get-app' },
-    { icon: '💳', title: t.site_feat_credits_title, body: t.site_feat_credits_body,
-      detail: 'Run free with local models through Ollama, or connect your own API keys from OpenAI, Anthropic, Google, Groq, Mistral, or DeepSeek. You stay in control of cost and privacy.',
+    { icon: '🔑', title: 'No HammerLock Usage Meter', body: 'Use local models without a HammerLock fee, or bring your own cloud-provider keys.',
+      detail: 'Run locally through Ollama, or connect your own API keys from OpenAI, Anthropic, Google, Groq, Mistral, or DeepSeek. Third-party providers may charge you directly.',
       cta: 'Choose Your Setup', ctaLink: '/get-app' },
     { icon: '📄', title: t.site_feat_pdf_title, body: t.site_feat_pdf_body,
-      detail: 'Upload any PDF and ask questions about it. Generate formatted reports and export conversations. All processing stays local.',
+      detail: 'PDF text is parsed by HammerLock; model analysis then follows the local or cloud provider you choose. Export conversations and reports for review.',
       cta: 'Download Free', ctaLink: '/get-app' },
     { icon: '🗄️', title: t.site_feat_vault_title, body: t.site_feat_vault_body,
-      detail: 'Encrypted personal vault stores your profile, notes, and preferences. Synced across sessions, never sent to the cloud.',
+      detail: 'The encrypted personal vault stores supported profile, note, and preference data locally. Context sent to a cloud model is disclosed to that provider.',
       cta: 'Get the App', ctaLink: '/get-app' },
     { icon: '🤖', title: t.site_feat_agents_title, body: t.site_feat_agents_body,
       detail: '11 built-in agents work alongside local tools and integrations like notes, calendar, messaging, GitHub, browser automation, PDF utilities, and smart home controls. What is available depends on your setup.',
       cta: 'Meet the Agents', ctaLink: '#agents' },
     { icon: '⚡', title: t.site_feat_perf_title, body: t.site_feat_perf_body,
-      detail: 'Parallel provider racing across 6+ LLMs. Streaming responses start in under 1 second. Token-aware context management.',
+      detail: 'A focused desktop shell with streaming responses, configurable providers, and local-first storage. Performance depends on your model and hardware.',
       cta: 'Start Here', ctaLink: '/get-app' },
   ];
 
@@ -87,40 +87,40 @@ export default function LandingPage() {
     [t.site_cmp_local_storage, '✕', '✓'],
     [t.site_cmp_aes, '✕', '✓'],
     [t.site_cmp_pii, '✕', '✓'],
-    [t.site_cmp_no_train, '✕', '✓'],
+    ['Provider data handling', 'Varies by product', 'Local mode stays on-device; cloud mode follows provider terms'],
     [t.site_cmp_agents, '✕', t.site_cmp_agents_val],
     ['Local tools & integrations', 'Limited', integrationCount ? `${integrationCount}+ available to configure` : 'Available based on your setup'],
-    ['Browser automation', '✕', '✓'],
+    ['Browser automation', 'Varies', 'Available when configured'],
     [t.site_cmp_memory, '✕', '✓'],
     [t.site_cmp_search, t.site_cmp_search_typical, '✓'],
     [t.site_cmp_voice, t.site_cmp_voice_typical, '✓'],
     [t.site_cmp_no_account, '✕', '✓'],
   ];
 
-  const testimonials = [
+  const workflowExamples = [
     {
-      emoji: "🚀", name: "Sarah M.", role: "CEO, Early-Stage Startup", category: "Startup",
-      quote: "I replaced three separate SaaS subscriptions with HammerLock. Email drafting, scheduling, and market research — all from one encrypted chat that never touches the cloud.",
+      emoji: "🚀", name: "Founder workflow", role: "Research → synthesis → local report", category: "Startup",
+      quote: "Research a market, compare public claims, and save a working brief to the encrypted local vault.",
     },
     {
-      emoji: "⚖️", name: "David R.", role: "Immigration Attorney", category: "Legal",
-      quote: "Client confidentiality isn't optional. I parse case documents and research precedents without any data leaving my laptop. My clients' information stays exactly where it should.",
+      emoji: "⚖️", name: "Legal workflow", role: "Document review with explicit human review", category: "Legal",
+      quote: "Review a local document, surface questions, and draft a research memo without presenting the output as legal advice.",
     },
     {
-      emoji: "📊", name: "Priya K.", role: "CPA, Self-Employed", category: "Finance",
-      quote: "I analyze sensitive financial documents locally — no cloud uploads, no compliance headaches. My clients trust me because I can prove their data never left my machine.",
+      emoji: "📊", name: "Analysis workflow", role: "Private inputs → reviewable output", category: "Finance",
+      quote: "Summarize a local file, compare scenarios, and export a report while keeping the operator responsible for verification.",
     },
     {
-      emoji: "🎙️", name: "Marcus T.", role: "Head of Ops, Remote Team", category: "Operations",
-      quote: "Voice commands, smart home control, and calendar management — I run my entire morning routine hands-free. It's like having a chief of staff that respects my privacy.",
+      emoji: "🎙️", name: "Operator workflow", role: "Voice → local tools → confirmation", category: "Operations",
+      quote: "Turn a spoken request into a draft action, inspect the result, and keep consequential steps under operator control.",
     },
     {
-      emoji: "🔒", name: "Elena W.", role: "Senior Software Engineer", category: "Privacy",
-      quote: "Finally an AI assistant that doesn't train on my conversations. I use it daily for code review and documentation — knowing my proprietary code stays private.",
+      emoji: "🔒", name: "Local-first workflow", role: "Ollama + encrypted local memory", category: "Privacy",
+      quote: "Run a supported local model through Ollama and keep chat history and saved context in the encrypted vault.",
     },
     {
-      emoji: "🏪", name: "James L.", role: "Small Business Owner", category: "Small Biz",
-      quote: "Customer emails, inventory reminders, daily task lists — all managed from one place. The encryption means I don't worry about my business data ending up in someone's training set.",
+      emoji: "🏪", name: "Small-business workflow", role: "Draft → review → send elsewhere", category: "Small Biz",
+      quote: "Draft customer follow-ups and task lists from local context, then review them before using the connected service.",
     },
   ];
 
@@ -173,7 +173,7 @@ export default function LandingPage() {
       name: "Team Rollout",
       tag: "SELF-HOSTED",
       setup: "For teams that want a private shared deployment",
-      description: "Best for companies that need a defensible internal AI surface without sending work product into third-party chat history.",
+      description: "Best for companies evaluating a private internal AI surface with their own deployment and review requirements.",
       points: [
         "Shared deployment patterns",
         "Private internal workflows",
@@ -287,7 +287,7 @@ export default function LandingPage() {
           <li><a href="#setup">Setup</a></li>
           <li><a href="#how">{t.site_nav_how}</a></li>
           <li><a href="#why">{t.site_nav_why}</a></li>
-          <li><a href="/blog/blog-index.html">Research</a></li>
+          <li><a href="/blog">Field Notes</a></li>
           <li><a href={HAMMERLOCK_X_URL} target="_blank" rel="noopener noreferrer">X</a></li>
         </ul>
         <div className="lang-picker" ref={langRef} style={{ position: 'relative' }}>
@@ -373,7 +373,7 @@ export default function LandingPage() {
           <a href="#setup" className="btn-secondary" onClick={() => track("cta_click", { location: "hero", label: "see_setup" })}>{t.site_cta_how}</a>
         </div>
         <div className="hero-proof-strip">
-          <span>Free and open source</span>
+          <span>Free to download and use</span>
           <span>11 built-in agents</span>
           <span>Encrypted local memory</span>
           <span>Run local or BYOK</span>
@@ -382,19 +382,16 @@ export default function LandingPage() {
 
       <section className="hero-video-section fade-in-section">
         <div className="hero-video-wrapper">
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            poster="/brand/hammerlock-og-banner.jpg"
+          <Image
+            src="/brand/hammerlock-console-v0.4.png"
+            alt="HammerLock AI v0.4 operator console showing local setup"
+            width={1280}
+            height={633}
+            priority
             className="hero-video"
-          >
-            <source src="/videos/hammerlock-hero-fast.mp4" type="video/mp4" />
-          </video>
+          />
           <div className="hero-video-overlay">
-            <span className="hero-video-badge">See it in action</span>
+            <span className="hero-video-badge">Current v0.4 console</span>
           </div>
         </div>
       </section>
@@ -487,7 +484,7 @@ export default function LandingPage() {
                 <div className="card-expand" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,255,136,0.15)' }}>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
                     {card.label === t.site_uc_founders_label && 'Pitch decks, competitor analysis, investor prep, go-to-market plans — all with your encrypted context. Your strategy stays yours.'}
-                    {card.label === t.site_uc_legal_label && 'Contract review, clause flagging, NDA drafts, compliance checklists — processed locally with zero cloud exposure.'}
+                    {card.label === t.site_uc_legal_label && 'Draft contract notes, clause flags, and compliance questions locally when using a compatible local model; professional review remains required.'}
                     {card.label === t.site_uc_finance_label && 'Revenue modeling, expense tracking, cash flow projections, investor reporting — your financials never leave your machine.'}
                     {card.label === t.site_uc_ops_label && 'SOPs, workflow automation, team scheduling, process optimization — operational intelligence that learns your business.'}
                   </p>
@@ -585,7 +582,7 @@ export default function LandingPage() {
         <div className="section-label">CHOOSE YOUR SETUP</div>
         <h2>Start local. Add cloud only if you want it.</h2>
         <p className="section-subtitle">
-          HammerLock AI is free and open source. The real choice is not pricing. It&apos;s how you want to run the intelligence layer behind the app.
+          HammerLock AI is free to download and use. The real choice is how you want to run the intelligence layer behind the app.
         </p>
 
 
@@ -646,16 +643,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Testimonials ── */}
+      {/* ── Verifiable workflow examples ── */}
       <section className="testimonials fade-in-section">
-        <div className="section-label">REAL STORIES</div>
-        <h2>Trusted by people who take privacy seriously</h2>
+        <div className="section-label">WORKFLOW PROOF</div>
+        <h2>Concrete jobs HammerLock is built to handle</h2>
         <p className="section-subtitle">
-          From solo founders to law firms, people are switching to HammerLock AI
-          because their data deserves better than the cloud.
+          Product examples, not anonymous testimonials. Each flow is inspectable
+          and should still be reviewed by the person operating it.
         </p>
         <div className="testimonials-grid">
-          {testimonials.map((item) => (
+          {workflowExamples.map((item) => (
             <div key={item.name} className="testimonial-card">
               <div className="testimonial-category">{item.category}</div>
               <p className="testimonial-quote">&ldquo;{item.quote}&rdquo;</p>
@@ -799,17 +796,17 @@ export default function LandingPage() {
             How OpenClaw Works
           </h3>
           <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 32, maxWidth: 600, marginLeft: 'auto', marginRight: 'auto' }}>
-            OpenClaw is the open-source AI runtime that powers HammerLock. It handles provider routing, failover, streaming, and local model management — so you never depend on a single AI vendor.
+            OpenClaw is the open-source agent runtime bundled with HammerLock. It supplies model and tool connections; what is available depends on your configuration.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
             {[
-              { icon: '🔄', title: 'Parallel Provider Racing', desc: 'Sends your query to multiple AI providers simultaneously. The fastest response wins. If one provider is down, you never notice.', blogLabel: 'How racing works →', blogHref: '/blog/parallel-provider-racing.html' },
-              { icon: '🏠', title: 'Local-First with Ollama', desc: 'Run Llama, Mistral, Phi, or Gemma locally with Ollama. Zero latency, zero cost, zero data leaving your machine. Perfect for sensitive work.', blogLabel: 'Read the field guide →', blogHref: '/blog/blog-index.html' },
-              { icon: '🔀', title: 'Automatic Failover', desc: 'If OpenAI is slow, Groq picks it up. If Groq is down, Anthropic steps in. Your workflow never stops, regardless of provider outages.', blogLabel: 'Inside OpenClaw →', blogHref: '/blog/automatic-failover.html' },
-              { icon: '🌊', title: 'Real-Time Streaming', desc: 'Tokens stream to your screen as they generate. No more staring at loading spinners — see the AI think in real time.', blogLabel: 'Speed benchmarks →', blogHref: '/blog/token-streaming.html' },
+              { icon: '🔄', title: 'Provider Routing', desc: 'Connect supported providers and select a route appropriate to the task. Availability and fallback behavior depend on your configuration.', blogLabel: 'Provider guide →', blogHref: '/blog/parallel-provider-racing.html' },
+              { icon: '🏠', title: 'Local-First with Ollama', desc: 'Run compatible models locally with Ollama. Model speed, capability, and hardware requirements vary.', blogLabel: 'Read the field guide →', blogHref: '/blog/blog-index.html' },
+              { icon: '🔀', title: 'Configurable Fallbacks', desc: 'Configure more than one provider where supported so a workflow is not tied to a single model endpoint.', blogLabel: 'Inside OpenClaw →', blogHref: '/blog/automatic-failover.html' },
+              { icon: '🌊', title: 'Streaming Responses', desc: 'Supported providers can stream generated text into the interface as it arrives.', blogLabel: 'Streaming guide →', blogHref: '/blog/token-streaming.html' },
               { icon: '🔑', title: 'Bring Your Own Keys', desc: 'Use your own API keys from any provider. Pay the providers directly at their rates. No markup, no middleman, no data routing through us.', blogLabel: 'API key guide →', blogHref: '/blog/byok-guide.html' },
-              { icon: '🛡️', title: 'PII Anonymization', desc: 'Built-in anonymizer strips personal data before it reaches any cloud API. Names, emails, phone numbers — automatically redacted and restored.', blogLabel: 'Privacy architecture →', blogHref: '/blog/privacy-architecture.html' },
+              { icon: '🛡️', title: 'PII Redaction', desc: 'Built-in redaction can reduce exposure of common personal-data patterns before a cloud request. It is not a guarantee; review sensitive inputs.', blogLabel: 'Privacy architecture →', blogHref: '/blog/privacy-architecture.html' },
               { icon: '🌐', title: 'Browser Automation & Web Tools', desc: 'Dedicated browser instance controlled from chat. Navigate sites, automate repetitive flows, and route into your local tool stack when your setup allows it.' },
               { icon: '📱', title: integrationCount ? `${integrationCount} Local Tools & Integrations` : 'Local Tools & Integrations', desc: 'Notes, calendar, messaging, GitHub, smart home, weather, PDF helpers, and more — all discoverable through the local tool gateway when configured on your machine.' },
             ].map((item) => (
@@ -838,11 +835,11 @@ export default function LandingPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
             {[
-              { title: 'Private Legal AI', desc: 'Law firms processing client documents with zero cloud exposure. Contract review, case research, and compliance checks — all running locally with attorney-client privilege intact.', tag: 'Legal', blogLabel: 'Read the case study →' },
-              { title: 'Healthcare Data Analysis', desc: 'HIPAA-compliant AI processing of patient data. Medical record summarization, clinical trial matching, and research synthesis without data leaving the hospital network.', tag: 'Healthcare', blogLabel: 'HIPAA compliance guide →' },
-              { title: 'Financial Modeling', desc: 'Investment firms running AI analysis on proprietary trading data. Portfolio optimization, risk assessment, and market research with no data leakage to third parties.', tag: 'Finance', blogLabel: 'Enterprise use cases →' },
-              { title: 'Government & Defense', desc: 'Air-gapped AI deployments for classified environments. Intelligence analysis, document processing, and decision support on isolated networks.', tag: 'Gov/Defense', blogLabel: 'Air-gap deployment →' },
-              { title: 'Enterprise Knowledge Base', desc: 'Companies deploying internal AI assistants trained on proprietary documentation. SOPs, product specs, and internal wikis — searchable and conversational.', tag: 'Enterprise', blogLabel: 'Enterprise architecture →' },
+              { title: 'Legal Research Workspace', desc: 'Draft research notes and review local documents with a human responsible for confidentiality, privilege, citations, and legal conclusions.', tag: 'Legal', blogLabel: 'Read the workflow →' },
+              { title: 'Health Research Workspace', desc: 'Work with non-sensitive research materials locally. Regulated or patient data requires an independently validated compliant deployment.', tag: 'Healthcare', blogLabel: 'Deployment considerations →' },
+              { title: 'Financial Modeling', desc: 'Draft and review scenario analysis using local files or configured providers. Outputs require professional verification.', tag: 'Finance', blogLabel: 'Workflow examples →' },
+              { title: 'Isolated-Network Evaluation', desc: 'Evaluate compatible local models in a controlled environment. HammerLock does not itself certify a deployment for classified use.', tag: 'Public Sector', blogLabel: 'Deployment considerations →' },
+              { title: 'Internal Knowledge Workspace', desc: 'Connect approved documentation and local tools to a conversational workspace, subject to your own access controls and review.', tag: 'Enterprise', blogLabel: 'Architecture notes →' },
               { title: 'Developer Tools', desc: 'Embed OpenClaw in your own applications. Build AI-powered features without vendor lock-in. Switch providers, add local models, or go fully offline — your architecture, your choice.', tag: 'Developers', blogLabel: 'Developer docs →' },
             ].map((uc) => (
               <div key={uc.title} style={{
@@ -897,17 +894,17 @@ export default function LandingPage() {
       {/* BLOG / RESEARCH */}
       <section className="features fade-in-section" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
         <div className="section-label">Research</div>
-        <h2>The Open Source Intelligence Files</h2>
+        <h2>Field notes for the v0.4 release.</h2>
         <p className="section-subtitle">
-          Deep dives into why open source isn&apos;t just a philosophy &mdash; it&apos;s the only architecture that puts you in control.
+          Practical setup and privacy boundaries, with claims kept inside what the current build can demonstrate.
         </p>
         <div className="blog-preview-grid">
           {[
-            { num: "01", pillar: "Philosophy", title: "The Code That Changed Everything: A Brief History of Open Source" },
-            { num: "02", pillar: "AI Models", title: "Ollama, LLaMA, Mistral, Gemma: Your 2026 Field Guide to Local AI" },
-            { num: "03", pillar: "Why OSS Wins", title: "Why Open Source Always Wins \u2014 And What Closed Systems Hide" },
-            { num: "04", pillar: "Privacy + OSS", title: "Open Source and Privacy Are the Same Fight" },
-            { num: "05", pillar: "Business Case", title: "Build on What You Can Inspect: The Business Case for Open Source" },
+            { num: "01", pillar: "Setup", title: "Local models and cloud providers: choose the boundary" },
+            { num: "02", pillar: "Privacy", title: "What stays local and what leaves when you use a cloud model" },
+            { num: "03", pillar: "Security", title: "Encryption, redaction, and the limits of each control" },
+            { num: "04", pillar: "Release", title: "How HammerLock artifacts are built and verified" },
+            { num: "05", pillar: "Evidence", title: "Claims still requiring independent validation" },
           ].map((a) => (
             <a key={a.num} href="/blog" className="blog-preview-card">
               <span className="blog-preview-num">{a.num} / {a.pillar}</span>
@@ -918,7 +915,7 @@ export default function LandingPage() {
         </div>
         <div style={{ textAlign: 'center', marginTop: 32 }}>
           <a href="/blog" className="btn-secondary" style={{ textDecoration: 'none' }}>
-            Read all articles &rarr;
+            Read the v0.4 field notes &rarr;
           </a>
         </div>
       </section>
@@ -1016,7 +1013,7 @@ export default function LandingPage() {
               <Image src="/brand/hammerlock-icon-192.png" alt="" width={22} height={22} style={{ borderRadius: 4 }} /> HammerLock AI
             </a>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 16px' }}>
-              Your AI. Your Data. Your Rules.<br />Private, encrypted, open-source AI for professionals.
+              Your AI. Your Data. Your Rules.<br />Free, local-first AI for people who want control.
             </p>
             <div className="trust-badges" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <span className="trust-badge">🔐 {t.site_footer_aes}</span>

@@ -38,7 +38,7 @@ export default function TermsPage() {
           fontSize: "0.85rem",
           marginBottom: 48,
         }}>
-          Last updated: February 2026
+          Last updated: August 11, 2026
         </p>
 
         {/* 1. Acceptance of Terms */}
@@ -63,31 +63,30 @@ export default function TermsPage() {
             HammerLock AI provides a privacy-first AI desktop application and complementary web services. The
             desktop application runs locally on your device and includes features such as an encrypted vault,
             AI-powered chat with multiple model providers, document analysis, and agent workflows. Web services
-            include downloads, documentation, optional support contact, and account or activation tooling for
-            users who request managed deployment or custom rollout help.
+            include downloads, documentation, and optional support or custom rollout help.
           </p>
         </section>
 
-        {/* 3. Accounts and License Keys */}
+        {/* 3. Free App and Optional Services */}
         <section style={{ marginBottom: 40 }}>
           <h2 style={{ fontSize: "1.3rem", fontWeight: 600, color: "var(--accent)", marginBottom: 12 }}>
-            3. Accounts and License Keys
+            3. Free App and Optional Services
           </h2>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem", marginBottom: 12 }}>
-            HammerLock AI is available as a free desktop app. In some cases we may issue activation keys or
-            deployment credentials for managed support, enterprise rollout, or custom environments. Those
-            credentials are tied to the recipient and should not be shared outside the intended deployment.
+            HammerLock AI is available as a free desktop app. The app does not require an account,
+            subscription, activation key, or per-device purchase. Local models may require separate downloads,
+            and optional cloud providers charge under their own terms.
           </p>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem" }}>
-            We reserve the right to deactivate keys or deployment credentials that show signs of abuse,
-            redistribution, or unauthorized access.
+            Optional managed support, custom integrations, or enterprise deployment services may be governed
+            by a separate written agreement.
           </p>
         </section>
 
-        {/* 4. Subscription and Billing */}
+        {/* 4. Optional Paid Services */}
         <section style={{ marginBottom: 40 }}>
           <h2 style={{ fontSize: "1.3rem", fontWeight: 600, color: "var(--accent)", marginBottom: 12 }}>
-            4. Subscription and Billing
+            4. Optional Paid Services
           </h2>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem", marginBottom: 12 }}>
             HammerLock AI may offer optional paid services such as support, deployment assistance, or custom
@@ -114,10 +113,10 @@ export default function TermsPage() {
           </p>
           <ul style={{ color: "var(--text-secondary)", lineHeight: 1.9, fontSize: "0.95rem", paddingLeft: 24 }}>
             <li>Use the Service to generate, store, or distribute illegal or harmful content</li>
-            <li>Attempt to reverse engineer, decompile, or tamper with the application beyond what is permitted by the applicable open-source license</li>
+            <li>Attempt to reverse engineer, decompile, or tamper with the application beyond what is permitted by the HammerLock AI Freeware License or applicable law</li>
             <li>Circumvent or attempt to circumvent activation, deployment, or access controls for managed services</li>
             <li>Use the Service to harass, abuse, or harm others</li>
-            <li>Resell, sublicense, or redistribute activation keys, managed access, or restricted service access</li>
+            <li>Resell, sublicense, or redistribute the application or restricted managed-service access without permission</li>
             <li>Overload or interfere with the Service&apos;s infrastructure or cloud endpoints</li>
           </ul>
         </section>
@@ -133,8 +132,9 @@ export default function TermsPage() {
             in accordance with the MIT License terms.
           </p>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem" }}>
-            The HammerLock AI brand, name, logo, website content, and proprietary cloud services are owned by
-            HammerLock AI and are not covered by the MIT License. All content you create and store within the
+            The HammerLock AI application is free to use under the HammerLock AI Freeware License; it is not
+            itself offered under the MIT License. The brand, name, logo, website content, and application are
+            owned by HammerLock AI. All content you create and store within the
             application remains your property. We claim no ownership over your data, chats, vault contents, or
             generated outputs.
           </p>
@@ -156,8 +156,7 @@ export default function TermsPage() {
             Service, including but not limited to loss of data, loss of profits, or business interruption.
           </p>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, fontSize: "0.95rem" }}>
-            Our total liability for any claim arising from the Service shall not exceed the amount you paid
-            for the Service in the twelve (12) months preceding the claim.
+            Our total liability for any claim arising from the Service shall not exceed US$100.
           </p>
         </section>
 

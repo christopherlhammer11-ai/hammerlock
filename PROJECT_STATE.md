@@ -1,5 +1,7 @@
-# HammerLock AI — Project State (v0.1.0)
-**Last updated:** Feb 15, 2025
+# HammerLock AI — Archived Project State (v0.1.0)
+**Snapshot date:** Feb 15, 2025
+
+> Historical snapshot only. For the current v0.4.0 product, release status, free-use model, and verification gates, see `README.md`. Checkout, subscription, activation, and metered-credit notes below are retired architecture and are not current behavior.
 
 ---
 

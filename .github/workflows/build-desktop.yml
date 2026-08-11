@@ -1,5 +1,8 @@
 name: Build Desktop Apps
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch: # Manual trigger from GitHub Actions tab
   push:
@@ -13,10 +16,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24.15.0
           cache: 'npm'
       - run: npm ci
-      - run: npx prisma generate
       - run: npm run build
       - name: Build Windows Installer
         run: npx electron-builder --win --publish never
@@ -24,6 +26,11 @@ jobs:
         with:
           name: windows-installer
           path: dist-electron/*.exe
+      - name: Publish Windows installer on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-electron/*.exe
 
   build-linux:
     runs-on: ubuntu-latest
@@ -31,10 +38,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24.15.0
           cache: 'npm'
       - run: npm ci
-      - run: npx prisma generate
       - run: npm run build
       - name: Build Linux packages
         run: npx electron-builder --linux --publish never
@@ -42,5 +48,12 @@ jobs:
         with:
           name: linux-packages
           path: |
+            dist-electron/*.AppImage
+            dist-electron/*.deb
+      - name: Publish Linux packages on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
             dist-electron/*.AppImage
             dist-electron/*.deb

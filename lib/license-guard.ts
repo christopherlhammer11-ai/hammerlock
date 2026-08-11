@@ -16,14 +16,6 @@ import { decryptFromFile } from "./server-crypto";
 const LICENSE_CACHE_PATH = path.join(os.homedir(), ".hammerlock", "license.json");
 const DEVICE_ID_PATH = path.join(os.homedir(), ".hammerlock", "device-id");
 
-const TIER_RANK: Record<string, number> = {
-  free: 0,
-  core: 1,
-  pro: 2,
-  teams: 3,
-  enterprise: 4,
-};
-
 /** Maps API routes to their minimum required tier.
  * Accepts both full paths (/api/transcribe) and short names (transcribe).
  */
@@ -134,24 +126,12 @@ export async function requireTier(
   requiredTier: string;
   reason: string | null;
 }> {
-  const required = ROUTE_TIER_MAP[route];
-  if (!required) return { allowed: true, tier: "any", required: "none", requiredTier: "none", reason: null };
-
-  // On Vercel, skip server-side enforcement (no local license cache)
-  if (process.env.VERCEL) {
-    return { allowed: true, tier: "web", required, requiredTier: required, reason: null };
-  }
-
-  const tier = await getLocalLicenseTier();
-  const tierRank = TIER_RANK[tier] ?? 0;
-  const requiredRank = TIER_RANK[required] ?? 0;
-  const allowed = tierRank >= requiredRank;
-
+  const required = ROUTE_TIER_MAP[route] ?? "none";
   return {
-    allowed,
-    tier,
+    allowed: true,
+    tier: "free",
     required,
     requiredTier: required,
-    reason: allowed ? null : `This feature requires the ${required.charAt(0).toUpperCase() + required.slice(1)} plan or higher. Your current plan: ${tier}.`,
+    reason: null,
   };
 }

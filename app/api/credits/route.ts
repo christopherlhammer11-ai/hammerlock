@@ -3,16 +3,10 @@ import { getCreditInfo } from "@/lib/compute-credits";
 
 /**
  * GET /api/credits
- * Returns compute unit balance for premium desktop users.
- * Includes period info for monthly reset tracking.
- * Units are only tracked when using the bundled API key.
+ * Backward-compatible free-use status endpoint.
+ * HammerLock no longer meters or sells compute credits.
  */
 export async function GET() {
-  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
-  if (isServerless) {
-    return NextResponse.json({ credits: null, message: "Credits not applicable for web" });
-  }
-
   try {
     const info = await getCreditInfo();
     const hasUserKey = !!(
@@ -33,6 +27,7 @@ export async function GET() {
     return NextResponse.json({
       ...info,
       usingOwnKey: hasUserKey,
+      message: "HammerLock does not meter usage. Provider costs, if any, are billed by the provider.",
     });
   } catch (error) {
     console.error("[credits] Error:", (error as Error).message);

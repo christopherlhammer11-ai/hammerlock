@@ -1,7 +1,6 @@
 # Known Bugs
 
-## Critical
-- **Stripe Checkout**: Fails to process transactions with invalid payment methods.
+_Reviewed for v0.4.0 on 2026-08-11. Payment and activation code paths are retired because HammerLock is free._
 
 ## Major
 - **Chat Persistence**: Messages do not persist after page refresh under certain conditions.

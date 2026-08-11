@@ -8,12 +8,7 @@ import { track } from "@vercel/analytics";
 
 const DMG_URL =
   "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest/download/HammerLock-AI.dmg";
-const EXE_URL =
-  "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest/download/HammerLock-AI-Setup.exe";
-const APPIMAGE_URL =
-  "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest/download/HammerLock-AI.AppImage";
-const DEB_URL =
-  "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest/download/HammerLock-AI.deb";
+const RELEASES_URL = "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest";
 
 export default function GetAppPage() {
   const { t } = useI18n();
@@ -34,7 +29,7 @@ export default function GetAppPage() {
         <h2>{t.site_getapp_heading}</h2>
         <p className="success-hint">{t.site_getapp_choose}</p>
         <p className="success-hint" style={{ marginTop: -8, marginBottom: 28 }}>
-          Direct downloads. No account, no email gate, no paywall.
+          No account, email gate, subscription, or activation key. GitHub currently publishes the older macOS build; v0.4 remains a local release candidate until it is signed, notarized, and uploaded.
         </p>
 
         <div className="download-grid">
@@ -46,7 +41,7 @@ export default function GetAppPage() {
             <a href={DMG_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("download_clicked", { platform: "macos", format: "dmg" })}>
               <Download size={16} /> Download DMG
             </a>
-            <span className="download-meta">macOS 12+ &middot; Apple Silicon &amp; Intel</span>
+            <span className="download-meta">Check GitHub Releases for the published version and architecture</span>
           </div>
 
           {/* Windows */}
@@ -54,10 +49,10 @@ export default function GetAppPage() {
             <div className="download-card-icon"><Monitor size={28} /></div>
             <h3>Windows</h3>
             <p>Full desktop installer for Windows. Run the setup wizard and launch.</p>
-            <a href={EXE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("download_clicked", { platform: "windows", format: "exe" })}>
-              <Download size={16} /> Download EXE
+            <a href={RELEASES_URL} className="btn-secondary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("release_checked", { platform: "windows" })}>
+              <ExternalLink size={16} /> Check release files
             </a>
-            <span className="download-meta">Windows 10+ &middot; 64-bit</span>
+            <span className="download-meta">Windows build availability is shown on GitHub Releases</span>
           </div>
 
           {/* Linux */}
@@ -65,15 +60,10 @@ export default function GetAppPage() {
             <div className="download-card-icon"><Terminal size={28} /></div>
             <h3>Linux</h3>
             <p>Available as AppImage (universal) or .deb package for Debian/Ubuntu.</p>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <a href={APPIMAGE_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }} onClick={() => track("download_clicked", { platform: "linux", format: "appimage" })}>
-                <Download size={14} /> AppImage
-              </a>
-              <a href={DEB_URL} className="btn-primary download-btn" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem' }} onClick={() => track("download_clicked", { platform: "linux", format: "deb" })}>
-                <Download size={14} /> .deb
-              </a>
-            </div>
-            <span className="download-meta">Ubuntu 20.04+ &middot; 64-bit</span>
+            <a href={RELEASES_URL} className="btn-secondary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("release_checked", { platform: "linux" })}>
+              <ExternalLink size={16} /> Check release files
+            </a>
+            <span className="download-meta">AppImage and .deb availability is shown on GitHub Releases</span>
           </div>
         </div>
 
@@ -251,7 +241,7 @@ export default function GetAppPage() {
         </div>
 
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 16, textAlign: 'center' }}>
-          All models are free and open source. Download once &mdash; runs offline forever.
+          These local models are available through Ollama and can run offline after download.
           <br />
           <a href="https://ollama.com/library" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>
             Browse all models at ollama.com/library &rarr;

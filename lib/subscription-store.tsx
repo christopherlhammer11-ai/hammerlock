@@ -21,7 +21,8 @@ export type SubscriptionStatus = {
   activatedAt: string | null;
 };
 
-const FREE_MESSAGE_LIMIT = 15; // free tier: 15 messages before upgrade prompt
+// Compatibility export for older clients. HammerLock no longer limits messages.
+const FREE_MESSAGE_LIMIT = Number.MAX_SAFE_INTEGER;
 
 const STORAGE_KEY = "vault_subscription";
 
@@ -33,25 +34,6 @@ const defaultSubscription = (): SubscriptionStatus => ({
   sessionId: null,
   activatedAt: null,
 });
-
-/** Desktop Electron app detection */
-function isElectron(): boolean {
-  if (typeof window === "undefined") return false;
-  return !!(window as unknown as Record<string, unknown>).electron ||
-    (typeof navigator !== "undefined" && (
-      navigator.userAgent.includes("Electron") ||
-      navigator.userAgent.includes("HammerLock")
-    ));
-}
-
-/** Check if subscription is genuinely active (not expired) */
-function isSubscriptionActive(sub: SubscriptionStatus): boolean {
-  if (!sub.active) return false;
-  if (sub.trialEnd) {
-    return new Date(sub.trialEnd).getTime() > Date.now();
-  }
-  return true;
-}
 
 type SubscriptionContextValue = {
   subscription: SubscriptionStatus;
@@ -79,27 +61,6 @@ export type PremiumFeature =
   | "reports"
   | "share";
 
-const FEATURE_TIERS: Record<PremiumFeature, SubscriptionTier> = {
-  web_search: "pro",
-  cloud_llm: "pro",
-  voice_input: "pro",
-  voice_output: "pro",
-  pdf_export: "pro",
-  pdf_upload: "free",
-  personas: "core",
-  file_vault: "core",
-  reports: "pro",
-  share: "core",
-};
-
-const TIER_RANK: Record<SubscriptionTier, number> = {
-  free: 0,
-  core: 1,
-  pro: 2,
-  teams: 3,
-  enterprise: 4,
-};
-
 const SubscriptionContext = createContext<SubscriptionContextValue | undefined>(undefined);
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
@@ -107,13 +68,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [messageCount, setMessageCount] = useState(0);
   const licenseTier: SubscriptionTier = "free";
   const licenseLoading = false;
-  const [usingOwnKey, setUsingOwnKey] = useState(false);
-
-  // Fetch license tier + own-key status from server on mount (Electron desktop only)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (isElectron()) return;
-  }, []);
+  const [, setUsingOwnKey] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -173,28 +128,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const canSendMessage = useMemo(() => {
-    // Desktop app is now free/local-first — no paywall gating here.
-    if (isElectron()) return true;
-    // Using own API key → unlimited messages (no credits consumed)
-    if (usingOwnKey) return true;
-    // Web: check subscription status
-    if (isSubscriptionActive(subscription)) return true;
-    return messageCount < FREE_MESSAGE_LIMIT;
-  }, [subscription, messageCount, licenseTier, usingOwnKey]);
+  const canSendMessage = true;
 
-  const isFeatureAvailable = useCallback(
-    (feature: PremiumFeature) => {
-      // Desktop app is now free/local-first — features are controlled by setup,
-      // permissions, and provider availability rather than subscription tiers.
-      if (isElectron()) return true;
-      // Web: use subscription status
-      if (!isSubscriptionActive(subscription)) return false;
-      const requiredTier = FEATURE_TIERS[feature];
-      return TIER_RANK[subscription.tier] >= TIER_RANK[requiredTier];
-    },
-    [subscription, licenseTier]
-  );
+  const isFeatureAvailable = useCallback((_feature: PremiumFeature) => true, []);
 
   const clearSubscription = useCallback(() => {
     if (typeof window === "undefined") return;

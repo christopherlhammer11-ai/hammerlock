@@ -29,8 +29,8 @@ export default function AlliancePage() {
     }
   }, [unlocked, router]);
 
-  const handleKnock = (e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const handleKnock = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const id = ++rippleId.current;
@@ -82,7 +82,9 @@ export default function AlliancePage() {
       />
 
       {/* Shield / knock target */}
-      <div
+      <button
+        type="button"
+        aria-label="Knock three times to enter the HammerLock partner page"
         onClick={handleKnock}
         style={{
           position: "relative",
@@ -105,6 +107,8 @@ export default function AlliancePage() {
             ? `0 0 ${knocks * 15}px ${ACCENT}${knocks * 10}`
             : "none",
           overflow: "hidden",
+          padding: 0,
+          font: "inherit",
         }}
       >
         {/* Ripples */}
@@ -148,7 +152,7 @@ export default function AlliancePage() {
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           )}
         </svg>
-      </div>
+      </button>
 
       {/* Progress dots */}
       {!unlocked && (

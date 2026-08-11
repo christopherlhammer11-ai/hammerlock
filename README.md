@@ -15,6 +15,7 @@
 - Local model path through Ollama when configured
 - Desktop packaging path through Electron
 - Next.js application surface with tests and CI workflow
+- Free to download and use with no subscription, activation key, or message cap
 
 ## Why It Exists
 
@@ -28,15 +29,23 @@ Ask:
 
 > Research competitors and draft a pitch deck.
 
-HammerLock can route that through:
+HammerLock can route that request through configured agents, model providers,
+the local vault, web search, and local tools. Across the wider portfolio, the
+same workflow is explored through adjacent projects:
 
-1. A specialist research or strategy agent
-2. Web scraping for competitor pages, pricing, and public claims
-3. Real-Time Verifier-style source checks
-4. Prompt Condenser-style context reduction
-5. RecallMax-style memory restore for company context and prior decisions
-6. Tool Use Guardian-style retries, timeouts, and repair metadata
-7. Encrypted vault storage for the final draft
+1. **HammerLock** receives the request and selects the right specialist agent.
+2. **Web Scraper** collects competitor sites, pricing pages, public claims, and
+   useful source material.
+3. **Real-Time Verifier** checks that URLs are live and that structured data is
+   valid before the assistant relies on it.
+4. **Prompt Condenser** compresses collected context to reduce token usage while
+   preserving URLs, JSON, code blocks, and intent.
+5. **RecallMax** restores compressed long-term memory: company positioning,
+   previous research, user preferences, and open decisions.
+6. **Tool Use Guardian** wraps external calls with retries, timeouts, JSON
+   repair, and structured failure metadata.
+7. The selected agent drafts the deliverable and can store it in the encrypted
+   HammerLock vault.
 
 The same pattern applies to compliance documents, financial analysis, legal review, private research, strategy work, and internal operating notes.
 
@@ -57,6 +66,26 @@ The same pattern applies to compliance documents, financial analysis, legal revi
 - [Security Policy](./SECURITY.md) - vulnerability reporting, current posture, and known limitations
 - [Detailed Security Notes](./docs/SECURITY.md) - encryption primitives and vault behavior
 
+## Current Status
+
+Verified locally on August 11, 2026:
+
+- `npm test` passes: 53 tests across legacy key compatibility and server crypto
+- `npm run lint` passes
+- `npm run build` passes: Next.js production build completes
+- `npm audit --omit=dev` reports zero advisories
+- Unsigned arm64 macOS application packaging completes at v0.4.0
+- The bundled OpenClaw setup command and `/api/setup` endpoint complete successfully
+- Billing and activation endpoints are retired; product features are unlocked
+
+Release gates still requiring platform evidence:
+
+- Sign, notarize, and smoke-test the distributable macOS v0.4.0 DMG
+- Build and smoke-test Windows and Linux v0.4.0 artifacts
+- Confirm published downloads against checksums and the first-launch flow
+- Obtain independent security review before making audit or certification claims
+- Replace the pinned OpenClaw prerelease when an equally clean stable release is available
+
 ## Quick Start
 
 ```bash
@@ -69,6 +98,9 @@ Then open [http://localhost:3000](http://localhost:3000).
 Desktop build path:
 
 ```bash
+npm test
+npm run lint
+npm run build
 npm run electron:build
 ```
 
@@ -82,6 +114,22 @@ Related repos:
 - [Tool Use Guardian](https://github.com/christopherlhammer11-ai/tool-use-guardian) - reliable agent tool calls
 - [Real-Time Verifier](https://github.com/christopherlhammer11-ai/real-time-verifier) - output and source validation
 - [Craig](https://github.com/christopherlhammer11-ai/craig) - autonomous workflow builder
+
+## Repository Layout
+
+- `app/` - Next.js app routes, product pages, chat, vault, and APIs
+- `components/` - UI panels for vault, settings, integrations, and permissions
+- `lib/` - crypto, vault storage, agents, schedules, credentials, and routing
+- `electron/` - desktop shell
+- `tests/` - server crypto and legacy key-compatibility coverage
+
+## License and Cost
+
+HammerLock AI v0.4+ is free of charge for personal and internal business use
+under the included HammerLock AI Freeware License. It is freeware, not an
+open-source license. OpenClaw and other dependencies remain governed by their
+own licenses. Ollama models and optional cloud providers may have their own
+terms or costs; HammerLock does not resell cloud model usage.
 
 ---
 

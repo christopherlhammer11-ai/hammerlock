@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24.15.0
           cache: npm
 
       - name: Install dependencies
@@ -59,7 +59,6 @@ jobs:
         env:
           CSC_LINK: file://${{ github.workspace }}/signing_cert.p12
           APPLE_API_KEY: ${{ env.APPLE_API_KEY_PATH }}
-          DATABASE_URL: "file:./prisma/hammerlock.db"
         run: npm run electron:build:mac
 
       - name: Upload DMG artifact
