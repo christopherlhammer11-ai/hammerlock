@@ -53,6 +53,12 @@ loadEnvIfPlaintext(path.join(ROOT, ".env.local"));
 loadEnvIfPlaintext(path.join(ROOT, ".env"));
 const IS_DEV = false; // Production mode — use pre-built Next.js for speed
 
+// Next.js route modules run inside Electron's process, but Next's server build
+// does not reliably expose Electron's nonstandard `process.resourcesPath`
+// property. Mirror it into a normal environment variable so server routes can
+// resolve bundled CLIs without falling back to an older system installation.
+process.env.HAMMERLOCK_RESOURCES_PATH = process.resourcesPath;
+
 // Set app name early — before menus are built. Without this,
 // Electron defaults to "Electron" in the menu bar and Dock during dev.
 app.name = "HammerLock AI";
@@ -75,12 +81,24 @@ const GATEWAY_PROFILE = "hammerlock";
 // Resolve OpenClaw path: bundled (node_modules) > system (/opt/homebrew/bin)
 // ---------------------------------------------------------------------------
 function getOpenClawBin() {
-  // 1. Bundled in node_modules (production DMG)
+  // 1. Electron-builder unpacks OpenClaw because its plugin loader needs real
+  // filesystem paths rather than app.asar virtual paths.
+  const unpacked = path.join(
+    process.resourcesPath,
+    "app.asar.unpacked",
+    "node_modules",
+    "openclaw",
+    "openclaw.mjs"
+  );
+  if (fs.existsSync(unpacked)) {
+    return { command: process.execPath, args: [unpacked], isBundled: true };
+  }
+  // 2. Bundled in node_modules (source checkout / non-asar build)
   const bundled = path.join(ROOT, "node_modules", "openclaw", "openclaw.mjs");
   if (fs.existsSync(bundled)) {
     return { command: process.execPath, args: [bundled], isBundled: true };
   }
-  // 2. System-installed (dev / fallback)
+  // 3. System-installed (dev / fallback)
   return { command: "openclaw", args: [], isBundled: false };
 }
 
@@ -213,50 +231,11 @@ function ensureHammerlockProfile() {
 // Start OpenClaw dedicated browser (for browser automation skills)
 // ---------------------------------------------------------------------------
 async function startBrowser() {
-  try {
-    const ocBin = getOpenClawBin();
-    const ocEnv = getOpenClawEnv(ocBin);
-    // Check if browser is already running
-    const checkArgs = [...ocBin.args, "browser", "status", "--json"];
-    const status = await new Promise((resolve) => {
-      execFileCb(
-        ocBin.command,
-        checkArgs,
-        { timeout: 5000, env: ocEnv },
-        (err, stdout) => {
-          if (err) return resolve(null);
-          try { resolve(JSON.parse(stdout)); } catch { resolve(null); }
-        }
-      );
-    });
-
-    if (status?.running) {
-      console.log("[hammerlock] Browser already running");
-      return;
-    }
-
-    // Start the browser (uses default profile — "openclaw" driver)
-    console.log("[hammerlock] Starting OpenClaw browser for web automation...");
-    const startArgs = [...ocBin.args, "browser", "start"];
-    await new Promise((resolve) => {
-      execFileCb(
-        ocBin.command,
-        startArgs,
-        { timeout: 15000, env: ocEnv },
-        (err) => {
-          if (err) {
-            console.warn("[hammerlock] Browser start failed (non-critical):", err.message);
-            resolve(); // Non-critical — app works without browser automation
-          } else {
-            console.log("[hammerlock] Browser ready for web automation");
-            resolve();
-          }
-        }
-      );
-    });
-  } catch (err) {
-    console.warn("[hammerlock] Browser start failed (non-critical):", err.message);
-  }
+  // The bundled OpenClaw release no longer exposes a top-level `browser`
+  // command. Browser tooling remains available only when a compatible skill
+  // or external runtime is configured, so do not run an unsupported command
+  // during every app launch.
+  console.log("[hammerlock] Browser automation will initialize on demand when supported.");
 }
 
 // ---------------------------------------------------------------------------
@@ -286,7 +265,9 @@ async function startGateway() {
 
     const gatewayArgs = [...ocBin.args, "--profile", GATEWAY_PROFILE, "gateway", "--port", String(GATEWAY_PORT)];
     gatewayProcess = spawn(ocBin.command, gatewayArgs, {
-      cwd: ROOT,
+      // app.asar is a readable virtual path, but it is not a valid OS-level
+      // working directory for spawn(). Use the user's home for packaged runs.
+      cwd: ocBin.isBundled ? os.homedir() : ROOT,
       stdio: "pipe",
       env: {
         ...ocEnv,
@@ -701,13 +682,13 @@ app.whenReady().then(async () => {
     // AppleScript access triggers the native macOS permission prompt automatically.
     // These run in the background — if already granted, they're instant no-ops.
     // Calendar — triggers "HammerLock AI wants to access your Calendar"
-    execCb(`osascript -e 'tell application "Calendar" to get name of calendars' 2>/dev/null`, { timeout: 10000 }, () => {});
+    execFileCb("/usr/bin/osascript", ["-e", 'tell application "Calendar" to get name of calendars'], { timeout: 10000 }, () => {});
     // Reminders — triggers "HammerLock AI wants to access your Reminders"
-    execCb(`osascript -e 'tell application "Reminders" to get name of lists' 2>/dev/null`, { timeout: 10000 }, () => {});
+    execFileCb("/usr/bin/osascript", ["-e", 'tell application "Reminders" to get name of lists'], { timeout: 10000 }, () => {});
     // Notes — triggers "HammerLock AI wants to access Notes"
-    execCb(`osascript -e 'tell application "Notes" to get name of folders' 2>/dev/null`, { timeout: 10000 }, () => {});
+    execFileCb("/usr/bin/osascript", ["-e", 'tell application "Notes" to get name of folders'], { timeout: 10000 }, () => {});
     // Contacts — triggers via AppleScript too
-    execCb(`osascript -e 'tell application "Contacts" to get name of people' 2>/dev/null`, { timeout: 10000 }, () => {});
+    execFileCb("/usr/bin/osascript", ["-e", 'tell application "Contacts" to get name of people'], { timeout: 10000 }, () => {});
   }
 
   splashStart = Date.now();
@@ -777,9 +758,4 @@ app.on("before-quit", () => {
     console.log("[hammerlock] Stopping Next.js...");
     nextProcess.kill("SIGTERM");
   }
-  // Stop the dedicated browser (best-effort, non-blocking)
-  try {
-    const ocBin = getOpenClawBin();
-    execCb(`${ocBin.command} ${[...ocBin.args, "browser", "stop"].join(" ")}`, { timeout: 3000 }, () => {});
-  } catch { /* ignore */ }
 });

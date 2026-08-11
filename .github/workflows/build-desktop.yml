@@ -22,15 +22,26 @@ jobs:
       - run: npm run build
       - name: Build Windows Installer
         run: npx electron-builder --win --publish never
+      - name: Generate Windows checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem dist-electron -Filter *.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)"
+          } | Set-Content dist-electron/SHA256SUMS-windows.txt
       - uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: dist-electron/*.exe
+          path: |
+            dist-electron/*.exe
+            dist-electron/SHA256SUMS-windows.txt
       - name: Publish Windows installer on tag
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist-electron/*.exe
+          files: |
+            dist-electron/*.exe
+            dist-electron/SHA256SUMS-windows.txt
 
   build-linux:
     runs-on: ubuntu-latest
@@ -44,12 +55,15 @@ jobs:
       - run: npm run build
       - name: Build Linux packages
         run: npx electron-builder --linux --publish never
+      - name: Generate Linux checksums
+        run: sha256sum dist-electron/*.AppImage dist-electron/*.deb > dist-electron/SHA256SUMS-linux.txt
       - uses: actions/upload-artifact@v4
         with:
           name: linux-packages
           path: |
             dist-electron/*.AppImage
             dist-electron/*.deb
+            dist-electron/SHA256SUMS-linux.txt
       - name: Publish Linux packages on tag
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -57,3 +71,4 @@ jobs:
           files: |
             dist-electron/*.AppImage
             dist-electron/*.deb
+            dist-electron/SHA256SUMS-linux.txt

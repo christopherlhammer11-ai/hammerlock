@@ -17,14 +17,26 @@ export const isMacOS = process.platform === "darwin";
 export const isWindows = process.platform === "win32";
 export const isLinux = process.platform === "linux";
 
-// Detect if we're running inside an Electron app bundle
-const isPackaged = typeof process !== "undefined" && (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath !== undefined;
+// Detect if we're running inside an Electron app bundle. The Electron main
+// process mirrors resourcesPath into HAMMERLOCK_RESOURCES_PATH because Next's
+// compiled server modules do not always retain Electron-specific properties.
+const resourcesPath = typeof process !== "undefined"
+  ? process.env.HAMMERLOCK_RESOURCES_PATH
+    || (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  : undefined;
+const isPackaged = !!resourcesPath;
 
 // Root of the project (works in both dev and packaged Electron)
 function getAppRoot(): string {
   if (isPackaged) {
-    // In packaged app: resources/app/ (electron-builder with asar: false)
-    return path.join((process as NodeJS.Process & { resourcesPath?: string }).resourcesPath || "", "app");
+    const packagedResourcesPath = resourcesPath || "";
+    // electron-builder keeps executable dependencies outside app.asar so
+    // OpenClaw can resolve its plugins and transitive packages from real paths.
+    const unpacked = path.join(packagedResourcesPath, "app.asar.unpacked");
+    if (existsSync(unpacked)) return unpacked;
+
+    // Non-asar/package-directory fallback.
+    return path.join(packagedResourcesPath, "app");
   }
   // In dev / Next.js: process.cwd() is set to the project root by Next.js
   // This is more reliable than import.meta.url which can break after bundling

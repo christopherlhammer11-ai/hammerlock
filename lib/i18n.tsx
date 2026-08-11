@@ -43,7 +43,7 @@ const en = {
   welcome_back: "Welcome back",
   chat_empty_title: "Operator Console",
   chat_empty_tagline: "Your AI. Your Data. Your Rules.",
-  chat_empty_subtitle: "11 specialized agents. AES-256 encrypted. Nothing leaves your device.",
+  chat_empty_subtitle: "11 specialized agents. Encrypted local storage. Cloud requests follow the provider you configure.",
   chat_placeholder: "Type a command or question...",
   chat_placeholder_recording: "Recording... click mic to stop",
   chat_processing: "Processing...",

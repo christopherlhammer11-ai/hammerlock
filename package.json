@@ -70,6 +70,10 @@
     "appId": "com.hammerlock.app",
     "productName": "HammerLock AI",
     "asar": true,
+    "asarUnpack": [
+      "node_modules/**/*",
+      "bin/**/*"
+    ],
     "directories": {
       "output": "dist-electron"
     },
@@ -82,11 +86,18 @@
       "templates/**/*",
       "scripts/**/*",
       ".next/**/*",
+      "!.next/cache/**/*",
+      "!.next/dev/**/*",
+      "!.next/standalone/**/*",
+      "!.next/types/**/*",
+      "!.next/diagnostics/**/*",
       "next.config.js",
       "tsconfig.json",
       "package.json",
       "node_modules/**/*",
       "!node_modules/**/*.map",
+      "!node_modules/**/*.d.ts",
+      "!node_modules/**/*.d.ts.map",
       "!node_modules/**/LICENSE*",
       "!node_modules/**/CHANGELOG*",
       "!node_modules/**/HISTORY*",
@@ -100,6 +111,9 @@
       "!node_modules/pdfjs-dist/legacy/**",
       "!node_modules/pdfjs-dist/types/**",
       "!node_modules/lucide-react/dist/esm/**",
+      "!public/blog/**/*",
+      "!public/media/**/*",
+      "!public/videos/**/*",
       "!node_modules/@next/swc-linux-*",
       "!node_modules/@next/swc-win32-*",
       "!node_modules/@next/swc-freebsd*"
