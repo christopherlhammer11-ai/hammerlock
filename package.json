@@ -77,6 +77,15 @@
     "directories": {
       "output": "dist-electron"
     },
+    "extraResources": [
+      {
+        "from": "node_modules/openclaw/docs/reference/templates",
+        "to": "app.asar.unpacked/node_modules/openclaw/docs/reference/templates",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "files": [
       "electron/**/*",
       "app/**/*",
