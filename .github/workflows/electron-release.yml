@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build-and-notarize:
-    runs-on: macos-13
+    runs-on: macos-15-intel
     env:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       APPLE_APP_ID: com.hammerlock.app
