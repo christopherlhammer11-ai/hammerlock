@@ -6,7 +6,12 @@ import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { track } from "@vercel/analytics";
 
-const RELEASES_URL = "https://github.com/christopherlhammer11-ai/hammerlock/releases/latest";
+const RELEASE_BASE = "https://github.com/christopherlhammer11-ai/hammerlock/releases/download/v0.4.0";
+const RELEASES_URL = "https://github.com/christopherlhammer11-ai/hammerlock/releases/tag/v0.4.0";
+const MAC_DOWNLOAD = `${RELEASE_BASE}/HammerLock-AI.dmg`;
+const WINDOWS_DOWNLOAD = `${RELEASE_BASE}/HammerLock-AI-Setup.exe`;
+const LINUX_APPIMAGE_DOWNLOAD = `${RELEASE_BASE}/HammerLock-AI.AppImage`;
+const LINUX_DEB_DOWNLOAD = `${RELEASE_BASE}/HammerLock-AI.deb`;
 
 export default function GetAppPage() {
   const { t } = useI18n();
@@ -27,7 +32,7 @@ export default function GetAppPage() {
         <h2>{t.site_getapp_heading}</h2>
         <p className="success-hint">{t.site_getapp_choose}</p>
         <p className="success-hint" style={{ marginTop: -8, marginBottom: 28 }}>
-          No account, email gate, subscription, or activation key. GitHub currently publishes the older macOS build; v0.4 remains a local release candidate until it is signed, notarized, and uploaded.
+          HammerLock AI v0.4 is free. No account, email gate, subscription, or activation key. macOS is signed and notarized by Apple; every desktop build includes a SHA-256 checksum on GitHub.
         </p>
 
         <div className="download-grid">
@@ -36,10 +41,10 @@ export default function GetAppPage() {
             <div className="download-card-icon"><Monitor size={28} /></div>
             <h3>macOS</h3>
             <p>Native desktop app for Mac. Drag to Applications and launch.</p>
-            <a href={RELEASES_URL} className="btn-secondary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("release_checked", { platform: "macos" })}>
-              <ExternalLink size={16} /> Check release files
+            <a href={MAC_DOWNLOAD} className="btn-primary download-btn" onClick={() => track("download_started", { platform: "macos", version: "0.4.0" })}>
+              <ExternalLink size={16} /> Download for Mac
             </a>
-            <span className="download-meta">The free v0.4 DMG will appear after signing and notarization</span>
+            <span className="download-meta">v0.4.0 &middot; Intel Mac &middot; Apple signed and notarized</span>
           </div>
 
           {/* Windows */}
@@ -47,10 +52,10 @@ export default function GetAppPage() {
             <div className="download-card-icon"><Monitor size={28} /></div>
             <h3>Windows</h3>
             <p>Full desktop installer for Windows. Run the setup wizard and launch.</p>
-            <a href={RELEASES_URL} className="btn-secondary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("release_checked", { platform: "windows" })}>
-              <ExternalLink size={16} /> Check release files
+            <a href={WINDOWS_DOWNLOAD} className="btn-primary download-btn" onClick={() => track("download_started", { platform: "windows", version: "0.4.0" })}>
+              <ExternalLink size={16} /> Download for Windows
             </a>
-            <span className="download-meta">Windows build availability is shown on GitHub Releases</span>
+            <span className="download-meta">v0.4.0 &middot; Windows installer</span>
           </div>
 
           {/* Linux */}
@@ -58,12 +63,21 @@ export default function GetAppPage() {
             <div className="download-card-icon"><Terminal size={28} /></div>
             <h3>Linux</h3>
             <p>Available as AppImage (universal) or .deb package for Debian/Ubuntu.</p>
-            <a href={RELEASES_URL} className="btn-secondary download-btn" target="_blank" rel="noopener noreferrer" onClick={() => track("release_checked", { platform: "linux" })}>
-              <ExternalLink size={16} /> Check release files
+            <a href={LINUX_APPIMAGE_DOWNLOAD} className="btn-primary download-btn" onClick={() => track("download_started", { platform: "linux_appimage", version: "0.4.0" })}>
+              <ExternalLink size={16} /> Download AppImage
             </a>
-            <span className="download-meta">AppImage and .deb availability is shown on GitHub Releases</span>
+            <a href={LINUX_DEB_DOWNLOAD} className="btn-secondary download-btn" onClick={() => track("download_started", { platform: "linux_deb", version: "0.4.0" })}>
+              <ExternalLink size={16} /> Download .deb
+            </a>
+            <span className="download-meta">v0.4.0 &middot; AppImage or Debian/Ubuntu package</span>
           </div>
         </div>
+
+        <p className="success-hint" style={{ marginTop: 20 }}>
+          <a href={RELEASES_URL} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>
+            View release notes and SHA-256 checksums &rarr;
+          </a>
+        </p>
 
         <div className="download-grid" style={{ marginTop: 16 }}>
           <div className="download-card">

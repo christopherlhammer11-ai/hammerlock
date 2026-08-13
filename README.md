@@ -74,14 +74,14 @@ Verified locally on August 11, 2026:
 - `npm run lint` passes
 - `npm run build` passes: Next.js production build completes
 - `npm audit --omit=dev` reports zero advisories
-- Unsigned arm64 macOS application packaging completes at v0.4.0
+- Signed and Apple-notarized Intel macOS DMG is published at v0.4.0
 - The bundled OpenClaw setup command and `/api/setup` endpoint complete successfully
 - Billing and activation endpoints are retired; product features are unlocked
 
 Release gates still requiring platform evidence:
 
-- Sign, notarize, and smoke-test the distributable macOS v0.4.0 DMG
-- Build and smoke-test Windows and Linux v0.4.0 artifacts
+- Add an Apple Silicon-native macOS artifact alongside the Intel-compatible v0.4.0 DMG
+- Expand automated install smoke tests for the published Windows and Linux artifacts
 - Confirm published downloads against checksums and the first-launch flow
 - Obtain independent security review before making audit or certification claims
 - Replace the pinned OpenClaw prerelease when an equally clean stable release is available
